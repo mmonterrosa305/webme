@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
+import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import {
   COLOR_PALETTES,
   DESIGN_STYLES,
@@ -30,13 +31,14 @@ function parseSections(value: unknown): SectionId[] | null {
     return null;
   }
 
-  const validIds = new Set<string>(SITE_SECTIONS.map((s) => s.id));
+  const validIds = new Set<string>(SITE_SECTIONS.map((section) => section.id));
   const sections: SectionId[] = [];
 
   for (const item of value) {
     if (typeof item !== "string" || !validIds.has(item)) {
       return null;
     }
+
     sections.push(item as SectionId);
   }
 
@@ -63,7 +65,8 @@ export async function POST(request: Request) {
       typeof body.logoBase64 === "string" ? body.logoBase64 : undefined;
     const logoMediaType =
       typeof body.logoMediaType === "string" ? body.logoMediaType : undefined;
-    const logoSvg = typeof body.logoSvg === "string" ? body.logoSvg : undefined;
+    const logoSvg =
+      typeof body.logoSvg === "string" ? body.logoSvg.trim() : undefined;
 
     if (!businessName || !city || !industry) {
       return NextResponse.json(
@@ -94,8 +97,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const businessProfile = await scrapeBusinessData({ businessName, city });
+
     const html = await buildSite({
-      businessName,
       city,
       industry,
       tagline,
@@ -103,12 +107,13 @@ export async function POST(request: Request) {
       styleId,
       sections,
       createLogoForMe,
+      businessProfile,
       logoBase64,
       logoMediaType: logoMediaType as BuildSiteInput["logoMediaType"],
       logoSvg,
     });
 
-    return NextResponse.json({ html });
+    return NextResponse.json({ html, businessProfile });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to build site.";

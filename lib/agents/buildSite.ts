@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages";
 
+import type { BusinessProfile } from "./scrapeBusinessData";
 import {
   COLOR_PALETTES,
   DESIGN_STYLES,
@@ -30,7 +31,6 @@ REQUIRED in every site:
 - Output ONLY raw HTML starting with <!DOCTYPE html>`;
 
 export type BuildSiteInput = {
-  businessName: string;
   city: string;
   industry: string;
   tagline?: string;
@@ -38,6 +38,7 @@ export type BuildSiteInput = {
   styleId: StyleId;
   sections: SectionId[];
   createLogoForMe: boolean;
+  businessProfile: BusinessProfile;
   logoBase64?: string;
   logoMediaType?: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
   logoSvg?: string;
@@ -73,35 +74,64 @@ function getStyle(styleId: StyleId) {
   return style;
 }
 
+function formatList(values: string[], fallback = "Not available"): string {
+  return values.length > 0 ? values.join(", ") : fallback;
+}
+
 function buildUserPrompt(input: BuildSiteInput): string {
   const palette = getPalette(input.paletteId);
   const style = getStyle(input.styleId);
   const sectionLabels = input.sections
     .map((id) => id.charAt(0).toUpperCase() + id.slice(1))
     .join(", ");
-
+  const profile = input.businessProfile;
   const taglineBlock = input.tagline?.trim()
-    ? `\n- Tagline / description: ${input.tagline.trim()}`
+    ? `\n- User-provided tagline/description: ${input.tagline.trim()}`
     : "";
 
   let logoInstructions: string;
 
   if (input.logoSvg) {
-    logoInstructions = `Use the client's uploaded SVG logo in the header. Embed it inline or as a data URI. SVG markup provided separately in this message. Scale it appropriately; ensure it works on light and dark header backgrounds using the palette.`;
+    logoInstructions =
+      "Use the client's uploaded SVG logo in the header. Embed it inline or as a data URI. SVG markup is provided separately in this message.";
   } else if (input.logoBase64 && input.logoMediaType) {
-    logoInstructions = `Use the client's uploaded logo image (attached) in the header at a tasteful size. Do not distort aspect ratio.`;
+    logoInstructions =
+      "Use the client's uploaded logo image (attached) in the header at a tasteful size. Do not distort the aspect ratio.";
   } else if (input.createLogoForMe) {
-    logoInstructions = `Design a simple, professional text-and-icon mark logo in pure CSS/SVG inline (no external assets) that fits the brand and palette. Place it in the header.`;
+    logoInstructions =
+      "Design a simple, professional text-and-icon mark logo in pure CSS/SVG inline (no external assets) that fits the brand and palette.";
   } else {
-    logoInstructions = `No logo provided—use a refined typographic wordmark of the business name in the header.`;
+    logoInstructions =
+      "No logo provided — use a refined typographic wordmark of the business name in the header.";
   }
 
   return `Build a complete single-file HTML website with these specifications:
 
-## Business
-- Name: ${input.businessName}
+## Project context
 - City: ${input.city}
 - Industry: ${input.industry}${taglineBlock}
+
+## Real business profile data
+- Business name: ${profile.businessName}
+- Address: ${profile.address ?? "Not available"}
+- Phone: ${profile.phone ?? "Not available"}
+- Hours: ${formatList(profile.hours)}
+- Rating: ${profile.rating ?? "Not available"}
+- Review count: ${profile.reviewCount ?? "Not available"}
+- Owner name: ${profile.ownerName ?? "Not available"}
+- Owner email: ${profile.ownerEmail ?? "Not available"}
+- Services: ${formatList(profile.services)}
+- Primary description: ${profile.description ?? "Not available"}
+- Instagram bio: ${profile.instagramBio ?? "Not available"}
+- Instagram captions: ${formatList(profile.instagramPosts, "None available")}
+- Instagram hashtags: ${formatList(profile.instagramHashtags, "None available")}
+- Facebook description: ${profile.facebookDescription ?? "Not available"}
+- Facebook posts: ${formatList(profile.facebookPosts, "None available")}
+- Yelp categories: ${formatList(profile.yelpCategories)}
+- Price range: ${profile.priceRange ?? "Not available"}
+- Website: ${profile.website ?? "Not available"}
+- Photo URLs: ${formatList(profile.photos, "None available")}
+- Reviews to adapt into testimonials: ${formatList(profile.topReviews, "None available")}
 
 ## Color palette — "${palette.name}" (${palette.description})
 Use these exact hex values as CSS variables and throughout the design:
@@ -112,16 +142,23 @@ Use these exact hex values as CSS variables and throughout the design:
 ## Design style — "${style.label}"
 ${style.description}
 
-## Client-selected sections (include all of these; add Gallery, Pricing, FAQ, or Map if selected)
+## Sections to include
 ${sectionLabels}
-
-Also honor the system prompt's required sections (Hero, About with stats, Services, Testimonials, Contact). Layer the client's palette and style on top of the cinematic, animated experience.
 
 ## Logo
 ${logoInstructions}
 
+## Content instructions
+- Use the real phone number and address if they are available.
+- Use the real services list as the basis for the services section.
+- Use the owner name naturally in the copy if it is available.
+- Turn the real review text into polished testimonial pull quotes while staying faithful to the sentiment.
+- Use the Instagram bio and captions as inspiration for the brand voice, taglines, and CTA language.
+- If photo URLs are available and public, use them tastefully; otherwise, use the system prompt's Unsplash requirement.
+- If some fields are missing, fill the gaps intelligently without mentioning missing data.
+
 ## Quality bar
-Award-winning, conversion-focused, visually stunning — never generic. Use --color-primary, --color-secondary, and --color-accent from the palette for gradients, overlays, and CTAs.`;
+Award-winning, conversion-focused, visually stunning — never generic. Apply the real business data so the site feels specific, credible, and custom-built.`;
 }
 
 function extractHtml(raw: string): string {
@@ -173,12 +210,12 @@ function buildMessageContent(
 }
 
 export async function buildSite(input: BuildSiteInput): Promise<string> {
-  const businessName = input.businessName.trim();
   const city = input.city.trim();
   const industry = input.industry.trim();
+  const businessName = input.businessProfile.businessName.trim();
 
   if (!businessName || !city || !industry) {
-    throw new Error("businessName, city, and industry are required.");
+    throw new Error("businessProfile.businessName, city, and industry are required.");
   }
 
   if (input.sections.length === 0) {
