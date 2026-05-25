@@ -10,7 +10,7 @@ const STATS = [
   { label: "In pipeline", value: "42", change: "8 moved this week" },
   { label: "Avg. days to close", value: "18", change: "−3 days vs last month" },
   { label: "Win rate", value: "34%", change: "+2.1% this quarter" },
-  { label: "Pipeline value", value: "$48.2k", change: "Weighted forecast" },
+  { label: "Pipeline value", value: "$1.74k/mo", change: "Weighted forecast" },
 ] as const;
 
 const STAGES = [
@@ -18,45 +18,45 @@ const STAGES = [
     name: "Lead",
     count: 12,
     deals: [
-      { company: "Metro Fitness Co.", value: "$399/mo", days: 2 },
-      { company: "Lakeside Auto Repair", value: "$399/mo", days: 5 },
-      { company: "Bright Smile Ortho", value: "$599/mo", days: 1 },
+      { company: "Metro Fitness Co.", value: "$29/mo", days: 2 },
+      { company: "Lakeside Auto Repair", value: "$29/mo", days: 5 },
+      { company: "Bright Smile Ortho", value: "$59/mo", days: 1 },
     ],
   },
   {
     name: "Qualified",
     count: 9,
     deals: [
-      { company: "Northline HVAC", value: "$599/mo", days: 8 },
-      { company: "Harborview Property", value: "$399/mo", days: 4 },
-      { company: "Urban Pet Grooming", value: "$399/mo", days: 6 },
+      { company: "Northline HVAC", value: "$59/mo", days: 8 },
+      { company: "Harborview Property", value: "$29/mo", days: 4 },
+      { company: "Urban Pet Grooming", value: "$29/mo", days: 6 },
     ],
   },
   {
     name: "Site build",
     count: 8,
     deals: [
-      { company: "Cedar & Stone Realty", value: "$599/mo", days: 11 },
-      { company: "Blue Oak Landscaping", value: "$399/mo", days: 7 },
-      { company: "Pulse Wellness Studio", value: "$599/mo", days: 3 },
+      { company: "Cedar & Stone Realty", value: "$59/mo", days: 11 },
+      { company: "Blue Oak Landscaping", value: "$29/mo", days: 7 },
+      { company: "Pulse Wellness Studio", value: "$59/mo", days: 3 },
     ],
   },
   {
     name: "Review",
     count: 7,
     deals: [
-      { company: "Summit Legal Partners", value: "$799/mo", days: 14 },
-      { company: "Ironclad Roofing", value: "$399/mo", days: 9 },
-      { company: "Coastal Cafe Group", value: "$399/mo", days: 5 },
+      { company: "Summit Legal Partners", value: "$59/mo", days: 14 },
+      { company: "Ironclad Roofing", value: "$29/mo", days: 9 },
+      { company: "Coastal Cafe Group", value: "$29/mo", days: 5 },
     ],
   },
   {
     name: "Live",
     count: 6,
     deals: [
-      { company: "Riverside Dental", value: "$599/mo", days: 0 },
-      { company: "Apex Accounting", value: "$799/mo", days: 0 },
-      { company: "Greenfield Nursery", value: "$399/mo", days: 0 },
+      { company: "Riverside Dental", value: "$59/mo", days: 0 },
+      { company: "Apex Accounting", value: "$59/mo", days: 0 },
+      { company: "Greenfield Nursery", value: "$29/mo", days: 0 },
     ],
   },
 ] as const;
