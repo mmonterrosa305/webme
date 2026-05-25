@@ -10,7 +10,7 @@ import {
   type StyleId,
 } from "./site-options";
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-5";
 
 const SYSTEM_PROMPT = `You are one of the world's best creative web designers and animators. You build websites that win design awards. Every site must feel alive, cinematic, and premium.
 

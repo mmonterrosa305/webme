@@ -15,12 +15,13 @@ function getGooglePlacesApiKey(): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const city = typeof body.city === "string" ? body.city.trim() : "";
+    const location =
+      typeof body.city === "string" ? body.city.trim() : "";
     const industry = typeof body.industry === "string" ? body.industry.trim() : "";
 
-    if (!city || !industry) {
+    if (!location || !industry) {
       return NextResponse.json(
-        { error: "city and industry are required." },
+        { error: "city or zip code and industry are required." },
         { status: 400 },
       );
     }
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
             "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri",
         },
         body: JSON.stringify({
-          textQuery: `${industry} businesses in ${city}`,
+          textQuery: `${industry} businesses in ${location}`,
           maxResultCount: 20,
         }),
       },
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       .map((place) => ({
         placeId: place.id ?? crypto.randomUUID(),
         businessName: place.displayName?.text ?? "Unknown Business",
-        city,
+        city: location,
         industry,
         address: place.formattedAddress ?? null,
         phone: place.nationalPhoneNumber ?? null,

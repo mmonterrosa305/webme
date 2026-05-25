@@ -37,6 +37,21 @@ function downloadHtmlFile(name: string, html: string) {
   URL.revokeObjectURL(url);
 }
 
+function openHtmlPreview(html: string) {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const previewWindow = window.open(url, "_blank", "noopener,noreferrer");
+
+  if (!previewWindow) {
+    URL.revokeObjectURL(url);
+    throw new Error("Popup blocked. Please allow popups and try again.");
+  }
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 60_000);
+}
+
 export function LeadsSearch() {
   const [city, setCity] = useState("");
   const [industry, setIndustry] = useState<string>(INDUSTRIES[0]);
@@ -162,13 +177,24 @@ export function LeadsSearch() {
               {buildState?.loading ? "Building..." : "Build Site"}
             </button>
             {buildState?.html ? (
-              <button
-                type="button"
-                onClick={() => downloadHtmlFile(lead.businessName, buildState.html!)}
-                className="block text-sm font-medium text-neutral-700 hover:text-neutral-900"
-              >
-                Download HTML
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => openHtmlPreview(buildState.html!)}
+                  className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900"
+                >
+                  Preview Site
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadHtmlFile(lead.businessName, buildState.html!)
+                  }
+                  className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900"
+                >
+                  Download HTML
+                </button>
+              </div>
             ) : null}
             {buildState?.error ? (
               <p className="max-w-48 text-xs text-red-600">{buildState.error}</p>
@@ -183,7 +209,7 @@ export function LeadsSearch() {
     <div className="space-y-8">
       <Panel
         title="Find leads"
-        subtitle="Search Google Places for businesses in a city and filter out any that already have a website."
+        subtitle="Search Google Places for businesses in a city or zip code and filter out any that already have a website."
       >
         <form
           onSubmit={handleSearch}
@@ -194,7 +220,7 @@ export function LeadsSearch() {
               htmlFor="city"
               className="mb-2 block text-sm font-medium text-neutral-700"
             >
-              City
+              City or Zip Code
             </label>
             <input
               id="city"
@@ -202,7 +228,7 @@ export function LeadsSearch() {
               required
               value={city}
               onChange={(event) => setCity(event.target.value)}
-              placeholder="Austin"
+              placeholder="Miami or 33165"
               className={inputClassName}
               disabled={searching}
             />
