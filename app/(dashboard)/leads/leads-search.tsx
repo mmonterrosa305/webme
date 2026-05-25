@@ -1,0 +1,279 @@
+"use client";
+
+import slugify from "slugify";
+import { useMemo, useState } from "react";
+
+import {
+  DataTable,
+  Panel,
+  StatusPill,
+} from "../_components/dashboard-ui";
+import {
+  DEFAULT_SECTIONS,
+  INDUSTRIES,
+} from "@/lib/agents/site-options";
+import type { LeadSearchResult } from "@/lib/leads/types";
+
+const inputClassName =
+  "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
+
+type BuildState = {
+  loading: boolean;
+  html?: string;
+  error?: string;
+};
+
+function downloadHtmlFile(name: string, html: string) {
+  const filename = `${slugify(name || "website", {
+    lower: true,
+    strict: true,
+  })}.html`;
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function LeadsSearch() {
+  const [city, setCity] = useState("");
+  const [industry, setIndustry] = useState<string>(INDUSTRIES[0]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [results, setResults] = useState<LeadSearchResult[]>([]);
+  const [buildStates, setBuildStates] = useState<Record<string, BuildState>>({});
+
+  async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSearching(true);
+    setSearchError(null);
+    setHasSearched(true);
+    setResults([]);
+    setBuildStates({});
+
+    try {
+      const response = await fetch("/api/leads/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city, industry }),
+      });
+
+      const data = (await response.json()) as {
+        leads?: LeadSearchResult[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to search leads.");
+      }
+
+      setResults(data.leads ?? []);
+    } catch (error) {
+      setSearchError(
+        error instanceof Error ? error.message : "Failed to search leads.",
+      );
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handleBuildSite(lead: LeadSearchResult) {
+    setBuildStates((current) => ({
+      ...current,
+      [lead.placeId]: { loading: true },
+    }));
+
+    try {
+      const response = await fetch("/api/agents/build-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: lead.businessName,
+          city: lead.city,
+          industry: lead.industry,
+          paletteId: "midnight",
+          styleId: "modern-minimal",
+          sections: DEFAULT_SECTIONS,
+          createLogoForMe: true,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        html?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.html) {
+        throw new Error(data.error ?? "Failed to build site.");
+      }
+
+      setBuildStates((current) => ({
+        ...current,
+        [lead.placeId]: { loading: false, html: data.html },
+      }));
+    } catch (error) {
+      setBuildStates((current) => ({
+        ...current,
+        [lead.placeId]: {
+          loading: false,
+          error: error instanceof Error ? error.message : "Failed to build site.",
+        },
+      }));
+    }
+  }
+
+  const rows = useMemo(
+    () =>
+      results.map((lead) => {
+        const buildState = buildStates[lead.placeId];
+
+        return [
+          <div key="business" className="space-y-1">
+            <span className="block font-medium text-neutral-900">
+              {lead.businessName}
+            </span>
+            <span className="block text-xs text-neutral-500">
+              {lead.industry}
+            </span>
+          </div>,
+          <span key="address" className="text-neutral-600">
+            {lead.address ?? "—"}
+          </span>,
+          <span key="phone" className="text-neutral-600">
+            {lead.phone ?? "—"}
+          </span>,
+          <span key="rating" className="text-neutral-700">
+            {lead.rating ? `${lead.rating.toFixed(1)} / 5` : "—"}
+          </span>,
+          <span key="reviews" className="text-neutral-500">
+            {lead.reviewCount ?? "—"}
+          </span>,
+          <StatusPill key="status" label="No website" variant="warning" />,
+          <div key="actions" className="space-y-2">
+            <button
+              type="button"
+              onClick={() => handleBuildSite(lead)}
+              disabled={buildState?.loading}
+              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {buildState?.loading ? "Building..." : "Build Site"}
+            </button>
+            {buildState?.html ? (
+              <button
+                type="button"
+                onClick={() => downloadHtmlFile(lead.businessName, buildState.html!)}
+                className="block text-sm font-medium text-neutral-700 hover:text-neutral-900"
+              >
+                Download HTML
+              </button>
+            ) : null}
+            {buildState?.error ? (
+              <p className="max-w-48 text-xs text-red-600">{buildState.error}</p>
+            ) : null}
+          </div>,
+        ];
+      }),
+    [buildStates, results],
+  );
+
+  return (
+    <div className="space-y-8">
+      <Panel
+        title="Find leads"
+        subtitle="Search Google Places for businesses in a city and filter out any that already have a website."
+      >
+        <form
+          onSubmit={handleSearch}
+          className="grid gap-4 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_220px_auto]"
+        >
+          <div>
+            <label
+              htmlFor="city"
+              className="mb-2 block text-sm font-medium text-neutral-700"
+            >
+              City
+            </label>
+            <input
+              id="city"
+              type="text"
+              required
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              placeholder="Austin"
+              className={inputClassName}
+              disabled={searching}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="industry"
+              className="mb-2 block text-sm font-medium text-neutral-700"
+            >
+              Industry
+            </label>
+            <select
+              id="industry"
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value)}
+              className={inputClassName}
+              disabled={searching}
+            >
+              {INDUSTRIES.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={searching}
+              className="w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {searching ? "Searching..." : "Search Leads"}
+            </button>
+          </div>
+        </form>
+        {searchError ? (
+          <p className="px-5 pb-5 text-sm text-red-600" role="alert">
+            {searchError}
+          </p>
+        ) : null}
+      </Panel>
+
+      <Panel
+        title="Lead results"
+        subtitle={
+          hasSearched
+            ? `${results.length} businesses without a website found`
+            : "Run a search to populate leads"
+        }
+      >
+        {results.length > 0 ? (
+          <DataTable
+            columns={[
+              "Business",
+              "Address",
+              "Phone",
+              "Rating",
+              "Reviews",
+              "Status",
+              "Action",
+            ]}
+            rows={rows}
+          />
+        ) : (
+          <div className="px-5 py-10 text-sm text-neutral-500">
+            {hasSearched
+              ? "No businesses without a website were found for this search."
+              : "Search by city and industry to find businesses that need a website."}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
