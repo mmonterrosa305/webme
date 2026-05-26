@@ -26,6 +26,11 @@ REQUIRED in every site:
 - Hover micro-interactions on every button and card
 - Glassmorphism on at least one section
 - Sections: Hero, About with stats, Services with animated cards, Testimonials with large pull quotes, Contact with styled form
+- Every contact form MUST have fields: Name, Email, Phone, Message
+- Every contact form MUST include a hidden ownerEmail field set to the business owner's email address
+- Every contact form MUST submit with JavaScript fetch() to /api/contact without a page reload
+- Every contact form MUST POST: name, email, phone, message, ownerEmail
+- Every contact form MUST show a clear success message after submission
 - Mobile responsive
 - ALL CSS and JS inline in one HTML file
 - Use real Unsplash image URLs — search for the best cinematic images for the industry
@@ -233,6 +238,8 @@ ${logoInstructions}
 - If brand reference images exist, treat them as the strongest design signal and use them as inspiration for the final art direction.
 - If photo URLs are available and public, use them tastefully; otherwise, use the system prompt's Unsplash requirement.
 - If some fields are missing, fill the gaps intelligently without mentioning missing data.
+- In the contact form, set the hidden ownerEmail input value to exactly: ${profile.ownerEmail ?? ""}
+- Implement the contact form with fetch("/api/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(...) }) and show inline loading/error/success states without reloading the page.
 
 ## Quality bar
 Award-winning, conversion-focused, visually stunning — never generic. Apply the real business data so the site feels specific, credible, and custom-built.`;
