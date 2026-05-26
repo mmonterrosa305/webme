@@ -55,6 +55,7 @@ function openHtmlPreview(html: string) {
 export function LeadsSearch() {
   const [city, setCity] = useState("");
   const [industry, setIndustry] = useState<string>(INDUSTRIES[0]);
+  const [showExistingSites, setShowExistingSites] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -140,9 +141,17 @@ export function LeadsSearch() {
     }
   }
 
+  const visibleResults = useMemo(
+    () =>
+      showExistingSites
+        ? results
+        : results.filter((lead) => lead.websiteStatus === "no_website"),
+    [results, showExistingSites],
+  );
+
   const rows = useMemo(
     () =>
-      results.map((lead) => {
+      visibleResults.map((lead) => {
         const buildState = buildStates[lead.placeId];
         const statusConfig =
           lead.websiteStatus === "no_website"
@@ -212,7 +221,7 @@ export function LeadsSearch() {
           </div>,
         ];
       }),
-    [buildStates, results],
+    [buildStates, visibleResults],
   );
 
   return (
@@ -285,11 +294,27 @@ export function LeadsSearch() {
         title="Lead results"
         subtitle={
           hasSearched
-            ? `${results.length} businesses found`
+            ? `${visibleResults.length} businesses shown`
             : "Run a search to populate leads"
         }
       >
-        {results.length > 0 ? (
+        {hasSearched ? (
+          <div className="border-b border-neutral-200 px-5 py-4">
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={showExistingSites}
+                onChange={(event) => setShowExistingSites(event.target.checked)}
+                className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+              />
+              <span>
+                Also show businesses with existing sites (redesign opportunities)
+              </span>
+            </label>
+          </div>
+        ) : null}
+
+        {visibleResults.length > 0 ? (
           <DataTable
             columns={[
               "Business",
@@ -305,7 +330,9 @@ export function LeadsSearch() {
         ) : (
           <div className="px-5 py-10 text-sm text-neutral-500">
             {hasSearched
-              ? "No businesses without a website were found for this search."
+              ? showExistingSites
+                ? "No businesses matched this search."
+                : "No confirmed no-website leads were found. Turn on redesign opportunities to review businesses that may already have a site."
               : "Search by city and industry to find businesses that need a website."}
           </div>
         )}
