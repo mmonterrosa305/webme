@@ -144,6 +144,12 @@ export function LeadsSearch() {
     () =>
       results.map((lead) => {
         const buildState = buildStates[lead.placeId];
+        const statusConfig =
+          lead.websiteStatus === "no_website"
+            ? { label: "No website", variant: "success" as const }
+            : lead.websiteStatus === "has_site_review"
+              ? { label: "Has site - review", variant: "warning" as const }
+              : { label: "Has site", variant: "default" as const };
 
         return [
           <div key="business" className="space-y-1">
@@ -166,7 +172,11 @@ export function LeadsSearch() {
           <span key="reviews" className="text-neutral-500">
             {lead.reviewCount ?? "—"}
           </span>,
-          <StatusPill key="status" label="No website" variant="warning" />,
+          <StatusPill
+            key="status"
+            label={statusConfig.label}
+            variant={statusConfig.variant}
+          />,
           <div key="actions" className="space-y-2">
             <button
               type="button"
@@ -209,7 +219,7 @@ export function LeadsSearch() {
     <div className="space-y-8">
       <Panel
         title="Find leads"
-        subtitle="Search Google Places for businesses in a city or zip code and filter out any that already have a website."
+        subtitle="Search Google Places for businesses in a city or zip code, then classify whether they have a website, might have one, or clearly need one."
       >
         <form
           onSubmit={handleSearch}
@@ -275,7 +285,7 @@ export function LeadsSearch() {
         title="Lead results"
         subtitle={
           hasSearched
-            ? `${results.length} businesses without a website found`
+            ? `${results.length} businesses found`
             : "Run a search to populate leads"
         }
       >

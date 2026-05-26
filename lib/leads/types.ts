@@ -19,4 +19,5 @@ export type LeadSearchResult = {
   rating: number | null;
   reviewCount: number | null;
   website: string | null;
+  websiteStatus: "no_website" | "has_site_review" | "has_site";
 };
