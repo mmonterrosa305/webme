@@ -2,6 +2,7 @@ import { URL } from "node:url";
 
 type SourceName =
   | "googlePlaces"
+  | "googleImages"
   | "facebook"
   | "instagram"
   | "yelp"
@@ -25,6 +26,7 @@ export type BusinessProfile = {
   yelpCategories: string[];
   priceRange: string | null;
   photos: string[];
+  brandImageUrls: string[];
   website: string | null;
   facebookPosts: string[];
   instagramHashtags: string[];
@@ -82,6 +84,10 @@ type YelpResult = {
 type HunterResult = {
   ownerName: string | null;
   ownerEmail: string | null;
+};
+
+type GoogleImageResult = {
+  imageUrls: string[];
 };
 
 const DAYS = [
@@ -198,6 +204,46 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+async function scrapeGoogleImages(
+  businessName: string,
+  city: string,
+): Promise<GoogleImageResult> {
+  const apiKey =
+    getOptionalEnv("GOOGLE_CUSTOM_SEARCH_API_KEY") ??
+    getOptionalEnv("GOOGLE_PLACES_API_KEY");
+  const searchEngineId = getOptionalEnv("GOOGLE_CUSTOM_SEARCH_ENGINE_ID");
+
+  if (!apiKey || !searchEngineId) {
+    return { imageUrls: [] };
+  }
+
+  const queries = [`${businessName} logo`, `${businessName} ${city}`];
+  const allUrls: string[] = [];
+
+  for (const query of queries) {
+    const params = new URLSearchParams({
+      key: apiKey,
+      cx: searchEngineId,
+      q: query,
+      searchType: "image",
+      num: "3",
+      safe: "active",
+    });
+
+    const data = await fetchJson<{
+      items?: Array<{ link?: string }>;
+    }>(`https://customsearch.googleapis.com/customsearch/v1?${params}`);
+
+    allUrls.push(
+      ...uniqueStrings((data.items ?? []).map((item) => item.link ?? null)),
+    );
+  }
+
+  return {
+    imageUrls: uniqueStrings(allUrls).slice(0, 5),
+  };
 }
 
 async function scrapeGooglePlaces(
@@ -654,7 +700,7 @@ export async function scrapeBusinessData(
     throw new Error("businessName and city are required.");
   }
 
-  const [google, facebook, instagram, yelp] = await Promise.all([
+  const [google, googleImages, facebook, instagram, yelp] = await Promise.all([
     scrapeGooglePlaces(businessName, city).catch((error: Error) => {
       sourceErrors.googlePlaces = error.message;
       return {
@@ -669,6 +715,12 @@ export async function scrapeBusinessData(
         website: null,
         services: [],
       } satisfies GoogleResult;
+    }),
+    scrapeGoogleImages(businessName, city).catch((error: Error) => {
+      sourceErrors.googleImages = error.message;
+      return {
+        imageUrls: [],
+      } satisfies GoogleImageResult;
     }),
     scrapeFacebook(businessName, city).catch((error: Error) => {
       sourceErrors.facebook = error.message;
@@ -748,6 +800,7 @@ export async function scrapeBusinessData(
     yelpCategories: yelp.categories,
     priceRange: yelp.priceRange,
     photos: uniqueStrings([...yelp.photos, ...facebook.photos]).slice(0, 12),
+    brandImageUrls: googleImages.imageUrls,
     website,
     facebookPosts: facebook.posts,
     instagramHashtags: instagram.hashtags,

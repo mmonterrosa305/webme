@@ -11,6 +11,7 @@ import {
 } from "./site-options";
 
 const MODEL = "claude-sonnet-4-5";
+const REMOTE_BRAND_REFERENCE_LIMIT = 3;
 
 const SYSTEM_PROMPT = `You are one of the world's best creative web designers and animators. You build websites that win design awards. Every site must feel alive, cinematic, and premium.
 
@@ -28,6 +29,7 @@ REQUIRED in every site:
 - Mobile responsive
 - ALL CSS and JS inline in one HTML file
 - Use real Unsplash image URLs — search for the best cinematic images for the industry
+- Use 2025 for the copyright year in the footer
 - Output ONLY raw HTML starting with <!DOCTYPE html>`;
 
 export type BuildSiteInput = {
@@ -43,6 +45,12 @@ export type BuildSiteInput = {
   logoMediaType?: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
   logoSvg?: string;
 };
+
+type SupportedImageMediaType =
+  | "image/png"
+  | "image/jpeg"
+  | "image/gif"
+  | "image/webp";
 
 function getAnthropicApiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
@@ -76,6 +84,69 @@ function getStyle(styleId: StyleId) {
 
 function formatList(values: string[], fallback = "Not available"): string {
   return values.length > 0 ? values.join(", ") : fallback;
+}
+
+async function fetchReferenceImageBlocks(
+  imageUrls: string[],
+): Promise<
+  Array<{
+    type: "image";
+    source: {
+      type: "base64";
+      media_type: SupportedImageMediaType;
+      data: string;
+    };
+  }>
+> {
+  const supportedMediaTypes = new Set<SupportedImageMediaType>([
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+  ]);
+
+  const results = await Promise.allSettled(
+    imageUrls.slice(0, REMOTE_BRAND_REFERENCE_LIMIT).map(async (url) => {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+
+      const mediaType = response.headers.get("content-type")?.split(";")[0];
+
+      if (!mediaType || !supportedMediaTypes.has(mediaType as SupportedImageMediaType)) {
+        throw new Error("Unsupported image media type.");
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const data = Buffer.from(arrayBuffer).toString("base64");
+
+      return {
+        type: "image" as const,
+        source: {
+          type: "base64" as const,
+          media_type: mediaType as SupportedImageMediaType,
+          data,
+        },
+      };
+    }),
+  );
+
+  return results
+    .filter(
+      (
+        result,
+      ): result is PromiseFulfilledResult<{
+        type: "image";
+        source: {
+          type: "base64";
+          media_type: SupportedImageMediaType;
+          data: string;
+        };
+      }> => result.status === "fulfilled",
+    )
+    .map((result) => result.value);
 }
 
 function buildUserPrompt(input: BuildSiteInput): string {
@@ -134,7 +205,7 @@ function buildUserPrompt(input: BuildSiteInput): string {
 - Reviews to adapt into testimonials: ${formatList(profile.topReviews, "None available")}
 
 ## Color palette — "${palette.name}" (${palette.description})
-Use these exact hex values as CSS variables and throughout the design:
+Use these as the starting palette. If the brand reference images clearly indicate an existing visual identity, adapt the palette to mirror that identity while staying harmonized with these values:
 - Primary: ${palette.primary}
 - Secondary: ${palette.secondary}
 - Accent: ${palette.accent}
@@ -145,6 +216,9 @@ ${style.description}
 ## Sections to include
 ${sectionLabels}
 
+## Brand reference images
+- Brand/artwork/logo image URLs: ${formatList(profile.brandImageUrls, "None available")}
+
 ## Logo
 ${logoInstructions}
 
@@ -154,6 +228,9 @@ ${logoInstructions}
 - Use the owner name naturally in the copy if it is available.
 - Turn the real review text into polished testimonial pull quotes while staying faithful to the sentiment.
 - Use the Instagram bio and captions as inspiration for the brand voice, taglines, and CTA language.
+- Analyze the brand reference images to infer the business's current visual identity: likely colors, typography feel, logo style, iconography, contrast, texture, and layout tone.
+- Mirror the brand's existing visual identity in the website's color palette, typography style, spacing, and overall aesthetic instead of inventing an unrelated look.
+- If brand reference images exist, treat them as the strongest design signal and use them as inspiration for the final art direction.
 - If photo URLs are available and public, use them tastefully; otherwise, use the system prompt's Unsplash requirement.
 - If some fields are missing, fill the gaps intelligently without mentioning missing data.
 
@@ -178,32 +255,50 @@ function extractHtml(raw: string): string {
   return trimmed;
 }
 
-function buildMessageContent(
+async function buildMessageContent(
   input: BuildSiteInput,
-): MessageParam["content"] {
+): Promise<MessageParam["content"]> {
   const prompt = buildUserPrompt(input);
+  const brandReferenceBlocks = await fetchReferenceImageBlocks(
+    input.businessProfile.brandImageUrls,
+  );
+
+  const content: Array<
+    | {
+        type: "image";
+        source: {
+          type: "base64";
+          media_type: SupportedImageMediaType;
+          data: string;
+        };
+      }
+    | { type: "text"; text: string }
+  > = [...brandReferenceBlocks];
 
   if (input.logoBase64 && input.logoMediaType) {
-    return [
-      {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: input.logoMediaType,
-          data: input.logoBase64,
-        },
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: input.logoMediaType,
+        data: input.logoBase64,
       },
-      { type: "text", text: prompt },
-    ];
+    });
+    content.push({ type: "text", text: prompt });
+    return content;
   }
 
   if (input.logoSvg) {
-    return [
-      {
-        type: "text",
-        text: `${prompt}\n\n## Uploaded SVG logo\nEmbed this SVG in the site header:\n\`\`\`svg\n${input.logoSvg}\n\`\`\``,
-      },
-    ];
+    content.push({
+      type: "text",
+      text: `${prompt}\n\n## Uploaded SVG logo\nEmbed this SVG in the site header:\n\`\`\`svg\n${input.logoSvg}\n\`\`\``,
+    });
+    return content;
+  }
+
+  if (content.length > 0) {
+    content.push({ type: "text", text: prompt });
+    return content;
   }
 
   return prompt;
@@ -231,7 +326,7 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
     messages: [
       {
         role: "user",
-        content: buildMessageContent(input),
+        content: await buildMessageContent(input),
       },
     ],
   });
