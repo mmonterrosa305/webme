@@ -79,6 +79,7 @@ export function LeadsSearch() {
 
       const data = (await response.json()) as {
         leads?: LeadSearchResult[];
+        saved?: { attempted: number; inserted: number; errors: string[] };
         error?: string;
       };
 
@@ -87,6 +88,12 @@ export function LeadsSearch() {
       }
 
       setResults(data.leads ?? []);
+
+      if (typeof data.saved?.inserted === "number") {
+        console.log("[LeadsSearch] Supabase save:", data.saved);
+      }
+
+      window.dispatchEvent(new CustomEvent("webme:leads-saved"));
     } catch (error) {
       setSearchError(
         error instanceof Error ? error.message : "Failed to search leads.",

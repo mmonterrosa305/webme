@@ -15,11 +15,26 @@ const REMOTE_BRAND_REFERENCE_LIMIT = 3;
 
 const SYSTEM_PROMPT = `You are one of the world's best creative web designers and animators. You build websites that win design awards. Every site must feel alive, cinematic, and premium.
 
-REQUIRED in every site:
-- Full screen hero with a stunning real Unsplash image (pick the best URL for the industry), large bold typography that fades in on load
+## CRITICAL — NO EXTERNAL IMAGES (sites must work offline from third-party hosts)
+The generated HTML must NEVER depend on external image hosts. This is non-negotiable:
+- NO <img src="https://..."> pointing to any external URL (no Unsplash, Pexels, placeholders, Google Photos, scraped business photos, etc.)
+- NO background-image: url(https://...) or url(http://...) anywhere in CSS
+- NO <picture>, <source>, or lazy-loaded remote images
+- The ONLY allowed external resource is Google Fonts (link or @import)
+- Uploaded logos provided as inline base64/SVG in the prompt are allowed in the header only
+- All visual interest MUST come from: CSS gradients, solid colors, typography, spacing, borders, shadows, inline SVG, CSS animations, and pseudo-elements
+
+## Hero section (CSS-only, always renders)
+The hero MUST be full-viewport and built entirely with CSS — no photographs:
+- Use a rich dark multi-stop linear-gradient (e.g. deep navy → charcoal → accent tint) combined with a radial-gradient glow for depth
+- Layer ::before/::after pseudo-elements for soft light blooms, grid lines, or noise-like texture using pure CSS
+- Large bold headline + subhead with fade/slide-in on load; optional glass-style CTA bar
+- Animate the hero background subtly (gradient position shift, opacity pulse, or slow transform) using @keyframes only
+- Section backgrounds below the hero may use lighter gradient bands or solid fills from the palette — still no photos
+
+## REQUIRED in every site
 - Scroll-triggered animations using Intersection Observer API — elements slide, fade, scale in as user scrolls
-- At least one WOW moment — a creative animation specific to the industry (example: for a restaurant, food items fly in; for a plumber, water flows; for a florist, petals fall)
-- Parallax depth on the hero image
+- At least one WOW moment — industry-specific animation built with pure CSS/SVG only
 - Sticky nav that transitions from transparent to solid on scroll
 - Premium font pairing from Google Fonts — one serif display + one clean sans-serif
 - Rich color depth — gradients, overlays, depth
@@ -33,7 +48,6 @@ REQUIRED in every site:
 - Every contact form MUST show a clear success message after submission
 - Mobile responsive
 - ALL CSS and JS inline in one HTML file
-- Use real Unsplash image URLs — search for the best cinematic images for the industry
 - Use 2025 for the copyright year in the footer
 - Output ONLY raw HTML starting with <!DOCTYPE html>`;
 
@@ -206,7 +220,7 @@ function buildUserPrompt(input: BuildSiteInput): string {
 - Yelp categories: ${formatList(profile.yelpCategories)}
 - Price range: ${profile.priceRange ?? "Not available"}
 - Website: ${profile.website ?? "Not available"}
-- Photo URLs: ${formatList(profile.photos, "None available")}
+- Photo URLs (for context only — do NOT use in HTML): ${formatList(profile.photos, "None available")}
 - Reviews to adapt into testimonials: ${formatList(profile.topReviews, "None available")}
 
 ## Color palette — "${palette.name}" (${palette.description})
@@ -221,11 +235,17 @@ ${style.description}
 ## Sections to include
 ${sectionLabels}
 
-## Brand reference images
-- Brand/artwork/logo image URLs: ${formatList(profile.brandImageUrls, "None available")}
+## Brand reference images (inspiration only)
+- Brand/artwork URLs (analyze colors and style only — never embed as <img> or background-image): ${formatList(profile.brandImageUrls, "None available")}
 
 ## Logo
 ${logoInstructions}
+
+## Visual design (mandatory)
+- Hero: rich dark CSS gradient background only — no external images, no Unsplash, no photo URLs
+- All sections: gradients, solid colors, inline SVG icons, and typography for visual interest
+- Never output an <img> tag unless it uses an inline data URI from an uploaded logo in this request
+- Service cards and about sections: use gradient cards, icons, and color blocks — not stock photos
 
 ## Content instructions
 - Use the real phone number and address if they are available.
@@ -233,16 +253,14 @@ ${logoInstructions}
 - Use the owner name naturally in the copy if it is available.
 - Turn the real review text into polished testimonial pull quotes while staying faithful to the sentiment.
 - Use the Instagram bio and captions as inspiration for the brand voice, taglines, and CTA language.
-- Analyze the brand reference images to infer the business's current visual identity: likely colors, typography feel, logo style, iconography, contrast, texture, and layout tone.
-- Mirror the brand's existing visual identity in the website's color palette, typography style, spacing, and overall aesthetic instead of inventing an unrelated look.
-- If brand reference images exist, treat them as the strongest design signal and use them as inspiration for the final art direction.
-- If photo URLs are available and public, use them tastefully; otherwise, use the system prompt's Unsplash requirement.
+- Use brand reference images (if attached) only to infer colors, typography feel, and layout tone — never reproduce them as remote URLs in the HTML.
+- Mirror the brand's visual identity through palette, type, spacing, and CSS/SVG graphics — not through hotlinked photos.
 - If some fields are missing, fill the gaps intelligently without mentioning missing data.
 - In the contact form, set the hidden ownerEmail input value to exactly: ${profile.ownerEmail ?? ""}
 - Implement the contact form with fetch("/api/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(...) }) and show inline loading/error/success states without reloading the page.
 
 ## Quality bar
-Award-winning, conversion-focused, visually stunning — never generic. Apply the real business data so the site feels specific, credible, and custom-built.`;
+Award-winning, conversion-focused, visually stunning — never generic. Apply the real business data so the site feels specific, credible, and custom-built. The site must look premium using only CSS gradients, color, type, and motion — zero dependency on external image CDNs.`;
 }
 
 function extractHtml(raw: string): string {

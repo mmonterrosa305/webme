@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { saveSearchLeadsToSupabase } from "@/lib/leads/save-search-leads";
 import type { LeadSearchResult } from "@/lib/leads/types";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 function getGooglePlacesApiKey(): string {
   const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
@@ -292,35 +292,30 @@ export async function POST(request: Request) {
       }),
     );
 
+    let saveResult;
+
     try {
-      const supabase = createAdminClient();
-      const rows = leads.map((lead) => ({
-        business_name: lead.businessName,
-        city: lead.city,
-        industry: lead.industry,
-        address: lead.address,
-        phone: lead.phone,
-        has_website: lead.websiteStatus === "has_site",
-        existing_website_url: lead.website,
-        status: "new" as const,
-      }));
-
-      const { error: upsertError } = await supabase.from("leads").upsert(rows, {
-        onConflict: "business_name,city",
-        ignoreDuplicates: true,
-      });
-
-      if (upsertError) {
-        console.error("Failed to save leads to Supabase:", upsertError.message);
-      }
+      saveResult = await saveSearchLeadsToSupabase(leads);
     } catch (saveError) {
-      console.error(
-        "Failed to save leads to Supabase:",
-        saveError instanceof Error ? saveError.message : saveError,
-      );
+      const message =
+        saveError instanceof Error ? saveError.message : String(saveError);
+
+      console.error("[leads/search] Supabase save threw:", message);
+      saveResult = {
+        attempted: leads.length,
+        savedIds: [],
+        errors: [message],
+      };
     }
 
-    return NextResponse.json({ leads });
+    return NextResponse.json({
+      leads,
+      saved: {
+        attempted: saveResult.attempted,
+        inserted: saveResult.savedIds.length,
+        errors: saveResult.errors,
+      },
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to search leads.";

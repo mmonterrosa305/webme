@@ -86,6 +86,17 @@ export function SavedLeads() {
     void loadLeads();
   }, [loadLeads]);
 
+  useEffect(() => {
+    function handleLeadsSaved() {
+      void loadLeads();
+    }
+
+    window.addEventListener("webme:leads-saved", handleLeadsSaved);
+    return () => {
+      window.removeEventListener("webme:leads-saved", handleLeadsSaved);
+    };
+  }, [loadLeads]);
+
   function setPending(id: string, pending: boolean) {
     setPendingIds((current) => {
       const next = new Set(current);
