@@ -126,6 +126,12 @@ async function verifyWebsiteWithCustomSearch(
   return domainMatchesBusinessName(businessName, topResult) ? topResult : false;
 }
 
+async function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -140,59 +146,116 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = await fetch(
-      "https://places.googleapis.com/v1/places:searchText",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": getGooglePlacesApiKey(),
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri",
-        },
-        body: JSON.stringify({
-          textQuery: `${industry} businesses in ${location}`,
-          maxResultCount: 20,
-        }),
-      },
-    );
+    const apiKey = getGooglePlacesApiKey();
+    const allResults: Array<{
+      place_id?: string;
+      name?: string;
+      formatted_address?: string;
+      rating?: number;
+      user_ratings_total?: number;
+    }> = [];
+    let nextPageToken: string | undefined;
+    let pageCount = 0;
 
-    if (!response.ok) {
-      const message = await response.text();
+    do {
+      const params = new URLSearchParams({
+        key: apiKey,
+        query: `${industry} in ${location}`,
+      });
 
-      throw new Error(
-        `Google Places search failed: ${response.status} ${message}`,
+      if (nextPageToken) {
+        params.set("pagetoken", nextPageToken);
+      }
+
+      if (pageCount > 0) {
+        await sleep(2000);
+      }
+
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`,
       );
-    }
 
-    const data = (await response.json()) as {
-      places?: Array<{
-        id?: string;
-        displayName?: { text?: string };
-        formattedAddress?: string;
-        nationalPhoneNumber?: string;
-        rating?: number;
-        userRatingCount?: number;
-        websiteUri?: string;
-      }>;
-    };
+      if (!response.ok) {
+        const message = await response.text();
+
+        throw new Error(
+          `Google Places search failed: ${response.status} ${message}`,
+        );
+      }
+
+      const data = (await response.json()) as {
+        results?: Array<{
+          place_id?: string;
+          name?: string;
+          formatted_address?: string;
+          rating?: number;
+          user_ratings_total?: number;
+        }>;
+        next_page_token?: string;
+        status?: string;
+        error_message?: string;
+      };
+
+      if (
+        data.status &&
+        data.status !== "OK" &&
+        data.status !== "ZERO_RESULTS"
+      ) {
+        throw new Error(
+          data.error_message ?? `Google Places status: ${data.status}`,
+        );
+      }
+
+      allResults.push(...(data.results ?? []));
+      nextPageToken = data.next_page_token;
+      pageCount += 1;
+    } while (nextPageToken && pageCount < 3);
 
     const leads: LeadSearchResult[] = await Promise.all(
-      (data.places ?? []).map(async (place) => {
-        const businessName = place.displayName?.text ?? "Unknown Business";
+      allResults.map(async (place) => {
+        const businessName = place.name ?? "Unknown Business";
+        let googleWebsite: string | null = null;
+        let phone: string | null = null;
 
-        if (place.websiteUri) {
+        if (place.place_id) {
+          try {
+            const detailsParams = new URLSearchParams({
+              key: apiKey,
+              place_id: place.place_id,
+              fields: "website,formatted_phone_number",
+            });
+            const detailsResponse = await fetch(
+              `https://maps.googleapis.com/maps/api/place/details/json?${detailsParams}`,
+            );
+
+            if (detailsResponse.ok) {
+              const detailsData = (await detailsResponse.json()) as {
+                result?: {
+                  website?: string;
+                  formatted_phone_number?: string;
+                };
+              };
+
+              googleWebsite = detailsData.result?.website ?? null;
+              phone = detailsData.result?.formatted_phone_number ?? null;
+            }
+          } catch {
+            googleWebsite = null;
+          }
+        }
+
+        if (!googleWebsite) {
           return {
-            placeId: place.id ?? crypto.randomUUID(),
+            placeId: place.place_id ?? crypto.randomUUID(),
             businessName,
             city: location,
             industry,
-            address: place.formattedAddress ?? null,
-            phone: place.nationalPhoneNumber ?? null,
+            address: place.formatted_address ?? null,
+            phone,
             rating: place.rating ?? null,
-            reviewCount: place.userRatingCount ?? null,
-            website: place.websiteUri,
-            websiteStatus: "has_site",
+            reviewCount: place.user_ratings_total ?? null,
+            website: null,
+            websiteStatus: "no_website",
           };
         }
 
@@ -208,21 +271,22 @@ export async function POST(request: Request) {
         }
 
         return {
-          placeId: place.id ?? crypto.randomUUID(),
+          placeId: place.place_id ?? crypto.randomUUID(),
           businessName,
           city: location,
           industry,
-          address: place.formattedAddress ?? null,
-          phone: place.nationalPhoneNumber ?? null,
+          address: place.formatted_address ?? null,
+          phone,
           rating: place.rating ?? null,
-          reviewCount: place.userRatingCount ?? null,
-          website: typeof verificationResult === "string" ? verificationResult : null,
+          reviewCount: place.user_ratings_total ?? null,
+          website:
+            typeof verificationResult === "string"
+              ? verificationResult
+              : googleWebsite,
           websiteStatus:
             typeof verificationResult === "string"
               ? "has_site_review"
-              : verificationResult === false
-                ? "no_website"
-                : "has_site_review",
+              : "has_site",
         };
       }),
     );
