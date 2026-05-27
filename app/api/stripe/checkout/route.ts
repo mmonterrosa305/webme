@@ -9,12 +9,24 @@ const PLANS = {
     subPriceEnv: "STRIPE_STARTER_SUB_PRICE_ID",
     label: "Starter",
   },
+  monthly: {
+    subPriceEnv: "STRIPE_MONTHLY_PRICE_ID",
+    label: "Monthly",
+  },
   premium: {
     setupPriceEnv: "STRIPE_PREMIUM_PRICE_ID",
     subPriceEnv: "STRIPE_PREMIUM_SUB_PRICE_ID",
     label: "Premium",
   },
 } as const;
+
+const REQUIRED_ENV_VARS = [
+  "STRIPE_STARTER_PRICE_ID",
+  "STRIPE_STARTER_SUB_PRICE_ID",
+  "STRIPE_MONTHLY_PRICE_ID",
+  "STRIPE_PREMIUM_PRICE_ID",
+  "STRIPE_PREMIUM_SUB_PRICE_ID",
+] as const;
 
 type PlanId = keyof typeof PLANS;
 
@@ -36,7 +48,7 @@ export async function POST(request: Request) {
 
     if (!slug || !(plan in PLANS)) {
       return NextResponse.json(
-        { error: "slug and plan (starter | premium) are required." },
+        { error: "slug and plan (starter | monthly | premium) are required." },
         { status: 400 },
       );
     }
@@ -48,14 +60,17 @@ export async function POST(request: Request) {
     }
 
     const planConfig = PLANS[plan];
-    const setupPriceId = getPriceId(planConfig.setupPriceEnv);
+    const setupPriceId =
+      "setupPriceEnv" in planConfig
+        ? getPriceId(planConfig.setupPriceEnv)
+        : null;
     const subPriceId = getPriceId(planConfig.subPriceEnv);
     const appUrl = getAppUrl();
 
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       line_items: [
-        { price: setupPriceId, quantity: 1 },
+        ...(setupPriceId ? [{ price: setupPriceId, quantity: 1 }] : []),
         { price: subPriceId, quantity: 1 },
       ],
       customer_email: lead.owner_email ?? undefined,
@@ -64,6 +79,7 @@ export async function POST(request: Request) {
         site_slug: slug,
         plan,
         business_name: lead.business_name,
+        stripe_env_requirements: REQUIRED_ENV_VARS.join(","),
       },
       success_url: `${appUrl}/preview/${slug}?checkout=success`,
       cancel_url: `${appUrl}/preview/${slug}?checkout=canceled`,

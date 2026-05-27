@@ -6,20 +6,38 @@ import type { LeadPreview } from "@/lib/leads/types";
 
 type Modal = "packages" | "declined" | null;
 
-type PlanId = "starter" | "premium";
+type PlanId = "starter" | "monthly" | "premium";
 
 const PACKAGES = [
+  {
+    id: "monthly" as const,
+    name: "Monthly",
+    setup: "$0",
+    monthly: "$99/mo",
+    features: [
+      "Site on webme subdomain (clientname.webme.io)",
+      "No ownership — WebMe hosts and manages it",
+      "Cancel anytime, site goes offline if cancelled",
+      "1 page",
+      "1 update per month",
+      "No custom domain",
+    ],
+  },
   {
     id: "starter" as const,
     name: "Starter",
     setup: "$199",
     monthly: "$29/mo",
     features: [
-      "Custom single-page site",
-      "Mobile responsive",
-      "Hosting & SSL included",
-      "Email support",
+      "Customer owns the site forever",
+      "Custom domain setup included",
+      "Site remains yours even if hosting is cancelled",
+      "1 page",
+      "2 updates per month",
+      "No SEO, no e-commerce",
     ],
+    highlighted: true,
+    badge: "Most popular",
   },
   {
     id: "premium" as const,
@@ -27,12 +45,15 @@ const PACKAGES = [
     setup: "$599",
     monthly: "$59/mo",
     features: [
-      "Everything in Starter",
-      "Multi-page expansion",
+      "Customer owns the site forever",
+      "Custom domain setup included",
+      "Up to 6 pages",
+      "SEO optimization + Google setup",
+      "E-commerce capability",
+      "Logo design included",
+      "Unlimited monthly updates",
       "Priority support",
-      "Monthly content updates",
     ],
-    highlighted: true,
   },
 ];
 
@@ -51,7 +72,7 @@ function ModalBackdrop({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl"
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         {children}
@@ -140,7 +161,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               hosting.
             </p>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
               {PACKAGES.map((pkg) => (
                 <div
                   key={pkg.id}
@@ -150,6 +171,13 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
                       : "border-neutral-200"
                   }`}
                 >
+                  <div className="mb-2 min-h-6">
+                    {"badge" in pkg && pkg.badge ? (
+                      <span className="inline-flex rounded-full bg-neutral-900 px-2.5 py-1 text-xs font-semibold text-white">
+                        {pkg.badge}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="font-semibold text-neutral-900">
