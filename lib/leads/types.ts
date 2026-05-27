@@ -21,3 +21,19 @@ export type LeadSearchResult = {
   website: string | null;
   websiteStatus: "no_website" | "has_site_review" | "has_site";
 };
+
+export type LeadStatus =
+  | "new"
+  | "site_built"
+  | "outreach_sent"
+  | "won"
+  | "lost";
+
+export type SavedLead = {
+  id: string;
+  business_name: string;
+  city: string;
+  industry: string | null;
+  status: LeadStatus | string | null;
+  site_slug: string | null;
+};

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import slugify from "slugify";
 
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import {
   COLOR_PALETTES,
@@ -113,7 +115,31 @@ export async function POST(request: Request) {
       logoSvg,
     });
 
-    return NextResponse.json({ html, businessProfile });
+    const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
+    const siteBuiltAt = new Date().toISOString();
+
+    const supabase = createAdminClient();
+    const { error: leadUpdateError } = await supabase
+      .from("leads")
+      .update({
+        site_html: html,
+        site_slug: siteSlug,
+        site_built_at: siteBuiltAt,
+        status: "site_built",
+      })
+      .eq("business_name", businessName)
+      .eq("city", city);
+
+    if (leadUpdateError) {
+      console.error("Failed to update lead in Supabase:", leadUpdateError.message);
+    }
+
+    return NextResponse.json({
+      html,
+      businessProfile,
+      siteSlug,
+      siteBuiltAt,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to build site.";
