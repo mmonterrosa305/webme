@@ -36,17 +36,21 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "id is required." }, { status: 400 });
     }
 
-    if (action !== "outreach_sent") {
+    const updates: Record<string, string> = {};
+
+    if (action === "approved") {
+      updates.status = "approved";
+    } else if (action === "outreach_sent") {
+      updates.status = "outreach_sent";
+      updates.outreach_sent_at = new Date().toISOString();
+    } else {
       return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
 
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("leads")
-      .update({
-        status: "outreach_sent",
-        outreach_sent_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("id", id)
       .select("id, business_name, city, industry, status, site_slug")
       .maybeSingle();

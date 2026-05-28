@@ -43,28 +43,39 @@ Use only the following exact hero background URLs (do not use source.unsplash.co
   - Emergency/repair: https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80
   - Installation: https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&q=80
   - Commercial: https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?w=800&q=80
-- About section image URL (use this exact URL on the right column): https://images.unsplash.com/photo-1566195992011-5f6b21e539aa?w=800&q=80
-- Gallery row image URLs (place 3 side-by-side cards above Contact):
-  - https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80
-  - https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80
-  - https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&q=80
-- Match the business industry to the closest URL above; if no close match exists, use Default.
+- About section image URLs (match industry — use on the right column in About):
+  - Plumbing: https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80
+  - Electrician: https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80
+  - HVAC: https://images.unsplash.com/photo-1631545806609-27a0d3f26e2e?w=800&q=80
+  - Restaurant: https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80
+  - Landscaping: https://images.unsplash.com/photo-1558904541-efa843a96f01?w=800&q=80
+  - Hair Salon: https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=800&q=80
+  - Dental: https://images.unsplash.com/photo-1609840114035-3c981b782dfe?w=800&q=80
+  - Law: https://images.unsplash.com/photo-1589994965851-a8f479c573a9?w=800&q=80
+  - Auto Repair: https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=800&q=80
+  - Cleaning: https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&q=80
+  - Default: https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80
+- Gallery row (3 side-by-side images above Contact) — use the SAME industry-matching logic as About/Hero:
+  - Image 1: matched About URL for the industry
+  - Image 2: matched Hero URL for the industry
+  - Image 3: first service image URL (electrical panel/wiring) or second if more variety needed
+- Match the business industry to the closest category in each list; if no close match exists, use Default.
 - Hero: full-screen cinematic background-image with the mapped URL (min-height 100vh, background-size: cover, background-position: center).
 - Hero overlay: pseudo-element or overlay div with background rgba(0,0,0,0.5) for text readability.
 - Hero typography: large bold white headline + subheadline + prominent CTA on top of the overlay.
 - Services section: each service card must use one of the service image URLs above as a background image.
 - Service card layout: min-height 250px, cover background image, dark overlay, white text content on top.
-- About section layout: strict 2-column layout with text/stats on left and large image on right using the exact About URL above.
-- Add a before/after or gallery row with 3 images side by side directly above the Contact section.
+- About section layout: strict 2-column layout with text/stats on left and large image on right using the industry-matched About URL (never a generic unrelated photo).
+- Gallery row: 3 industry-matched images side by side directly above Contact (per Gallery rules above).
 - Do NOT use source.unsplash.com, scraped business photo URLs, Pexels, or random image URLs.
 
 ## Sections (include ONLY these eight — in this order)
 1. Hero — full-screen (100vh), mapped fixed industry image URL from the list above, dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
 3. Services — 4–6 cards in a responsive grid. Each card must use one of the exact service image URLs as the card background, with min-height 250px, dark overlay, white title + short description text.
-4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using the exact About image URL.
+4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using the industry-matched About URL.
 5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
-6. Gallery row — 3 side-by-side images (before/after style) using the exact Gallery URLs listed above.
+6. Gallery row — 3 side-by-side industry-matched images (About + Hero + service URL for that industry).
 7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
 8. Footer — logo/wordmark, links or contact line, copyright © 2025.
 
@@ -257,9 +268,9 @@ ${style.description}
 1. Hero — full screen, choose the mapped fixed image URL for industry "${input.industry}" from the system prompt list, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
 3. Services — 4–6 cards from: ${formatList(profile.services, "invent 5 typical services")} with backgrounds from the fixed service image URL list in the system prompt
-4. About — 2 columns: text/stats on left and large image on right using the fixed About image URL from the system prompt
+4. About — 2 columns: text/stats on left; right = industry-matched About image for "${input.industry}" from the system prompt list
 5. Testimonials — 3 reviews with stars (use review text above when available)
-6. Gallery row — 3 side-by-side before/after style images using the fixed gallery URLs from the system prompt
+6. Gallery row — 3 industry-matched images (same matching logic as About/Hero for "${input.industry}")
 7. Contact — form + sidebar with phone/address/hours
 8. Footer — © 2025
 
@@ -273,8 +284,8 @@ ${logoInstructions}
 - Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
 - Hero: use the exact mapped industry URL from the system prompt list + overlay rgba(0,0,0,0.5) + large white text.
 - Service cards: min-height 250px, background image from fixed service URLs, dark overlay, white text.
-- About right column: large image from fixed About URL.
-- Gallery row: 3 equal-width images above Contact.
+- About right column: industry-matched About URL only.
+- Gallery row: 3 industry-matched images above Contact.
 - Fade-in on load only.
 
 ## Content instructions

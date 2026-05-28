@@ -125,7 +125,7 @@ export async function POST(request: Request) {
         site_html: html,
         site_slug: siteSlug,
         site_built_at: siteBuiltAt,
-        status: "site_built",
+        status: "pending_review",
       })
       .eq("business_name", businessName)
       .eq("city", city);

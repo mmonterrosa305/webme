@@ -24,7 +24,9 @@ export type LeadSearchResult = {
 
 export type LeadStatus =
   | "new"
+  | "pending_review"
   | "site_built"
+  | "approved"
   | "outreach_sent"
   | "won"
   | "lost";

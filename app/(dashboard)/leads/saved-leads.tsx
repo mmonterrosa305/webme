@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DataTable, Panel } from "../_components/dashboard-ui";
+import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
 import type { LeadStatus, SavedLead } from "@/lib/leads/types";
 
 const STATUS_STYLES: Record<
@@ -14,9 +15,17 @@ const STATUS_STYLES: Record<
     label: "New",
     className: "bg-neutral-100 text-neutral-700 border-neutral-200",
   },
+  pending_review: {
+    label: "Pending Review",
+    className: "bg-amber-50 text-amber-800 border-amber-200",
+  },
   site_built: {
-    label: "Site built",
-    className: "bg-purple-50 text-purple-700 border-purple-200",
+    label: "Pending Review",
+    className: "bg-amber-50 text-amber-800 border-amber-200",
+  },
+  approved: {
+    label: "Approved",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
   outreach_sent: {
     label: "Outreach sent",
@@ -32,7 +41,30 @@ const STATUS_STYLES: Record<
   },
 };
 
-function LeadStatusBadge({ status }: { status: string | null }) {
+function hasBuiltSite(lead: SavedLead): boolean {
+  return Boolean(lead.site_slug);
+}
+
+function isPendingReview(lead: SavedLead): boolean {
+  return (
+    hasBuiltSite(lead) &&
+    (lead.status === "pending_review" || lead.status === "site_built")
+  );
+}
+
+function isApproved(lead: SavedLead): boolean {
+  return lead.status === "approved";
+}
+
+function LeadStatusBadge({ status, lead }: { status: string | null; lead: SavedLead }) {
+  if (isPendingReview(lead)) {
+    return (
+      <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+        Pending Review
+      </span>
+    );
+  }
+
   const key = (status ?? "new") as LeadStatus;
   const config = STATUS_STYLES[key] ?? {
     label: status ?? "Unknown",
@@ -54,6 +86,7 @@ export function SavedLeads() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -109,6 +142,104 @@ export function SavedLeads() {
     });
   }
 
+  function setRegenerating(id: string, regenerating: boolean) {
+    setRegeneratingIds((current) => {
+      const next = new Set(current);
+      if (regenerating) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  async function patchLead(
+    id: string,
+    action: "approved" | "outreach_sent",
+  ): Promise<SavedLead> {
+    const response = await fetch("/api/leads/saved", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    const data = (await response.json()) as {
+      lead?: SavedLead;
+      error?: string;
+    };
+
+    if (!response.ok || !data.lead) {
+      throw new Error(data.error ?? "Failed to update lead.");
+    }
+
+    return data.lead;
+  }
+
+  async function handleApprove(lead: SavedLead) {
+    setActionError(null);
+    setPending(lead.id, true);
+
+    try {
+      const updated = await patchLead(lead.id, "approved");
+      setLeads((current) =>
+        current.map((item) => (item.id === lead.id ? updated : item)),
+      );
+    } catch (approveError) {
+      setActionError(
+        approveError instanceof Error
+          ? approveError.message
+          : "Failed to approve lead.",
+      );
+    } finally {
+      setPending(lead.id, false);
+    }
+  }
+
+  async function handleRegenerate(lead: SavedLead) {
+    if (!lead.industry) {
+      setActionError("This lead is missing an industry and cannot be regenerated.");
+      return;
+    }
+
+    setActionError(null);
+    setRegenerating(lead.id, true);
+
+    try {
+      const response = await fetch("/api/agents/build-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: lead.business_name,
+          city: lead.city,
+          industry: lead.industry,
+          paletteId: "midnight",
+          styleId: "modern-minimal",
+          sections: DEFAULT_SECTIONS,
+          createLogoForMe: true,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        siteSlug?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to regenerate site.");
+      }
+
+      await loadLeads();
+    } catch (regenerateError) {
+      setActionError(
+        regenerateError instanceof Error
+          ? regenerateError.message
+          : "Failed to regenerate site.",
+      );
+    } finally {
+      setRegenerating(lead.id, false);
+    }
+  }
+
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this saved lead?")) {
       return;
@@ -144,22 +275,9 @@ export function SavedLeads() {
     setPending(lead.id, true);
 
     try {
-      const response = await fetch("/api/leads/saved", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: lead.id, action: "outreach_sent" }),
-      });
-      const data = (await response.json()) as {
-        lead?: SavedLead;
-        error?: string;
-      };
-
-      if (!response.ok || !data.lead) {
-        throw new Error(data.error ?? "Failed to mark outreach sent.");
-      }
-
+      const updated = await patchLead(lead.id, "outreach_sent");
       setLeads((current) =>
-        current.map((item) => (item.id === lead.id ? data.lead! : item)),
+        current.map((item) => (item.id === lead.id ? updated : item)),
       );
     } catch (outreachError) {
       setActionError(
@@ -175,9 +293,11 @@ export function SavedLeads() {
   const rows = useMemo(
     () =>
       leads.map((lead) => {
-        const isPending = pendingIds.has(lead.id);
-        const canViewSite = lead.status === "site_built" && lead.site_slug;
-        const showOutreach = lead.status === "site_built" && lead.site_slug;
+        const isActionPending = pendingIds.has(lead.id);
+        const isRegenerating = regeneratingIds.has(lead.id);
+        const showSiteActions = hasBuiltSite(lead);
+        const showReviewActions = isPendingReview(lead);
+        const showOutreach = isApproved(lead) && hasBuiltSite(lead);
 
         return [
           <span key="business" className="font-medium text-neutral-900">
@@ -189,9 +309,18 @@ export function SavedLeads() {
           <span key="industry" className="text-neutral-600">
             {lead.industry ?? "—"}
           </span>,
-          <LeadStatusBadge key="status" status={lead.status} />,
+          <LeadStatusBadge key="status" status={lead.status} lead={lead} />,
           <div key="actions" className="flex flex-col gap-2">
-            {canViewSite && lead.site_slug ? (
+            {isRegenerating ? (
+              <span className="flex items-center gap-2 text-sm text-neutral-600">
+                <span
+                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900"
+                  aria-hidden
+                />
+                Regenerating...
+              </span>
+            ) : null}
+            {showSiteActions && lead.site_slug ? (
               <Link
                 href={`/preview/${lead.site_slug}`}
                 target="_blank"
@@ -201,19 +330,39 @@ export function SavedLeads() {
                 View Site
               </Link>
             ) : null}
+            {showReviewActions ? (
+              <>
+                <button
+                  type="button"
+                  disabled={isActionPending || isRegenerating}
+                  onClick={() => handleApprove(lead)}
+                  className="text-left text-sm font-medium text-emerald-700 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isActionPending ? "Saving..." : "Approve"}
+                </button>
+                <button
+                  type="button"
+                  disabled={isActionPending || isRegenerating}
+                  onClick={() => handleRegenerate(lead)}
+                  className="text-left text-sm font-medium text-blue-700 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Regenerate
+                </button>
+              </>
+            ) : null}
             {showOutreach ? (
               <button
                 type="button"
-                disabled={isPending}
+                disabled={isActionPending || isRegenerating}
                 onClick={() => handleSendOutreach(lead)}
                 className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPending ? "Saving..." : "Send Outreach"}
+                {isActionPending ? "Saving..." : "Send Outreach"}
               </button>
             ) : null}
             <button
               type="button"
-              disabled={isPending}
+              disabled={isActionPending || isRegenerating}
               onClick={() => handleDelete(lead.id)}
               className="text-left text-sm font-medium text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -222,7 +371,7 @@ export function SavedLeads() {
           </div>,
         ];
       }),
-    [leads, pendingIds],
+    [leads, pendingIds, regeneratingIds],
   );
 
   return (
