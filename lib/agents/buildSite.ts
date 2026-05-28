@@ -23,18 +23,30 @@ const SYSTEM_PROMPT = `You build polished single-page business websites. The fil
 - Structure: <!DOCTYPE html> → <head> (meta, Google Fonts, <style>) → <body> (all sections) → <script> → close tags.
 - Output ONLY raw HTML starting with <!DOCTYPE html>.
 
-## Images — Unsplash Source only (reliable format)
-Use ONLY this URL pattern for photos (no other image CDNs, no images.unsplash.com direct links):
-- Format: https://source.unsplash.com/1600x900/?[keyword]
-- Pick ONE industry keyword for the hero (e.g. electrician, plumber, restaurant, salon, dentist, lawyer, landscaping, hvac, roofing, bakery, gym, spa, auto-repair). Use the business industry from the brief; single lowercase English word or hyphenated phrase.
-- Hero: full-screen cinematic background via background-image: url('https://source.unsplash.com/1600x900/?keyword') on the hero section (min-height 100vh, background-size: cover, background-position: center).
-- Hero overlay: pseudo-element or overlay div with background: rgba(0,0,0,0.5) covering the image so white headline text is readable.
-- Hero typography: large bold white headline + subheadline + prominent CTA on top of the overlay. Must feel cinematic — big image, dark overlay, large white text.
-- Services section: each card uses a relevant Unsplash Source image as card background or top image — vary keywords per service (e.g. https://source.unsplash.com/800x600/?wiring, https://source.unsplash.com/800x600/?electrical-panel). Same URL pattern only.
-- Do NOT use scraped business photo URLs, Pexels, or random https images. Google Fonts + Unsplash Source + inline uploaded logos only.
+## Images — fixed industry URL map (required)
+Use only the following exact hero background URLs (do not use source.unsplash.com):
+- Electrician: https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1600&q=80
+- Plumbing: https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1600&q=80
+- HVAC: https://images.unsplash.com/photo-1631545806609-27a0d3f26e2e?w=1600&q=80
+- Restaurant: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&q=80
+- Hair Salon: https://images.unsplash.com/photo-1560066984-138daaa8e6d9?w=1600&q=80
+- Dental: https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=1600&q=80
+- Law: https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1600&q=80
+- Landscaping: https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1600&q=80
+- Cleaning: https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1600&q=80
+- Auto Repair: https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=1600&q=80
+- Barbershop: https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1600&q=80
+- Gym: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&q=80
+- Default: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80
+- Match the business industry to the closest URL above; if no close match exists, use Default.
+- Hero: full-screen cinematic background-image with the mapped URL (min-height 100vh, background-size: cover, background-position: center).
+- Hero overlay: pseudo-element or overlay div with background rgba(0,0,0,0.5) for text readability.
+- Hero typography: large bold white headline + subheadline + prominent CTA on top of the overlay.
+- Services section: use industry-relevant visuals (gradients or inline SVG); do not introduce additional external image hosts.
+- Do NOT use source.unsplash.com, scraped business photo URLs, Pexels, or random image URLs.
 
 ## Sections (include ONLY these seven — in this order)
-1. Hero — full-screen (100vh), real Unsplash Source background image, dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Fade-in on load.
+1. Hero — full-screen (100vh), mapped fixed industry image URL from the list above, dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
 3. Services — 4–6 cards in a responsive grid. Each card: industry-relevant Unsplash Source image + title + one short description. Use real services from the brief.
 4. About — 2-column layout: left = short brand story (2–3 sentences); right = 3–4 key stats or bullet highlights.
@@ -215,7 +227,7 @@ function buildUserPrompt(input: BuildSiteInput): string {
 - Yelp categories: ${formatList(profile.yelpCategories)}
 - Price range: ${profile.priceRange ?? "Not available"}
 - Website: ${profile.website ?? "Not available"}
-- Photo URLs (do not use — use Unsplash Source format instead): ${formatList(profile.photos, "None available")}
+- Photo URLs (do not use directly): ${formatList(profile.photos, "None available")}
 - Reviews for testimonials: ${formatList(profile.topReviews, "write 3 plausible reviews for the industry")}
 
 ## Color palette — "${palette.name}" (${palette.description})
@@ -228,24 +240,24 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ${style.description}
 
 ## Sections to include (exactly seven, in order — no extra sections)
-1. Hero — full screen, Unsplash Source background (https://source.unsplash.com/1600x900/?keyword for industry: ${input.industry}), rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
+1. Hero — full screen, choose the mapped fixed image URL for industry "${input.industry}" from the system prompt list, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
-3. Services — 4–6 cards with Unsplash Source images per service from: ${formatList(profile.services, "invent 5 typical services")}
+3. Services — 4–6 cards from: ${formatList(profile.services, "invent 5 typical services")}
 4. About — 2 columns, short story + stats
 5. Testimonials — 3 reviews with stars (use review text above when available)
 6. Contact — form + sidebar with phone/address/hours
 7. Footer — © 2025
 
 ## Brand reference images (inspiration only)
-- Brand/artwork URLs (colors and style only — do not embed; use Unsplash Source for photos): ${formatList(profile.brandImageUrls, "None available")}
+- Brand/artwork URLs (colors and style inspiration only — do not embed unless they match approved system prompt rules): ${formatList(profile.brandImageUrls, "None available")}
 
 ## Logo
 ${logoInstructions}
 
 ## Visual design (mandatory)
 - Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
-- Hero: https://source.unsplash.com/1600x900/?[industry-keyword] + overlay rgba(0,0,0,0.5) + large white text.
-- Service cards: https://source.unsplash.com/800x600/?[service-related-keyword] for each card.
+- Hero: use the exact mapped industry URL from the system prompt list + overlay rgba(0,0,0,0.5) + large white text.
+- Service cards: keep visual richness with gradients/inline SVG and concise copy.
 - Fade-in on load only.
 
 ## Content instructions
