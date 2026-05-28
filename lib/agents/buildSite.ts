@@ -38,21 +38,35 @@ Use only the following exact hero background URLs (do not use source.unsplash.co
 - Barbershop: https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1600&q=80
 - Gym: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&q=80
 - Default: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80
+- Service image URLs (use these exact URLs for service card backgrounds):
+  - Electrical panel/wiring: https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80
+  - Emergency/repair: https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80
+  - Installation: https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&q=80
+  - Commercial: https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?w=800&q=80
+- About section image URL (use this exact URL on the right column): https://images.unsplash.com/photo-1566195992011-5f6b21e539aa?w=800&q=80
+- Gallery row image URLs (place 3 side-by-side cards above Contact):
+  - https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80
+  - https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80
+  - https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&q=80
 - Match the business industry to the closest URL above; if no close match exists, use Default.
 - Hero: full-screen cinematic background-image with the mapped URL (min-height 100vh, background-size: cover, background-position: center).
 - Hero overlay: pseudo-element or overlay div with background rgba(0,0,0,0.5) for text readability.
 - Hero typography: large bold white headline + subheadline + prominent CTA on top of the overlay.
-- Services section: use industry-relevant visuals (gradients or inline SVG); do not introduce additional external image hosts.
+- Services section: each service card must use one of the service image URLs above as a background image.
+- Service card layout: min-height 250px, cover background image, dark overlay, white text content on top.
+- About section layout: strict 2-column layout with text/stats on left and large image on right using the exact About URL above.
+- Add a before/after or gallery row with 3 images side by side directly above the Contact section.
 - Do NOT use source.unsplash.com, scraped business photo URLs, Pexels, or random image URLs.
 
-## Sections (include ONLY these seven — in this order)
+## Sections (include ONLY these eight — in this order)
 1. Hero — full-screen (100vh), mapped fixed industry image URL from the list above, dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
-3. Services — 4–6 cards in a responsive grid. Each card: industry-relevant Unsplash Source image + title + one short description. Use real services from the brief.
-4. About — 2-column layout: left = short brand story (2–3 sentences); right = 3–4 key stats or bullet highlights.
+3. Services — 4–6 cards in a responsive grid. Each card must use one of the exact service image URLs as the card background, with min-height 250px, dark overlay, white title + short description text.
+4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using the exact About image URL.
 5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
-6. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
-7. Footer — logo/wordmark, links or contact line, copyright © 2025.
+6. Gallery row — 3 side-by-side images (before/after style) using the exact Gallery URLs listed above.
+7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
+8. Footer — logo/wordmark, links or contact line, copyright © 2025.
 
 ## Animations
 - Fade-in on load for hero and main sections only. No scroll animations, no Intersection Observer, no complex effects.
@@ -239,14 +253,15 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ## Design style — "${style.label}"
 ${style.description}
 
-## Sections to include (exactly seven, in order — no extra sections)
+## Sections to include (exactly eight, in order — no extra sections)
 1. Hero — full screen, choose the mapped fixed image URL for industry "${input.industry}" from the system prompt list, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
-3. Services — 4–6 cards from: ${formatList(profile.services, "invent 5 typical services")}
-4. About — 2 columns, short story + stats
+3. Services — 4–6 cards from: ${formatList(profile.services, "invent 5 typical services")} with backgrounds from the fixed service image URL list in the system prompt
+4. About — 2 columns: text/stats on left and large image on right using the fixed About image URL from the system prompt
 5. Testimonials — 3 reviews with stars (use review text above when available)
-6. Contact — form + sidebar with phone/address/hours
-7. Footer — © 2025
+6. Gallery row — 3 side-by-side before/after style images using the fixed gallery URLs from the system prompt
+7. Contact — form + sidebar with phone/address/hours
+8. Footer — © 2025
 
 ## Brand reference images (inspiration only)
 - Brand/artwork URLs (colors and style inspiration only — do not embed unless they match approved system prompt rules): ${formatList(profile.brandImageUrls, "None available")}
@@ -257,7 +272,9 @@ ${logoInstructions}
 ## Visual design (mandatory)
 - Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
 - Hero: use the exact mapped industry URL from the system prompt list + overlay rgba(0,0,0,0.5) + large white text.
-- Service cards: keep visual richness with gradients/inline SVG and concise copy.
+- Service cards: min-height 250px, background image from fixed service URLs, dark overlay, white text.
+- About right column: large image from fixed About URL.
+- Gallery row: 3 equal-width images above Contact.
 - Fade-in on load only.
 
 ## Content instructions
