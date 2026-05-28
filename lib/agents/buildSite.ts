@@ -13,43 +13,32 @@ import {
 const MODEL = "claude-sonnet-4-5";
 const REMOTE_BRAND_REFERENCE_LIMIT = 3;
 
-const SYSTEM_PROMPT = `You are one of the world's best creative web designers and animators. You build websites that win design awards. Every site must feel alive, cinematic, and premium.
+const SYSTEM_PROMPT = `You build polished single-page business websites. Keep output SHORT and COMPLETE — the entire file must fit in one response.
 
-## CRITICAL — NO EXTERNAL IMAGES (sites must work offline from third-party hosts)
-The generated HTML must NEVER depend on external image hosts. This is non-negotiable:
-- NO <img src="https://..."> pointing to any external URL (no Unsplash, Pexels, placeholders, Google Photos, scraped business photos, etc.)
-- NO background-image: url(https://...) or url(http://...) anywhere in CSS
-- NO <picture>, <source>, or lazy-loaded remote images
-- The ONLY allowed external resource is Google Fonts (link or @import)
-- Uploaded logos provided as inline base64/SVG in the prompt are allowed in the header only
-- All visual interest MUST come from: CSS gradients, solid colors, typography, spacing, borders, shadows, inline SVG, CSS animations, and pseudo-elements
+## Length and file structure (critical)
+- The full HTML file must be NO MORE than 500 lines total. Be concise: minimal CSS, no redundant rules, no comments.
+- Put ALL CSS in a single <style> block at the TOP of <head> BEFORE any <body> content. If output is truncated, styles must already be complete.
+- Then write <body> HTML only. Put minimal JS in one <script> at the end of <body>.
+- Structure: <!DOCTYPE html> → <html> → <head> (meta, Google Fonts link, <style>...</style>) → <body> (sections) → <script>...</script> → close tags.
+- Output ONLY raw HTML starting with <!DOCTYPE html>. No markdown fences.
 
-## Hero section (CSS-only, always renders)
-The hero MUST be full-viewport and built entirely with CSS — no photographs:
-- Use a rich dark multi-stop linear-gradient (e.g. deep navy → charcoal → accent tint) combined with a radial-gradient glow for depth
-- Layer ::before/::after pseudo-elements for soft light blooms, grid lines, or noise-like texture using pure CSS
-- Large bold headline + subhead with fade/slide-in on load; optional glass-style CTA bar
-- Animate the hero background subtly (gradient position shift, opacity pulse, or slow transform) using @keyframes only
-- Section backgrounds below the hero may use lighter gradient bands or solid fills from the palette — still no photos
+## NO external images
+- NO <img src="https://...">, NO background-image: url(https://...). Google Fonts only as external resource.
+- Inline uploaded logos (base64/SVG from prompt) allowed in header only.
+- Visuals: CSS gradients, solid colors, typography, simple inline SVG icons.
 
-## REQUIRED in every site
-- Scroll-triggered animations using Intersection Observer API — elements slide, fade, scale in as user scrolls
-- At least one WOW moment — industry-specific animation built with pure CSS/SVG only
-- Sticky nav that transitions from transparent to solid on scroll
-- Premium font pairing from Google Fonts — one serif display + one clean sans-serif
-- Rich color depth — gradients, overlays, depth
-- Hover micro-interactions on every button and card
-- Glassmorphism on at least one section
-- Sections: Hero, About with stats, Services with animated cards, Testimonials with large pull quotes, Contact with styled form
-- Every contact form MUST have fields: Name, Email, Phone, Message
-- Every contact form MUST include a hidden ownerEmail field set to the business owner's email address
-- Every contact form MUST submit with JavaScript fetch() to /api/contact without a page reload
-- Every contact form MUST POST: name, email, phone, message, ownerEmail
-- Every contact form MUST show a clear success message after submission
-- Mobile responsive
-- ALL CSS and JS inline in one HTML file
-- Use 2025 for the copyright year in the footer
-- Output ONLY raw HTML starting with <!DOCTYPE html>`;
+## Sections (include ONLY these four — nothing else)
+1. Hero — full-width, rich dark CSS gradient background, business name, short tagline, one CTA button. Fade-in on load only (simple @keyframes opacity).
+2. Services — exactly 3 cards using real service names from the brief; each card: title + one short sentence.
+3. Contact — form with Name, Email, Phone, Message; hidden ownerEmail field; submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; show success/error inline without reload.
+4. Footer — phone, address if available, copyright © 2025.
+
+## Animations
+- ONLY simple fade-in on page load for hero text (and optionally cards). No scroll animations, no Intersection Observer, no complex WOW effects.
+
+## Design
+- One Google Fonts pairing (display + body). Mobile responsive. Clean, professional, not over-designed.
+- Hero: dark multi-stop linear-gradient + optional subtle radial glow — CSS only.`;
 
 export type BuildSiteInput = {
   city: string;
@@ -171,9 +160,6 @@ async function fetchReferenceImageBlocks(
 function buildUserPrompt(input: BuildSiteInput): string {
   const palette = getPalette(input.paletteId);
   const style = getStyle(input.styleId);
-  const sectionLabels = input.sections
-    .map((id) => id.charAt(0).toUpperCase() + id.slice(1))
-    .join(", ");
   const profile = input.businessProfile;
   const taglineBlock = input.tagline?.trim()
     ? `\n- User-provided tagline/description: ${input.tagline.trim()}`
@@ -221,8 +207,6 @@ function buildUserPrompt(input: BuildSiteInput): string {
 - Price range: ${profile.priceRange ?? "Not available"}
 - Website: ${profile.website ?? "Not available"}
 - Photo URLs (for context only — do NOT use in HTML): ${formatList(profile.photos, "None available")}
-- Reviews to adapt into testimonials: ${formatList(profile.topReviews, "None available")}
-
 ## Color palette — "${palette.name}" (${palette.description})
 Use these as the starting palette. If the brand reference images clearly indicate an existing visual identity, adapt the palette to mirror that identity while staying harmonized with these values:
 - Primary: ${palette.primary}
@@ -232,8 +216,11 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ## Design style — "${style.label}"
 ${style.description}
 
-## Sections to include
-${sectionLabels}
+## Sections to include (exactly four — do not add About, Testimonials, or other sections)
+1. Hero — gradient background, business name, tagline, CTA
+2. Services — exactly 3 cards from the services list below
+3. Contact — form with fetch to /api/contact
+4. Footer — contact details and © 2025
 
 ## Brand reference images (inspiration only)
 - Brand/artwork URLs (analyze colors and style only — never embed as <img> or background-image): ${formatList(profile.brandImageUrls, "None available")}
@@ -242,25 +229,17 @@ ${sectionLabels}
 ${logoInstructions}
 
 ## Visual design (mandatory)
-- Hero: rich dark CSS gradient background only — no external images, no Unsplash, no photo URLs
-- All sections: gradients, solid colors, inline SVG icons, and typography for visual interest
-- Never output an <img> tag unless it uses an inline data URI from an uploaded logo in this request
-- Service cards and about sections: use gradient cards, icons, and color blocks — not stock photos
+- Max 500 lines total. ALL CSS in one <style> block in <head> before <body>.
+- Hero: dark CSS gradient only — no external images.
+- Exactly 3 service cards — pick the top 3 from the services list (or invent 3 plausible ones for the industry).
+- Fade-in on load only; no scroll-triggered or complex animations.
 
 ## Content instructions
-- Use the real phone number and address if they are available.
-- Use the real services list as the basis for the services section.
-- Use the owner name naturally in the copy if it is available.
-- Turn the real review text into polished testimonial pull quotes while staying faithful to the sentiment.
-- Use the Instagram bio and captions as inspiration for the brand voice, taglines, and CTA language.
-- Use brand reference images (if attached) only to infer colors, typography feel, and layout tone — never reproduce them as remote URLs in the HTML.
-- Mirror the brand's visual identity through palette, type, spacing, and CSS/SVG graphics — not through hotlinked photos.
-- If some fields are missing, fill the gaps intelligently without mentioning missing data.
-- In the contact form, set the hidden ownerEmail input value to exactly: ${profile.ownerEmail ?? ""}
-- Implement the contact form with fetch("/api/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(...) }) and show inline loading/error/success states without reloading the page.
-
-## Quality bar
-Award-winning, conversion-focused, visually stunning — never generic. Apply the real business data so the site feels specific, credible, and custom-built. The site must look premium using only CSS gradients, color, type, and motion — zero dependency on external image CDNs.`;
+- Use real phone and address in footer/contact when available.
+- Pick 3 services from: ${formatList(profile.services, "use 3 typical services for the industry")}
+- Use Instagram bio for tagline inspiration if available.
+- Hidden ownerEmail value: ${profile.ownerEmail ?? ""}
+- Keep copy short. Do not add extra sections.`;
 }
 
 function extractHtml(raw: string): string {
@@ -346,7 +325,7 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
 
   const message = await client.messages.create({
     model: MODEL,
-    max_tokens: 16384,
+    max_tokens: 8192,
     system: SYSTEM_PROMPT,
     messages: [
       {
@@ -355,6 +334,12 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
       },
     ],
   });
+
+  if (message.stop_reason === "max_tokens") {
+    throw new Error(
+      "Site generation hit the token limit. Try again or simplify the request.",
+    );
+  }
 
   const textBlock = message.content.find((block) => block.type === "text");
 
