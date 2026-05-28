@@ -13,32 +13,36 @@ import {
 const MODEL = "claude-sonnet-4-5";
 const REMOTE_BRAND_REFERENCE_LIMIT = 3;
 
-const SYSTEM_PROMPT = `You build polished single-page business websites. Keep output SHORT and COMPLETE — the entire file must fit in one response.
+const SYSTEM_PROMPT = `You build polished single-page business websites. The file must be COMPLETE in one response — stay under the line budget.
 
 ## Length and file structure (critical)
-- The full HTML file must be NO MORE than 500 lines total. Be concise: minimal CSS, no redundant rules, no comments.
-- Put ALL CSS in a single <style> block at the TOP of <head> BEFORE any <body> content. If output is truncated, styles must already be complete.
-- Then write <body> HTML only. Put minimal JS in one <script> at the end of <body>.
-- Structure: <!DOCTYPE html> → <html> → <head> (meta, Google Fonts link, <style>...</style>) → <body> (sections) → <script>...</script> → close tags.
-- Output ONLY raw HTML starting with <!DOCTYPE html>. No markdown fences.
+- Maximum 500 lines total. Make every line count: shared utility classes, no duplicate rules, no HTML comments, no markdown fences.
+- Be concise with COPY (short headlines, one-line descriptions) but RICH with DESIGN (gradients, spacing, typography, cards, subtle shadows, inline SVG icons).
+- Put ALL CSS in one <style> block at the TOP of <head> BEFORE any <body> content so styles stay intact if output is cut off.
+- Minimal JS in one <script> at the end of <body>.
+- Structure: <!DOCTYPE html> → <head> (meta, Google Fonts, <style>) → <body> (all sections) → <script> → close tags.
+- Output ONLY raw HTML starting with <!DOCTYPE html>.
 
 ## NO external images
 - NO <img src="https://...">, NO background-image: url(https://...). Google Fonts only as external resource.
 - Inline uploaded logos (base64/SVG from prompt) allowed in header only.
-- Visuals: CSS gradients, solid colors, typography, simple inline SVG icons.
+- All visuals: CSS gradients, solid colors, typography, inline SVG icons, borders, shadows.
 
-## Sections (include ONLY these four — nothing else)
-1. Hero — full-width, rich dark CSS gradient background, business name, short tagline, one CTA button. Fade-in on load only (simple @keyframes opacity).
-2. Services — exactly 3 cards using real service names from the brief; each card: title + one short sentence.
-3. Contact — form with Name, Email, Phone, Message; hidden ownerEmail field; submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; show success/error inline without reload.
-4. Footer — phone, address if available, copyright © 2025.
+## Sections (include ONLY these seven — in this order)
+1. Hero — min-height 100vh (or near), rich dark multi-stop CSS gradient, headline, subheadline, primary CTA button. Simple fade-in on load.
+2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
+3. Services — 4–6 cards in a responsive grid. Each card: small inline SVG icon, title, one short description line. Use real services from the brief.
+4. About — 2-column layout: left = short brand story (2–3 sentences); right = 3–4 key stats or bullet highlights.
+5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
+6. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
+7. Footer — logo/wordmark, links or contact line, copyright © 2025.
 
 ## Animations
-- ONLY simple fade-in on page load for hero text (and optionally cards). No scroll animations, no Intersection Observer, no complex WOW effects.
+- Fade-in on load for hero and main sections only. No scroll animations, no Intersection Observer, no complex effects.
 
 ## Design
-- One Google Fonts pairing (display + body). Mobile responsive. Clean, professional, not over-designed.
-- Hero: dark multi-stop linear-gradient + optional subtle radial glow — CSS only.`;
+- Premium Google Fonts pairing (display + body). Mobile responsive. Gradient hero + lighter gradient bands on alternating sections.
+- Reuse CSS classes (.btn, .card, .section, .grid) to save lines while keeping a polished, high-end look.`;
 
 export type BuildSiteInput = {
   city: string;
@@ -207,6 +211,8 @@ function buildUserPrompt(input: BuildSiteInput): string {
 - Price range: ${profile.priceRange ?? "Not available"}
 - Website: ${profile.website ?? "Not available"}
 - Photo URLs (for context only — do NOT use in HTML): ${formatList(profile.photos, "None available")}
+- Reviews for testimonials: ${formatList(profile.topReviews, "write 3 plausible reviews for the industry")}
+
 ## Color palette — "${palette.name}" (${palette.description})
 Use these as the starting palette. If the brand reference images clearly indicate an existing visual identity, adapt the palette to mirror that identity while staying harmonized with these values:
 - Primary: ${palette.primary}
@@ -216,11 +222,14 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ## Design style — "${style.label}"
 ${style.description}
 
-## Sections to include (exactly four — do not add About, Testimonials, or other sections)
-1. Hero — gradient background, business name, tagline, CTA
-2. Services — exactly 3 cards from the services list below
-3. Contact — form with fetch to /api/contact
-4. Footer — contact details and © 2025
+## Sections to include (exactly seven, in order — no extra sections)
+1. Hero — full screen, gradient, headline, subheadline, CTA
+2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
+3. Services — 4–6 cards from: ${formatList(profile.services, "invent 5 typical services")}
+4. About — 2 columns, short story + stats
+5. Testimonials — 3 reviews with stars (use review text above when available)
+6. Contact — form + sidebar with phone/address/hours
+7. Footer — © 2025
 
 ## Brand reference images (inspiration only)
 - Brand/artwork URLs (analyze colors and style only — never embed as <img> or background-image): ${formatList(profile.brandImageUrls, "None available")}
@@ -229,17 +238,14 @@ ${style.description}
 ${logoInstructions}
 
 ## Visual design (mandatory)
-- Max 500 lines total. ALL CSS in one <style> block in <head> before <body>.
-- Hero: dark CSS gradient only — no external images.
-- Exactly 3 service cards — pick the top 3 from the services list (or invent 3 plausible ones for the industry).
-- Fade-in on load only; no scroll-triggered or complex animations.
+- Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich design (gradients, cards, SVG icons).
+- No external images. CSS gradients only.
+- Fade-in on load only.
 
 ## Content instructions
-- Use real phone and address in footer/contact when available.
-- Pick 3 services from: ${formatList(profile.services, "use 3 typical services for the industry")}
-- Use Instagram bio for tagline inspiration if available.
-- Hidden ownerEmail value: ${profile.ownerEmail ?? ""}
-- Keep copy short. Do not add extra sections.`;
+- Use real phone, address, hours in contact sidebar and footer.
+- Hidden ownerEmail: ${profile.ownerEmail ?? ""}
+- Short copy everywhere; let layout, color, and typography carry the premium feel.`;
 }
 
 function extractHtml(raw: string): string {
