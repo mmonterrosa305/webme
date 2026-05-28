@@ -56,6 +56,50 @@ function extractDomainStem(urlString: string): string | null {
   }
 }
 
+const IGNORED_BUSINESS_NAME_WORDS = new Set([
+  "the",
+  "and",
+  "inc",
+  "llc",
+  "co",
+]);
+
+function getSignificantBusinessNameTokens(businessName: string): string[] {
+  return businessName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(
+      (token) =>
+        token.length >= 2 && !IGNORED_BUSINESS_NAME_WORDS.has(token),
+    );
+}
+
+function getNormalizedHostname(urlString: string): string | null {
+  try {
+    const url = new URL(
+      urlString.startsWith("http") ? urlString : `https://${urlString}`,
+    );
+
+    return url.hostname.replace(/^www\./, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  } catch {
+    return null;
+  }
+}
+
+function domainContainsBusinessNameWord(
+  businessName: string,
+  urlString: string,
+): boolean {
+  const hostname = getNormalizedHostname(urlString);
+  const tokens = getSignificantBusinessNameTokens(businessName);
+
+  if (!hostname || tokens.length === 0) {
+    return false;
+  }
+
+  return tokens.some((token) => hostname.includes(token));
+}
+
 function domainMatchesBusinessName(
   businessName: string,
   domainUrl: string,
@@ -88,22 +132,22 @@ function domainMatchesBusinessName(
   return matchedTokens.length >= Math.min(2, businessTokens.length);
 }
 
-async function verifyWebsiteWithCustomSearch(
-  businessName: string,
-  location: string,
-): Promise<string | false | null> {
+async function runCustomSearch(
+  query: string,
+  numResults: number,
+): Promise<Array<{ link?: string }>> {
   const apiKey = getOptionalCustomSearchApiKey();
   const cx = getOptionalCustomSearchEngineId();
 
   if (!apiKey || !cx) {
-    return null;
+    return [];
   }
 
   const params = new URLSearchParams({
     key: apiKey,
     cx,
-    q: `${businessName} ${location} official website`,
-    num: "1",
+    q: query,
+    num: String(Math.min(Math.max(numResults, 1), 10)),
   });
 
   const response = await fetch(
@@ -118,7 +162,39 @@ async function verifyWebsiteWithCustomSearch(
     items?: Array<{ link?: string }>;
   };
 
-  const topResult = data.items?.[0]?.link;
+  return data.items ?? [];
+}
+
+async function verifyNoWebsiteWithCustomSearch(
+  businessName: string,
+): Promise<string | null> {
+  const items = await runCustomSearch(businessName, 3);
+
+  for (const item of items.slice(0, 3)) {
+    if (item.link && domainContainsBusinessNameWord(businessName, item.link)) {
+      return item.link;
+    }
+  }
+
+  return null;
+}
+
+async function verifyWebsiteWithCustomSearch(
+  businessName: string,
+  location: string,
+): Promise<string | false | null> {
+  const apiKey = getOptionalCustomSearchApiKey();
+  const cx = getOptionalCustomSearchEngineId();
+
+  if (!apiKey || !cx) {
+    return null;
+  }
+
+  const items = await runCustomSearch(
+    `${businessName} ${location} official website`,
+    1,
+  );
+  const topResult = items[0]?.link;
 
   if (!topResult) {
     return false;
@@ -212,6 +288,11 @@ export async function POST(request: Request) {
       pageCount += 1;
     } while (nextPageToken && pageCount < 3);
 
+    const customSearchFlagged: Array<{
+      businessName: string;
+      matchedUrl: string;
+    }> = [];
+
     const leads: LeadSearchResult[] = await Promise.all(
       allResults.map(async (place) => {
         const businessName = place.name ?? "Unknown Business";
@@ -246,6 +327,53 @@ export async function POST(request: Request) {
         }
 
         if (!googleWebsite) {
+          let customSearchMatch: string | null = null;
+
+          try {
+            customSearchMatch = await verifyNoWebsiteWithCustomSearch(
+              businessName,
+            );
+          } catch (verifyError) {
+            console.error(
+              "[leads/search] Custom Search verification failed for no-website business:",
+              {
+                businessName,
+                error:
+                  verifyError instanceof Error
+                    ? verifyError.message
+                    : verifyError,
+              },
+            );
+          }
+
+          if (customSearchMatch) {
+            customSearchFlagged.push({
+              businessName,
+              matchedUrl: customSearchMatch,
+            });
+
+            console.log(
+              "[leads/search] Flagged via Custom Search (no_website → has_site_review):",
+              {
+                businessName,
+                matchedUrl: customSearchMatch,
+              },
+            );
+
+            return {
+              placeId: place.place_id ?? crypto.randomUUID(),
+              businessName,
+              city: location,
+              industry,
+              address: place.formatted_address ?? null,
+              phone,
+              rating: place.rating ?? null,
+              reviewCount: place.user_ratings_total ?? null,
+              website: customSearchMatch,
+              websiteStatus: "has_site_review",
+            };
+          }
+
           return {
             placeId: place.place_id ?? crypto.randomUUID(),
             businessName,
@@ -291,6 +419,17 @@ export async function POST(request: Request) {
         };
       }),
     );
+
+    if (customSearchFlagged.length > 0) {
+      console.log("[leads/search] Custom Search flagged businesses summary:", {
+        count: customSearchFlagged.length,
+        businesses: customSearchFlagged,
+      });
+    } else {
+      console.log(
+        "[leads/search] Custom Search flagged 0 no-website businesses for review.",
+      );
+    }
 
     let saveResult;
 
