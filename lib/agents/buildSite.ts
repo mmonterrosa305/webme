@@ -17,21 +17,26 @@ const SYSTEM_PROMPT = `You build polished single-page business websites. The fil
 
 ## Length and file structure (critical)
 - Maximum 500 lines total. Make every line count: shared utility classes, no duplicate rules, no HTML comments, no markdown fences.
-- Be concise with COPY (short headlines, one-line descriptions) but RICH with DESIGN (gradients, spacing, typography, cards, subtle shadows, inline SVG icons).
+- Be concise with COPY (short headlines, one-line descriptions) but RICH with DESIGN (cinematic imagery, overlays, spacing, typography, cards, subtle shadows).
 - Put ALL CSS in one <style> block at the TOP of <head> BEFORE any <body> content so styles stay intact if output is cut off.
 - Minimal JS in one <script> at the end of <body>.
 - Structure: <!DOCTYPE html> → <head> (meta, Google Fonts, <style>) → <body> (all sections) → <script> → close tags.
 - Output ONLY raw HTML starting with <!DOCTYPE html>.
 
-## NO external images
-- NO <img src="https://...">, NO background-image: url(https://...). Google Fonts only as external resource.
-- Inline uploaded logos (base64/SVG from prompt) allowed in header only.
-- All visuals: CSS gradients, solid colors, typography, inline SVG icons, borders, shadows.
+## Images — Unsplash Source only (reliable format)
+Use ONLY this URL pattern for photos (no other image CDNs, no images.unsplash.com direct links):
+- Format: https://source.unsplash.com/1600x900/?[keyword]
+- Pick ONE industry keyword for the hero (e.g. electrician, plumber, restaurant, salon, dentist, lawyer, landscaping, hvac, roofing, bakery, gym, spa, auto-repair). Use the business industry from the brief; single lowercase English word or hyphenated phrase.
+- Hero: full-screen cinematic background via background-image: url('https://source.unsplash.com/1600x900/?keyword') on the hero section (min-height 100vh, background-size: cover, background-position: center).
+- Hero overlay: pseudo-element or overlay div with background: rgba(0,0,0,0.5) covering the image so white headline text is readable.
+- Hero typography: large bold white headline + subheadline + prominent CTA on top of the overlay. Must feel cinematic — big image, dark overlay, large white text.
+- Services section: each card uses a relevant Unsplash Source image as card background or top image — vary keywords per service (e.g. https://source.unsplash.com/800x600/?wiring, https://source.unsplash.com/800x600/?electrical-panel). Same URL pattern only.
+- Do NOT use scraped business photo URLs, Pexels, or random https images. Google Fonts + Unsplash Source + inline uploaded logos only.
 
 ## Sections (include ONLY these seven — in this order)
-1. Hero — min-height 100vh (or near), rich dark multi-stop CSS gradient, headline, subheadline, primary CTA button. Simple fade-in on load.
+1. Hero — full-screen (100vh), real Unsplash Source background image, dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
-3. Services — 4–6 cards in a responsive grid. Each card: small inline SVG icon, title, one short description line. Use real services from the brief.
+3. Services — 4–6 cards in a responsive grid. Each card: industry-relevant Unsplash Source image + title + one short description. Use real services from the brief.
 4. About — 2-column layout: left = short brand story (2–3 sentences); right = 3–4 key stats or bullet highlights.
 5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
 6. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
@@ -41,8 +46,8 @@ const SYSTEM_PROMPT = `You build polished single-page business websites. The fil
 - Fade-in on load for hero and main sections only. No scroll animations, no Intersection Observer, no complex effects.
 
 ## Design
-- Premium Google Fonts pairing (display + body). Mobile responsive. Gradient hero + lighter gradient bands on alternating sections.
-- Reuse CSS classes (.btn, .card, .section, .grid) to save lines while keeping a polished, high-end look.`;
+- Premium Google Fonts pairing (display + body). Mobile responsive. Cinematic photo hero; alternating section backgrounds (subtle gradients or solid fills) below the hero.
+- Reuse CSS classes (.btn, .card, .section, .grid, .hero-overlay) to save lines while keeping a polished, high-end look.`;
 
 export type BuildSiteInput = {
   city: string;
@@ -210,7 +215,7 @@ function buildUserPrompt(input: BuildSiteInput): string {
 - Yelp categories: ${formatList(profile.yelpCategories)}
 - Price range: ${profile.priceRange ?? "Not available"}
 - Website: ${profile.website ?? "Not available"}
-- Photo URLs (for context only — do NOT use in HTML): ${formatList(profile.photos, "None available")}
+- Photo URLs (do not use — use Unsplash Source format instead): ${formatList(profile.photos, "None available")}
 - Reviews for testimonials: ${formatList(profile.topReviews, "write 3 plausible reviews for the industry")}
 
 ## Color palette — "${palette.name}" (${palette.description})
@@ -223,23 +228,24 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ${style.description}
 
 ## Sections to include (exactly seven, in order — no extra sections)
-1. Hero — full screen, gradient, headline, subheadline, CTA
+1. Hero — full screen, Unsplash Source background (https://source.unsplash.com/1600x900/?keyword for industry: ${input.industry}), rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
-3. Services — 4–6 cards from: ${formatList(profile.services, "invent 5 typical services")}
+3. Services — 4–6 cards with Unsplash Source images per service from: ${formatList(profile.services, "invent 5 typical services")}
 4. About — 2 columns, short story + stats
 5. Testimonials — 3 reviews with stars (use review text above when available)
 6. Contact — form + sidebar with phone/address/hours
 7. Footer — © 2025
 
 ## Brand reference images (inspiration only)
-- Brand/artwork URLs (analyze colors and style only — never embed as <img> or background-image): ${formatList(profile.brandImageUrls, "None available")}
+- Brand/artwork URLs (colors and style only — do not embed; use Unsplash Source for photos): ${formatList(profile.brandImageUrls, "None available")}
 
 ## Logo
 ${logoInstructions}
 
 ## Visual design (mandatory)
-- Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich design (gradients, cards, SVG icons).
-- No external images. CSS gradients only.
+- Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
+- Hero: https://source.unsplash.com/1600x900/?[industry-keyword] + overlay rgba(0,0,0,0.5) + large white text.
+- Service cards: https://source.unsplash.com/800x600/?[service-related-keyword] for each card.
 - Fade-in on load only.
 
 ## Content instructions
