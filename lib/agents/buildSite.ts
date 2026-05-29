@@ -38,11 +38,12 @@ Use only the following exact hero background URLs (do not use source.unsplash.co
 - Barbershop: https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1600&q=80
 - Gym: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&q=80
 - Default: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80
-- Service image URLs (use these exact URLs for service card backgrounds):
-  - Electrical panel/wiring: https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80
-  - Emergency/repair: https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80
-  - Installation: https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&q=80
-  - Commercial: https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?w=800&q=80
+- Service card image URLs (match industry like Hero — use ONLY that industry's 4 URLs for all service cards, cycling card 1–4):
+  - Landscaping — card 1: https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80 | card 2: https://images.unsplash.com/photo-1558904541-efa843a96f01?w=800&q=80 | card 3: https://images.unsplash.com/photo-1599629954294-16b7f0e8b4f0?w=800&q=80 | card 4: https://images.unsplash.com/photo-1592417817098-8fd3d9eb14a5?w=800&q=80
+  - Plumbing — card 1: https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=800&q=80 | card 2: https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80 | card 3: https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=800&q=80 | card 4: https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&q=80
+  - Electrician — card 1: https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80 | card 2: https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80 | card 3: https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&q=80 | card 4: https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80
+  - Restaurant — card 1: https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80 | card 2: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80 | card 3: https://images.unsplash.com/photo-1493770348161-369560ae357d?w=800&q=80 | card 4: https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?w=800&q=80
+  - Other industries (HVAC, Hair Salon, Dental, Law, Cleaning, Auto Repair, Barbershop, Gym): reuse the 4 Electrician service URLs above, or Default hero image repeated across cards if no closer match
 - About section image URLs (match industry — use on the right column in About):
   - Plumbing: https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80
   - Electrician: https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80
@@ -58,12 +59,12 @@ Use only the following exact hero background URLs (do not use source.unsplash.co
 - Gallery row (3 side-by-side images above Contact) — use the SAME industry-matching logic as About/Hero:
   - Image 1: matched About URL for the industry
   - Image 2: matched Hero URL for the industry
-  - Image 3: first service image URL (electrical panel/wiring) or second if more variety needed
+  - Image 3: service card 3 URL for the matched industry
 - Match the business industry to the closest category in each list; if no close match exists, use Default.
 - Hero: full-screen cinematic background-image with the mapped URL (min-height 100vh, background-size: cover, background-position: center).
 - Hero overlay: pseudo-element or overlay div with background rgba(0,0,0,0.5) for text readability.
 - Hero typography: large bold white headline + subheadline + prominent CTA on top of the overlay.
-- Services section: each service card must use one of the service image URLs above as a background image.
+- Services section: each service card must use the industry-matched service card URLs (card 1, 2, 3, 4) as backgrounds — same industry matching logic as Hero.
 - Service card layout: min-height 250px, cover background image, dark overlay, white text content on top.
 - About section layout: strict 2-column layout with text/stats on left and large image on right using the industry-matched About URL (never a generic unrelated photo).
 - Gallery row: 3 industry-matched images side by side directly above Contact (per Gallery rules above).
@@ -72,7 +73,7 @@ Use only the following exact hero background URLs (do not use source.unsplash.co
 ## Sections (include ONLY these eight — in this order)
 1. Hero — full-screen (100vh), mapped fixed industry image URL from the list above, dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
-3. Services — 4–6 cards in a responsive grid. Each card must use one of the exact service image URLs as the card background, with min-height 250px, dark overlay, white title + short description text.
+3. Services — 4 service cards in a responsive grid (use exactly 4 cards). Each card uses industry-matched service image URLs (cards 1–4 for that industry) as background, min-height 250px, dark overlay, white title + short description.
 4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using the industry-matched About URL.
 5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
 6. Gallery row — 3 side-by-side industry-matched images (About + Hero + service URL for that industry).
@@ -267,7 +268,7 @@ ${style.description}
 ## Sections to include (exactly eight, in order — no extra sections)
 1. Hero — full screen, choose the mapped fixed image URL for industry "${input.industry}" from the system prompt list, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
-3. Services — 4–6 cards from: ${formatList(profile.services, "invent 5 typical services")} with backgrounds from the fixed service image URL list in the system prompt
+3. Services — 4 cards from: ${formatList(profile.services, "invent 4 typical services")} — use the 4 industry-matched service card image URLs for "${input.industry}" from the system prompt (same matching as hero)
 4. About — 2 columns: text/stats on left; right = industry-matched About image for "${input.industry}" from the system prompt list
 5. Testimonials — 3 reviews with stars (use review text above when available)
 6. Gallery row — 3 industry-matched images (same matching logic as About/Hero for "${input.industry}")
@@ -283,7 +284,7 @@ ${logoInstructions}
 ## Visual design (mandatory)
 - Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
 - Hero: use the exact mapped industry URL from the system prompt list + overlay rgba(0,0,0,0.5) + large white text.
-- Service cards: min-height 250px, background image from fixed service URLs, dark overlay, white text.
+- Service cards: exactly 4 cards, min-height 250px, industry-matched service image URLs (cards 1–4), dark overlay, white text.
 - About right column: industry-matched About URL only.
 - Gallery row: 3 industry-matched images above Contact.
 - Fade-in on load only.

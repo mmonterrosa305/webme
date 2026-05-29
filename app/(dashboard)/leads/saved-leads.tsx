@@ -46,10 +46,7 @@ function hasBuiltSite(lead: SavedLead): boolean {
 }
 
 function isPendingReview(lead: SavedLead): boolean {
-  return (
-    hasBuiltSite(lead) &&
-    (lead.status === "pending_review" || lead.status === "site_built")
-  );
+  return lead.status === "pending_review" || lead.status === "site_built";
 }
 
 function isApproved(lead: SavedLead): boolean {
@@ -85,6 +82,7 @@ export function SavedLeads() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
 
@@ -177,6 +175,7 @@ export function SavedLeads() {
 
   async function handleApprove(lead: SavedLead) {
     setActionError(null);
+    setSuccessMessage(null);
     setPending(lead.id, true);
 
     try {
@@ -202,6 +201,7 @@ export function SavedLeads() {
     }
 
     setActionError(null);
+    setSuccessMessage(null);
     setRegenerating(lead.id, true);
 
     try {
@@ -229,6 +229,7 @@ export function SavedLeads() {
       }
 
       await loadLeads();
+      setSuccessMessage(`Site regenerated for ${lead.business_name}.`);
     } catch (regenerateError) {
       setActionError(
         regenerateError instanceof Error
@@ -246,6 +247,7 @@ export function SavedLeads() {
     }
 
     setActionError(null);
+    setSuccessMessage(null);
     setPending(id, true);
 
     try {
@@ -272,18 +274,37 @@ export function SavedLeads() {
 
   async function handleSendOutreach(lead: SavedLead) {
     setActionError(null);
+    setSuccessMessage(null);
     setPending(lead.id, true);
 
     try {
-      const updated = await patchLead(lead.id, "outreach_sent");
+      const response = await fetch("/api/outreach/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: lead.id }),
+      });
+
+      const data = (await response.json()) as {
+        lead?: SavedLead;
+        previewUrl?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.lead) {
+        throw new Error(data.error ?? "Failed to send outreach email.");
+      }
+
       setLeads((current) =>
-        current.map((item) => (item.id === lead.id ? updated : item)),
+        current.map((item) => (item.id === lead.id ? data.lead! : item)),
+      );
+      setSuccessMessage(
+        `Outreach email sent to ${lead.business_name}${data.previewUrl ? ` — preview: ${data.previewUrl}` : ""}.`,
       );
     } catch (outreachError) {
       setActionError(
         outreachError instanceof Error
           ? outreachError.message
-          : "Failed to mark outreach sent.",
+          : "Failed to send outreach email.",
       );
     } finally {
       setPending(lead.id, false);
@@ -343,10 +364,10 @@ export function SavedLeads() {
                 <button
                   type="button"
                   disabled={isActionPending || isRegenerating}
-                  onClick={() => handleRegenerate(lead)}
+                  onClick={() => void handleRegenerate(lead)}
                   className="text-left text-sm font-medium text-blue-700 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Regenerate
+                  {isRegenerating ? "Regenerating..." : "Regenerate"}
                 </button>
               </>
             ) : null}
@@ -357,7 +378,7 @@ export function SavedLeads() {
                 onClick={() => handleSendOutreach(lead)}
                 className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isActionPending ? "Saving..." : "Send Outreach"}
+                {isActionPending ? "Sending..." : "Send Outreach"}
               </button>
             ) : null}
             <button
@@ -386,6 +407,11 @@ export function SavedLeads() {
       {error ? (
         <p className="px-5 py-5 text-sm text-red-600" role="alert">
           {error}
+        </p>
+      ) : null}
+      {successMessage ? (
+        <p className="px-5 pb-5 text-sm text-emerald-700" role="status">
+          {successMessage}
         </p>
       ) : null}
       {actionError ? (
