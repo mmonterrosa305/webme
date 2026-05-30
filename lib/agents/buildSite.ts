@@ -3,6 +3,10 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages
 
 import type { BusinessProfile } from "./scrapeBusinessData";
 import {
+  buildIndustryHeroListForPrompt,
+  formatIndustryImagePromptBlock,
+} from "./industry-images";
+import {
   COLOR_PALETTES,
   DESIGN_STYLES,
   type PaletteId,
@@ -24,43 +28,16 @@ const SYSTEM_PROMPT = `You build polished single-page business websites. The fil
 - Output ONLY raw HTML starting with <!DOCTYPE html>.
 
 ## Images — fixed industry URL map (required)
-Use only the following exact hero background URLs (do not use source.unsplash.com):
-- Electrician: https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1600&q=80
-- Plumbing: https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1600&q=80
-- HVAC: https://images.unsplash.com/photo-1631545806609-27a0d3f26e2e?w=1600&q=80
-- Restaurant: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&q=80
-- Hair Salon: https://images.unsplash.com/photo-1560066984-138daaa8e6d9?w=1600&q=80
-- Dental: https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=1600&q=80
-- Law: https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1600&q=80
-- Landscaping: https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1600&q=80
-- Cleaning: https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1600&q=80
-- Auto Repair: https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=1600&q=80
-- Barbershop: https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1600&q=80
-- Gym: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&q=80
-- Default: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80
-- Service card image URLs (match industry like Hero — use ONLY that industry's 4 URLs for all service cards, cycling card 1–4):
-  - Landscaping — card 1: https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80 | card 2: https://images.unsplash.com/photo-1558904541-efa843a96f01?w=800&q=80 | card 3: https://images.unsplash.com/photo-1599629954294-16b7f0e8b4f0?w=800&q=80 | card 4: https://images.unsplash.com/photo-1592417817098-8fd3d9eb14a5?w=800&q=80
-  - Plumbing — card 1: https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=800&q=80 | card 2: https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80 | card 3: https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=800&q=80 | card 4: https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&q=80
-  - Electrician — card 1: https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80 | card 2: https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80 | card 3: https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&q=80 | card 4: https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80
-  - Restaurant — card 1: https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80 | card 2: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80 | card 3: https://images.unsplash.com/photo-1493770348161-369560ae357d?w=800&q=80 | card 4: https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?w=800&q=80
-  - Other industries (HVAC, Hair Salon, Dental, Law, Cleaning, Auto Repair, Barbershop, Gym): reuse the 4 Electrician service URLs above, or Default hero image repeated across cards if no closer match
-- About section image URLs (match industry — use on the right column in About):
-  - Plumbing: https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80
-  - Electrician: https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80
-  - HVAC: https://images.unsplash.com/photo-1631545806609-27a0d3f26e2e?w=800&q=80
-  - Restaurant: https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80
-  - Landscaping: https://images.unsplash.com/photo-1558904541-efa843a96f01?w=800&q=80
-  - Hair Salon: https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=800&q=80
-  - Dental: https://images.unsplash.com/photo-1609840114035-3c981b782dfe?w=800&q=80
-  - Law: https://images.unsplash.com/photo-1589994965851-a8f479c573a9?w=800&q=80
-  - Auto Repair: https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=800&q=80
-  - Cleaning: https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&q=80
-  - Default: https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80
-- Gallery row (3 side-by-side images above Contact) — use the SAME industry-matching logic as About/Hero:
-  - Image 1: matched About URL for the industry
-  - Image 2: matched Hero URL for the industry
-  - Image 3: service card 3 URL for the matched industry
-- Match the business industry to the closest category in each list; if no close match exists, use Default.
+Use only these exact hero background URLs (do not use source.unsplash.com):
+${buildIndustryHeroListForPrompt()}
+- Service card image URLs (match industry like Hero — use ONLY that industry's 4 URLs from the Resolved industry images block in the user prompt):
+  - Landscaping — card 1–4: landscaping set (see industry-images)
+  - Plumbing, Electrician, Restaurant — use their 4-card sets from resolved images
+  - All other industries — use the 4 service card URLs from the Resolved industry images block (derived from matched hero)
+- About section — use the About URL from the Resolved industry images block in the user prompt
+- Gallery row — About URL, Hero URL, Service card 3 URL (from Resolved industry images block)
+- The user prompt includes a **Resolved industry images** section with exact URLs for this business — ALWAYS use those URLs instead of guessing
+- Keyword fallback matching (when resolving): pest, pool, roof, floor, paint, moving, nail, barber, hair, real estate, yoga, bakery, florist, construction/contractor, landscaping, plumbing, hvac, electrician, restaurant/food, dental, law, cleaning, auto/gym — else Default
 - Hero: full-screen cinematic background-image with the mapped URL (min-height 100vh, background-size: cover, background-position: center).
 - Hero overlay: pseudo-element or overlay div with background rgba(0,0,0,0.5) for text readability.
 - Hero typography: large bold white headline + subheadline + prominent CTA on top of the overlay.
@@ -265,13 +242,15 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ## Design style — "${style.label}"
 ${style.description}
 
+${formatIndustryImagePromptBlock(input.industry)}
+
 ## Sections to include (exactly eight, in order — no extra sections)
-1. Hero — full screen, choose the mapped fixed image URL for industry "${input.industry}" from the system prompt list, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
+1. Hero — full screen, use the exact Hero URL from Resolved industry images above, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
-3. Services — 4 cards from: ${formatList(profile.services, "invent 4 typical services")} — use the 4 industry-matched service card image URLs for "${input.industry}" from the system prompt (same matching as hero)
-4. About — 2 columns: text/stats on left; right = industry-matched About image for "${input.industry}" from the system prompt list
+3. Services — 4 cards from: ${formatList(profile.services, "invent 4 typical services")} — use Service cards 1–4 URLs from Resolved industry images above
+4. About — 2 columns: text/stats on left; right = exact About URL from Resolved industry images above
 5. Testimonials — 3 reviews with stars (use review text above when available)
-6. Gallery row — 3 industry-matched images (same matching logic as About/Hero for "${input.industry}")
+6. Gallery row — 3 images from Resolved industry images (About, Hero, Service card 3)
 7. Contact — form + sidebar with phone/address/hours
 8. Footer — © 2025
 
@@ -283,10 +262,7 @@ ${logoInstructions}
 
 ## Visual design (mandatory)
 - Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
-- Hero: use the exact mapped industry URL from the system prompt list + overlay rgba(0,0,0,0.5) + large white text.
-- Service cards: exactly 4 cards, min-height 250px, industry-matched service image URLs (cards 1–4), dark overlay, white text.
-- About right column: industry-matched About URL only.
-- Gallery row: 3 industry-matched images above Contact.
+- Use ONLY the exact URLs from Resolved industry images — do not substitute or invent URLs.
 - Fade-in on load only.
 
 ## Content instructions
