@@ -28,13 +28,14 @@ const SYSTEM_PROMPT = `You build polished single-page business websites. The fil
 - Output ONLY raw HTML starting with <!DOCTYPE html>.
 
 ## Images — fixed industry URL map (required)
+CRITICAL: Every image must show work being done, tools, or the final result of the service. NEVER use images of plants, furniture, or unrelated objects. If unsure, use the hero image again.
 Use only images.unsplash.com URLs from the Resolved industry images block in the user prompt (do not use source.unsplash.com).
-Each site has exactly 9 unique images — one per section slot:
+Each site has 9 labeled image slots — use the exact URL for each slot:
 - Hero → full-screen background only
 - About → About section right column only
 - Service1, Service2, Service3, Service4 → service cards 1–4 backgrounds only
 - Gallery1, Gallery2, Gallery3 → gallery row left, center, right only
-NEVER reuse any image URL in more than one section. The user prompt lists all 9 labeled URLs.
+Use each labeled URL in its designated section only. The user prompt lists all 9 URLs.
 Hero reference list (for category matching only — use exact URLs from user prompt):
 ${buildIndustryHeroListForPrompt()}
 - Hero: full-screen cinematic background-image (min-height 100vh, background-size: cover, background-position: center).
@@ -50,7 +51,7 @@ ${buildIndustryHeroListForPrompt()}
 3. Services — 4 service cards in a responsive grid. Card backgrounds: Service1, Service2, Service3, Service4 (each a different photo). Min-height 250px, dark overlay, white title + short description.
 4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using About URL only.
 5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
-6. Gallery row — 3 side-by-side images using Gallery1, Gallery2, Gallery3 from Resolved industry images (each unique).
+6. Gallery row — 3 side-by-side images using Gallery1, Gallery2, Gallery3 from Resolved industry images.
 7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
 8. Footer — logo/wordmark, links or contact line, copyright © 2025.
 
@@ -259,7 +260,8 @@ ${logoInstructions}
 
 ## Visual design (mandatory)
 - Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
-- Use ONLY the 9 labeled URLs from Resolved industry images — each URL once, in its designated section.
+- CRITICAL: Every image must show work being done, tools, or the final result of the service. NEVER use plants, furniture, or unrelated objects. If unsure, use the Hero URL.
+- Use ONLY the 9 labeled URLs from Resolved industry images in their designated sections.
 - Fade-in on load only.
 
 ## Content instructions

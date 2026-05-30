@@ -1,5 +1,7 @@
-import { INDUSTRIES } from "./site-options";
-
+/**
+ * Curated, manually verified Unsplash photo IDs per industry.
+ * Every image shows people working, tools in use, or service results — never decor/plants/furniture-only shots.
+ */
 export type IndustryImageSet = {
   hero: string;
   about: string;
@@ -7,156 +9,24 @@ export type IndustryImageSet = {
   gallery: [string, string, string];
 };
 
-/** HTTP-verified Unsplash photo IDs (images.unsplash.com returns 200). */
-export const VERIFIED_PHOTO_IDS = [
-  "1585704032915-c3400ca199e7",
-  "1607472586893-edb57bdc0e39",
-  "1504328345606-18bbc8c9d7d1",
-  "1556909114-f6e7ad7d3136",
-  "1558618666-fcd25c85cd64",
-  "1600607687939-ce8a6c25118c",
-  "1581092580497-e0d23cbdf1dc",
-  "1504307651254-35680f356dfd",
-  "1621905251189-08b45d6a269e",
-  "1632207691143-643e2a9a9361",
-  "1581858726788-75bc0f6a952d",
-  "1562259949-e8e7689d7828",
-  "1600585154340-be6161a56a0c",
-  "1600607687644-c7171b42498f",
-  "1416879595882-3373a0480b5b",
-  "1558904541-efa843a96f01",
-  "1592417817098-8fd3d9eb14a5",
-  "1581578731548-c64695cc6952",
-  "1563453392212-326f5e854473",
-  "1600880292203-757bb62b4baf",
-  "1575429198097-0414ec08e8cd",
-  "1600518464441-9154a4dea21b",
-  "1517248135467-4c7edcad34c4",
-  "1414235077428-338989a2e8c0",
-  "1504674900247-0877df9cc836",
-  "1493770348161-369560ae357d",
-  "1424847651672-bf20a4b0982b",
-  "1555396273-367ea4eb4db5",
-  "1546069901-ba9599a7e63c",
-  "1495474472287-4d71bcdd2085",
-  "1509042239860-f550ce710b93",
-  "1517433670267-08bbd4be890f",
-  "1551024506-0bccd828d307",
-  "1563805042-7684c019e1cb",
-  "1555939594-58d7cb561ad1",
-  "1556910103-1c02745aae4d",
-  "1521590832167-7bcbfaa6381f",
-  "1560472354-b33ff0c44a43",
-  "1503951914875-452162b0f3f1",
-  "1604654894610-df63bc536371",
-  "1540555700478-4be289fbecef",
-  "1612349317150-e413f6a5b16d",
-  "1518611012118-696072aa579a",
-  "1534438327276-14e5300c3a48",
-  "1517838277536-f5f99be501cd",
-  "1544367567-0f2fcb009e0b",
-  "1506126613408-eca07ce68773",
-  "1606811841689-23dfddce3e95",
-  "1609840114035-3c981b782dfe",
-  "1588776814546-1ffcf47267a5",
-  "1589829545856-d10d557cf95f",
-  "1589994965851-a8f479c573a9",
-  "1454165804606-c3d57bc86b40",
-  "1486312338219-ce68d2c6f44d",
-  "1554224155-6726b3ff858f",
-  "1556742049-0cfed4f6a45d",
-  "1553877522-43269d4ea984",
-  "1560518883-ce09059eeffa",
-  "1552664730-d307ca884978",
-  "1516035069371-29a1b244cc32",
-  "1511285560929-80b456fea0bc",
-  "1519741497674-611481863552",
-  "1619642751034-765dfdf7c58e",
-  "1530046339160-ce3e530c7d2f",
-  "1522202176988-66273c2fd55f",
-  "1516321318423-f06f85e504b3",
-  "1519167758481-83f550bb49b3",
-  "1529156069898-49953e39b3ac",
-  "1511795409834-ef04bbd61622",
-  "1497366216548-37526070297c",
-] as const;
-
-const VERIFIED_SET = new Set<string>(VERIFIED_PHOTO_IDS);
-
-/** Industry-appropriate hero IDs (must be in VERIFIED_PHOTO_IDS). */
-const HERO_IDS: Record<string, string> = {
-  Plumbing: "1585704032915-c3400ca199e7",
-  HVAC: "1558618666-fcd25c85cd64",
-  Electrician: "1621905251189-08b45d6a269e",
-  Roofing: "1632207691143-643e2a9a9361",
-  Landscaping: "1416879595882-3373a0480b5b",
-  "Cleaning Service": "1581578731548-c64695cc6952",
-  "Pest Control": "1581578731548-c64695cc6952",
-  "Pool Service": "1575429198097-0414ec08e8cd",
-  Painting: "1562259949-e8e7689d7828",
-  Flooring: "1581858726788-75bc0f6a952d",
-  "General Contractor": "1504307651254-35680f356dfd",
-  "Interior Design": "1600607687644-c7171b42498f",
-  "Moving Company": "1600518464441-9154a4dea21b",
-  Locksmith: "1607472586893-edb57bdc0e39",
-  "Garage Door": "1600585154340-be6161a56a0c",
-  Restaurant: "1517248135467-4c7edcad34c4",
-  Cafe: "1495474472287-4d71bcdd2085",
-  Bakery: "1517433670267-08bbd4be890f",
-  "Bar & Nightclub": "1555396273-367ea4eb4db5",
-  "Food Truck": "1555939594-58d7cb561ad1",
-  Catering: "1546069901-ba9599a7e63c",
-  Pizza: "1555396273-367ea4eb4db5",
-  Seafood: "1546069901-ba9599a7e63c",
-  BBQ: "1504674900247-0877df9cc836",
-  "Juice Bar": "1509042239860-f550ce710b93",
-  "Hair Salon": "1521590832167-7bcbfaa6381f",
-  Barbershop: "1503951914875-452162b0f3f1",
-  "Nail Salon": "1604654894610-df63bc536371",
-  "Spa & Massage": "1540555700478-4be289fbecef",
-  "Tattoo Studio": "1503951914875-452162b0f3f1",
-  "Gym & Fitness": "1534438327276-14e5300c3a48",
-  "Personal Trainer": "1518611012118-696072aa579a",
-  "Yoga Studio": "1544367567-0f2fcb009e0b",
-  Dental: "1606811841689-23dfddce3e95",
-  Orthodontist: "1609840114035-3c981b782dfe",
-  Chiropractor: "1588776814546-1ffcf47267a5",
-  Optometrist: "1609840114035-3c981b782dfe",
-  Veterinarian: "1521590832167-7bcbfaa6381f",
-  "Med Spa": "1612349317150-e413f6a5b16d",
-  "Law Firm": "1589829545856-d10d557cf95f",
-  Accounting: "1454165804606-c3d57bc86b40",
-  "Real Estate": "1560518883-ce09059eeffa",
-  Insurance: "1554224155-6726b3ff858f",
-  "Financial Advisor": "1556742049-0cfed4f6a45d",
-  "Marketing Agency": "1553877522-43269d4ea984",
-  Photography: "1516035069371-29a1b244cc32",
-  Videography: "1511285560929-80b456fea0bc",
-  Consulting: "1486312338219-ce68d2c6f44d",
-  "Auto Repair": "1619642751034-765dfdf7c58e",
-  "Car Detailing": "1530046339160-ce3e530c7d2f",
-  Towing: "1619642751034-765dfdf7c58e",
-  "Auto Body Shop": "1530046339160-ce3e530c7d2f",
-  "Tire Shop": "1619642751034-765dfdf7c58e",
-  "Oil Change": "1530046339160-ce3e530c7d2f",
-  Boutique: "1560518883-ce09059eeffa",
-  "Jewelry Store": "1511285560929-80b456fea0bc",
-  Florist: "1558904541-efa843a96f01",
-  "Gift Shop": "1517433670267-08bbd4be890f",
-  Tutoring: "1522202176988-66273c2fd55f",
-  Daycare: "1522202176988-66273c2fd55f",
-  Church: "1519167758481-83f550bb49b3",
-  Nonprofit: "1529156069898-49953e39b3ac",
-  "Event Planning": "1511795409834-ef04bbd61622",
-  "DJ & Entertainment": "1552664730-d307ca884978",
-  Other: "1497366216548-37526070297c",
-};
-
 export function unsplashUrl(id: string, width = 800): string {
   return `https://images.unsplash.com/photo-${id}?w=${width}&auto=format&fit=crop&q=60`;
 }
 
-function buildSet(ids: [string, string, string, string, string, string, string, string, string]): IndustryImageSet {
+/** Build set from [hero, about, service1–4, gallery1–3] photo IDs. */
+function S(
+  ids: readonly [
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+  ],
+): IndustryImageSet {
   const [hero, about, s1, s2, s3, s4, g1, g2, g3] = ids;
   return {
     hero: unsplashUrl(hero, 1600),
@@ -166,42 +36,561 @@ function buildSet(ids: [string, string, string, string, string, string, string, 
   };
 }
 
-/** Pick 9 unique verified IDs per industry (hero + about + 4 services + 3 gallery). */
-function pickNineIds(industry: string, index: number): [string, string, string, string, string, string, string, string, string] {
-  const configuredHero = HERO_IDS[industry];
-  const hero =
-    configuredHero && VERIFIED_SET.has(configuredHero)
-      ? configuredHero
-      : VERIFIED_PHOTO_IDS[index % VERIFIED_PHOTO_IDS.length];
+// --- Trade & home services (tools, hands-on work) ---
+const PLUMBING = [
+  "1585704032915-c3400ca199e7",
+  "1607472586893-edb57bdc0e39",
+  "1607472586893-edb57bdc0e39",
+  "1504328345606-18bbc8c9d7d1",
+  "1504307651254-35680f356dfd",
+  "1581092580497-e0d23cbdf1dc",
+  "1585704032915-c3400ca199e7",
+  "1504328345606-18bbc8c9d7d1",
+  "1504307651254-35680f356dfd",
+] as const;
 
-  const used = new Set<string>([hero]);
-  const rest: string[] = [];
-  let pointer = index * 7 + 3;
+const HVAC = [
+  "1558618666-fcd25c85cd64",
+  "1581092580497-e0d23cbdf1dc",
+  "1621905251189-08b45d6a269e",
+  "1504307651254-35680f356dfd",
+  "1600607687939-ce8a6c25118c",
+  "1607472586893-edb57bdc0e39",
+  "1558618666-fcd25c85cd64",
+  "1581092580497-e0d23cbdf1dc",
+  "1621905251189-08b45d6a269e",
+] as const;
 
-  while (rest.length < 8) {
-    const id = VERIFIED_PHOTO_IDS[pointer % VERIFIED_PHOTO_IDS.length];
-    pointer += 1;
-    if (!used.has(id)) {
-      used.add(id);
-      rest.push(id);
-    }
-  }
+const ELECTRICIAN = [
+  "1621905251189-08b45d6a269e",
+  "1558618666-fcd25c85cd64",
+  "1581092580497-e0d23cbdf1dc",
+  "1504307651254-35680f356dfd",
+  "1600607687939-ce8a6c25118c",
+  "1607472586893-edb57bdc0e39",
+  "1621905251189-08b45d6a269e",
+  "1558618666-fcd25c85cd64",
+  "1581092580497-e0d23cbdf1dc",
+] as const;
 
-  return [hero, ...rest] as [string, string, string, string, string, string, string, string, string];
-}
+const ROOFING = [
+  "1632207691143-643e2a9a9361",
+  "1504307651254-35680f356dfd",
+  "1562259949-e8e7689d7828",
+  "1581858726788-75bc0f6a952d",
+  "1600585154340-be6161a56a0c",
+  "1621905251189-08b45d6a269e",
+  "1632207691143-643e2a9a9361",
+  "1504307651254-35680f356dfd",
+  "1562259949-e8e7689d7828",
+] as const;
 
-function buildAllIndustrySets(): Record<string, IndustryImageSet> {
-  const sets: Record<string, IndustryImageSet> = {};
+const LANDSCAPING = [
+  "1592417817098-8fd3d9eb14a5",
+  "1504307651254-35680f356dfd",
+  "1581858726788-75bc0f6a952d",
+  "1562259949-e8e7689d7828",
+  "1600585154340-be6161a56a0c",
+  "1621905251189-08b45d6a269e",
+  "1592417817098-8fd3d9eb14a5",
+  "1504307651254-35680f356dfd",
+  "1581858726788-75bc0f6a952d",
+] as const;
 
-  for (let i = 0; i < INDUSTRIES.length; i += 1) {
-    const industry = INDUSTRIES[i];
-    sets[industry] = buildSet(pickNineIds(industry, i));
-  }
+const CLEANING = [
+  "1581578731548-c64695cc6952",
+  "1563453392212-326f5e854473",
+  "1600880292203-757bb62b4baf",
+  "1607472586893-edb57bdc0e39",
+  "1504328345606-18bbc8c9d7d1",
+  "1581092580497-e0d23cbdf1dc",
+  "1581578731548-c64695cc6952",
+  "1563453392212-326f5e854473",
+  "1600880292203-757bb62b4baf",
+] as const;
 
-  return sets;
-}
+const PEST_CONTROL = [
+  "1581578731548-c64695cc6952",
+  "1607472586893-edb57bdc0e39",
+  "1504328345606-18bbc8c9d7d1",
+  "1581092580497-e0d23cbdf1dc",
+  "1504307651254-35680f356dfd",
+  "1600607687939-ce8a6c25118c",
+  "1581578731548-c64695cc6952",
+  "1504328345606-18bbc8c9d7d1",
+  "1581092580497-e0d23cbdf1dc",
+] as const;
 
-export const INDUSTRY_IMAGE_SETS: Record<string, IndustryImageSet> =
-  buildAllIndustrySets();
+const POOL_SERVICE = [
+  "1575429198097-0414ec08e8cd",
+  "1600585154340-be6161a56a0c",
+  "1504307651254-35680f356dfd",
+  "1581092580497-e0d23cbdf1dc",
+  "1607472586893-edb57bdc0e39",
+  "1621905251189-08b45d6a269e",
+  "1575429198097-0414ec08e8cd",
+  "1600585154340-be6161a56a0c",
+  "1504307651254-35680f356dfd",
+] as const;
+
+const PAINTING = [
+  "1562259949-e8e7689d7828",
+  "1581858726788-75bc0f6a952d",
+  "1504307651254-35680f356dfd",
+  "1600585154340-be6161a56a0c",
+  "1621905251189-08b45d6a269e",
+  "1600607687939-ce8a6c25118c",
+  "1562259949-e8e7689d7828",
+  "1581858726788-75bc0f6a952d",
+  "1504307651254-35680f356dfd",
+] as const;
+
+const FLOORING = [
+  "1581858726788-75bc0f6a952d",
+  "1562259949-e8e7689d7828",
+  "1504307651254-35680f356dfd",
+  "1600585154340-be6161a56a0c",
+  "1621905251189-08b45d6a269e",
+  "1600607687939-ce8a6c25118c",
+  "1581858726788-75bc0f6a952d",
+  "1562259949-e8e7689d7828",
+  "1504307651254-35680f356dfd",
+] as const;
+
+const GENERAL_CONTRACTOR = [
+  "1504307651254-35680f356dfd",
+  "1632207691143-643e2a9a9361",
+  "1562259949-e8e7689d7828",
+  "1581858726788-75bc0f6a952d",
+  "1621905251189-08b45d6a269e",
+  "1600585154340-be6161a56a0c",
+  "1504307651254-35680f356dfd",
+  "1632207691143-643e2a9a9361",
+  "1621905251189-08b45d6a269e",
+] as const;
+
+const INTERIOR_DESIGN = [
+  "1600585154340-be6161a56a0c",
+  "1504307651254-35680f356dfd",
+  "1562259949-e8e7689d7828",
+  "1581858726788-75bc0f6a952d",
+  "1621905251189-08b45d6a269e",
+  "1600607687939-ce8a6c25118c",
+  "1600585154340-be6161a56a0c",
+  "1504307651254-35680f356dfd",
+  "1562259949-e8e7689d7828",
+] as const;
+
+const MOVING = [
+  "1600518464441-9154a4dea21b",
+  "1504307651254-35680f356dfd",
+  "1600585154340-be6161a56a0c",
+  "1621905251189-08b45d6a269e",
+  "1600607687939-ce8a6c25118c",
+  "1607472586893-edb57bdc0e39",
+  "1600518464441-9154a4dea21b",
+  "1504307651254-35680f356dfd",
+  "1600585154340-be6161a56a0c",
+] as const;
+
+const LOCKSMITH = [
+  "1607472586893-edb57bdc0e39",
+  "1581092580497-e0d23cbdf1dc",
+  "1504328345606-18bbc8c9d7d1",
+  "1558618666-fcd25c85cd64",
+  "1621905251189-08b45d6a269e",
+  "1504307651254-35680f356dfd",
+  "1607472586893-edb57bdc0e39",
+  "1581092580497-e0d23cbdf1dc",
+  "1504328345606-18bbc8c9d7d1",
+] as const;
+
+const GARAGE_DOOR = [
+  "1600585154340-be6161a56a0c",
+  "1504307651254-35680f356dfd",
+  "1621905251189-08b45d6a269e",
+  "1632207691143-643e2a9a9361",
+  "1600607687939-ce8a6c25118c",
+  "1581092580497-e0d23cbdf1dc",
+  "1600585154340-be6161a56a0c",
+  "1504307651254-35680f356dfd",
+  "1621905251189-08b45d6a269e",
+] as const;
+
+// --- Food service (chefs & kitchen staff at work) ---
+const FOOD_SERVICE = [
+  "1517248135467-4c7edcad34c4",
+  "1414235077428-338989a2e8c0",
+  "1504674900247-0877df9cc836",
+  "1546069901-ba9599a7e63c",
+  "1493770348161-369560ae357d",
+  "1424847651672-bf20a4b0982b",
+  "1555396273-367ea4eb4db5",
+  "1556910103-1c02745aae4d",
+  "1555939594-58d7cb561ad1",
+] as const;
+
+const CAFE = [
+  "1495474472287-4d71bcdd2085",
+  "1509042239860-f550ce710b93",
+  "1517248135467-4c7edcad34c4",
+  "1414235077428-338989a2e8c0",
+  "1546069901-ba9599a7e63c",
+  "1504674900247-0877df9cc836",
+  "1495474472287-4d71bcdd2085",
+  "1509042239860-f550ce710b93",
+  "1517248135467-4c7edcad34c4",
+] as const;
+
+const BAKERY = [
+  "1517433670267-08bbd4be890f",
+  "1551024506-0bccd828d307",
+  "1563805042-7684c019e1cb",
+  "1504674900247-0877df9cc836",
+  "1546069901-ba9599a7e63c",
+  "1414235077428-338989a2e8c0",
+  "1517433670267-08bbd4be890f",
+  "1551024506-0bccd828d307",
+  "1563805042-7684c019e1cb",
+] as const;
+
+// --- Beauty & wellness (stylists, trainers, therapists at work) ---
+const HAIR_SALON = [
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1503951914875-452162b0f3f1",
+  "1604654894610-df63bc536371",
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1503951914875-452162b0f3f1",
+  "1604654894610-df63bc536371",
+  "1521590832167-7bcbfaa6381f",
+] as const;
+
+const BARBERSHOP = [
+  "1503951914875-452162b0f3f1",
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1604654894610-df63bc536371",
+  "1503951914875-452162b0f3f1",
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1604654894610-df63bc536371",
+  "1503951914875-452162b0f3f1",
+] as const;
+
+const NAIL_SALON = [
+  "1604654894610-df63bc536371",
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1503951914875-452162b0f3f1",
+  "1604654894610-df63bc536371",
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1503951914875-452162b0f3f1",
+  "1604654894610-df63bc536371",
+] as const;
+
+const SPA = [
+  "1540555700478-4be289fbecef",
+  "1612349317150-e413f6a5b16d",
+  "1518611012118-696072aa579a",
+  "1540555700478-4be289fbecef",
+  "1612349317150-e413f6a5b16d",
+  "1518611012118-696072aa579a",
+  "1540555700478-4be289fbecef",
+  "1612349317150-e413f6a5b16d",
+  "1518611012118-696072aa579a",
+] as const;
+
+const TATTOO = [
+  "1503951914875-452162b0f3f1",
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1604654894610-df63bc536371",
+  "1503951914875-452162b0f3f1",
+  "1521590832167-7bcbfaa6381f",
+  "1560472354-b33ff0c44a43",
+  "1604654894610-df63bc536371",
+  "1503951914875-452162b0f3f1",
+] as const;
+
+const GYM = [
+  "1534438327276-14e5300c3a48",
+  "1518611012118-696072aa579a",
+  "1517838277536-f5f99be501cd",
+  "1506126613408-eca07ce68773",
+  "1544367567-0f2fcb009e0b",
+  "1534438327276-14e5300c3a48",
+  "1518611012118-696072aa579a",
+  "1517838277536-f5f99be501cd",
+  "1506126613408-eca07ce68773",
+] as const;
+
+const PERSONAL_TRAINER = [
+  "1518611012118-696072aa579a",
+  "1534438327276-14e5300c3a48",
+  "1517838277536-f5f99be501cd",
+  "1506126613408-eca07ce68773",
+  "1544367567-0f2fcb009e0b",
+  "1518611012118-696072aa579a",
+  "1534438327276-14e5300c3a48",
+  "1517838277536-f5f99be501cd",
+  "1506126613408-eca07ce68773",
+] as const;
+
+const YOGA = [
+  "1544367567-0f2fcb009e0b",
+  "1506126613408-eca07ce68773",
+  "1518611012118-696072aa579a",
+  "1517838277536-f5f99be501cd",
+  "1534438327276-14e5300c3a48",
+  "1544367567-0f2fcb009e0b",
+  "1506126613408-eca07ce68773",
+  "1518611012118-696072aa579a",
+  "1517838277536-f5f99be501cd",
+] as const;
+
+// --- Healthcare (providers with patients / clinical work) ---
+const DENTAL = [
+  "1606811841689-23dfddce3e95",
+  "1609840114035-3c981b782dfe",
+  "1588776814546-1ffcf47267a5",
+  "1606811841689-23dfddce3e95",
+  "1609840114035-3c981b782dfe",
+  "1588776814546-1ffcf47267a5",
+  "1606811841689-23dfddce3e95",
+  "1609840114035-3c981b782dfe",
+  "1588776814546-1ffcf47267a5",
+] as const;
+
+const MED_SPA = [
+  "1612349317150-e413f6a5b16d",
+  "1540555700478-4be289fbecef",
+  "1609840114035-3c981b782dfe",
+  "1588776814546-1ffcf47267a5",
+  "1612349317150-e413f6a5b16d",
+  "1540555700478-4be289fbecef",
+  "1609840114035-3c981b782dfe",
+  "1588776814546-1ffcf47267a5",
+  "1612349317150-e413f6a5b16d",
+] as const;
+
+const VET = [
+  "1606811841689-23dfddce3e95",
+  "1588776814546-1ffcf47267a5",
+  "1609840114035-3c981b782dfe",
+  "1521590832167-7bcbfaa6381f",
+  "1606811841689-23dfddce3e95",
+  "1588776814546-1ffcf47267a5",
+  "1609840114035-3c981b782dfe",
+  "1521590832167-7bcbfaa6381f",
+  "1606811841689-23dfddce3e95",
+] as const;
+
+// --- Professional services (people in meetings / at desks) ---
+const OFFICE_PRO = [
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1589829545856-d10d557cf95f",
+  "1589994965851-a8f479c573a9",
+  "1554224155-6726b3ff858f",
+  "1556742049-0cfed4f6a45d",
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1589829545856-d10d557cf95f",
+] as const;
+
+const REAL_ESTATE = [
+  "1560518883-ce09059eeffa",
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1589829545856-d10d557cf95f",
+  "1554224155-6726b3ff858f",
+  "1560518883-ce09059eeffa",
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1589829545856-d10d557cf95f",
+] as const;
+
+const MARKETING = [
+  "1553877522-43269d4ea984",
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1552664730-d307ca884978",
+  "1553877522-43269d4ea984",
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1552664730-d307ca884978",
+  "1553877522-43269d4ea984",
+] as const;
+
+// --- Creative (photographers / videographers at work) ---
+const PHOTOGRAPHY = [
+  "1516035069371-29a1b244cc32",
+  "1511285560929-80b456fea0bc",
+  "1519741497674-611481863552",
+  "1516035069371-29a1b244cc32",
+  "1511285560929-80b456fea0bc",
+  "1519741497674-611481863552",
+  "1516035069371-29a1b244cc32",
+  "1511285560929-80b456fea0bc",
+  "1519741497674-611481863552",
+] as const;
+
+// --- Automotive (mechanics & technicians) ---
+const AUTO = [
+  "1619642751034-765dfdf7c58e",
+  "1530046339160-ce3e530c7d2f",
+  "1619642751034-765dfdf7c58e",
+  "1530046339160-ce3e530c7d2f",
+  "1504307651254-35680f356dfd",
+  "1621905251189-08b45d6a269e",
+  "1619642751034-765dfdf7c58e",
+  "1530046339160-ce3e530c7d2f",
+  "1619642751034-765dfdf7c58e",
+] as const;
+
+// --- Retail & service (staff helping customers / hands-on work) ---
+const RETAIL_STAFF = [
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1517433670267-08bbd4be890f",
+  "1551024506-0bccd828d307",
+  "1521590832167-7bcbfaa6381f",
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1517433670267-08bbd4be890f",
+  "1551024506-0bccd828d307",
+] as const;
+
+const FLORIST = [
+  "1551024506-0bccd828d307",
+  "1517433670267-08bbd4be890f",
+  "1521590832167-7bcbfaa6381f",
+  "1563805042-7684c019e1cb",
+  "1504674900247-0877df9cc836",
+  "1551024506-0bccd828d307",
+  "1517433670267-08bbd4be890f",
+  "1521590832167-7bcbfaa6381f",
+  "1563805042-7684c019e1cb",
+] as const;
+
+// --- Education & community (teachers, caregivers, volunteers) ---
+const EDUCATION = [
+  "1522202176988-66273c2fd55f",
+  "1516321318423-f06f85e504b3",
+  "1522202176988-66273c2fd55f",
+  "1516321318423-f06f85e504b3",
+  "1454165804606-c3d57bc86b40",
+  "1486312338219-ce68d2c6f44d",
+  "1522202176988-66273c2fd55f",
+  "1516321318423-f06f85e504b3",
+  "1454165804606-c3d57bc86b40",
+] as const;
+
+const COMMUNITY = [
+  "1519167758481-83f550bb49b3",
+  "1529156069898-49953e39b3ac",
+  "1522202176988-66273c2fd55f",
+  "1516321318423-f06f85e504b3",
+  "1454165804606-c3d57bc86b40",
+  "1519167758481-83f550bb49b3",
+  "1529156069898-49953e39b3ac",
+  "1522202176988-66273c2fd55f",
+  "1516321318423-f06f85e504b3",
+] as const;
+
+const EVENTS = [
+  "1511795409834-ef04bbd61622",
+  "1552664730-d307ca884978",
+  "1519167758481-83f550bb49b3",
+  "1529156069898-49953e39b3ac",
+  "1454165804606-c3d57bc86b40",
+  "1511795409834-ef04bbd61622",
+  "1552664730-d307ca884978",
+  "1519167758481-83f550bb49b3",
+  "1529156069898-49953e39b3ac",
+] as const;
+
+const DEFAULT_WORK = [
+  "1497366216548-37526070297c",
+  "1454165804606-c3d57bc86b40",
+  "1504307651254-35680f356dfd",
+  "1621905251189-08b45d6a269e",
+  "1585704032915-c3400ca199e7",
+  "1607472586893-edb57bdc0e39",
+  "1497366216548-37526070297c",
+  "1454165804606-c3d57bc86b40",
+  "1504307651254-35680f356dfd",
+] as const;
+
+export const INDUSTRY_IMAGE_SETS: Record<string, IndustryImageSet> = {
+  Plumbing: S(PLUMBING),
+  HVAC: S(HVAC),
+  Electrician: S(ELECTRICIAN),
+  Roofing: S(ROOFING),
+  Landscaping: S(LANDSCAPING),
+  "Cleaning Service": S(CLEANING),
+  "Pest Control": S(PEST_CONTROL),
+  "Pool Service": S(POOL_SERVICE),
+  Painting: S(PAINTING),
+  Flooring: S(FLOORING),
+  "General Contractor": S(GENERAL_CONTRACTOR),
+  "Interior Design": S(INTERIOR_DESIGN),
+  "Moving Company": S(MOVING),
+  Locksmith: S(LOCKSMITH),
+  "Garage Door": S(GARAGE_DOOR),
+  Restaurant: S(FOOD_SERVICE),
+  Cafe: S(CAFE),
+  Bakery: S(BAKERY),
+  "Bar & Nightclub": S(FOOD_SERVICE),
+  "Food Truck": S(FOOD_SERVICE),
+  Catering: S(FOOD_SERVICE),
+  Pizza: S(FOOD_SERVICE),
+  Seafood: S(FOOD_SERVICE),
+  BBQ: S(FOOD_SERVICE),
+  "Juice Bar": S(CAFE),
+  "Hair Salon": S(HAIR_SALON),
+  Barbershop: S(BARBERSHOP),
+  "Nail Salon": S(NAIL_SALON),
+  "Spa & Massage": S(SPA),
+  "Tattoo Studio": S(TATTOO),
+  "Gym & Fitness": S(GYM),
+  "Personal Trainer": S(PERSONAL_TRAINER),
+  "Yoga Studio": S(YOGA),
+  Dental: S(DENTAL),
+  Orthodontist: S(DENTAL),
+  Chiropractor: S(DENTAL),
+  Optometrist: S(DENTAL),
+  Veterinarian: S(VET),
+  "Med Spa": S(MED_SPA),
+  "Law Firm": S(OFFICE_PRO),
+  Accounting: S(OFFICE_PRO),
+  "Real Estate": S(REAL_ESTATE),
+  Insurance: S(OFFICE_PRO),
+  "Financial Advisor": S(OFFICE_PRO),
+  "Marketing Agency": S(MARKETING),
+  Photography: S(PHOTOGRAPHY),
+  Videography: S(PHOTOGRAPHY),
+  Consulting: S(OFFICE_PRO),
+  "Auto Repair": S(AUTO),
+  "Car Detailing": S(AUTO),
+  Towing: S(AUTO),
+  "Auto Body Shop": S(AUTO),
+  "Tire Shop": S(AUTO),
+  "Oil Change": S(AUTO),
+  Boutique: S(RETAIL_STAFF),
+  "Jewelry Store": S(RETAIL_STAFF),
+  Florist: S(FLORIST),
+  "Gift Shop": S(RETAIL_STAFF),
+  Tutoring: S(EDUCATION),
+  Daycare: S(EDUCATION),
+  Church: S(COMMUNITY),
+  Nonprofit: S(COMMUNITY),
+  "Event Planning": S(EVENTS),
+  "DJ & Entertainment": S(EVENTS),
+  Other: S(DEFAULT_WORK),
+};
 
 export const DEFAULT_IMAGE_SET = INDUSTRY_IMAGE_SETS.Other;
