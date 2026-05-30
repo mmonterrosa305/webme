@@ -1,6 +1,10 @@
 import {
   DEFAULT_IMAGE_SET,
+  INDUSTRY_HERO_OPTIONS,
   INDUSTRY_IMAGE_SETS,
+  INDUSTRY_SLOT_IDS,
+  buildImageSet,
+  unsplashUrl,
   type IndustryImageSet,
 } from "./industry-image-sets";
 
@@ -121,14 +125,40 @@ function resolveLabel(industry: string): string {
   return "Other";
 }
 
-export function resolveIndustryImages(industry: string): ResolvedIndustryImages {
-  const label = resolveLabel(industry);
-  const set = INDUSTRY_IMAGE_SETS[label] ?? DEFAULT_IMAGE_SET;
-  return toResolved(label, set);
+function getHeroOptions(label: string): readonly string[] {
+  return INDUSTRY_HERO_OPTIONS[label] ?? INDUSTRY_HERO_OPTIONS.Other ?? [];
 }
 
-export function formatIndustryImagePromptBlock(industry: string): string {
-  const r = resolveIndustryImages(industry);
+/** Randomly pick one hero URL from the industry's verified hero options. */
+export function getRandomHero(industry: string): string {
+  const label = resolveLabel(industry);
+  const options = getHeroOptions(label);
+  const id = options[Math.floor(Math.random() * options.length)] ?? options[0]!;
+  return unsplashUrl(id, 1600);
+}
+
+export function resolveIndustryImages(
+  industry: string,
+  heroUrl?: string,
+): ResolvedIndustryImages {
+  const label = resolveLabel(industry);
+  const slots = INDUSTRY_SLOT_IDS[label] ?? INDUSTRY_SLOT_IDS.Other!;
+  const hero = heroUrl ?? getRandomHero(industry);
+  const heroId = hero.match(/photo-([^?]+)/)?.[1];
+
+  if (!heroId) {
+    const fallback = INDUSTRY_IMAGE_SETS[label] ?? DEFAULT_IMAGE_SET;
+    return toResolved(label, { ...fallback, hero });
+  }
+
+  return toResolved(label, buildImageSet(heroId, slots));
+}
+
+export function formatIndustryImagePromptBlock(
+  industry: string,
+  heroUrl: string,
+): string {
+  const r = resolveIndustryImages(industry, heroUrl);
 
   return `## Resolved industry images for "${industry}"
 - Matched category: ${r.label}
@@ -142,11 +172,14 @@ export function formatIndustryImagePromptBlock(industry: string): string {
 - Gallery2 (gallery image 2 — use ONLY here): ${r.gallery2}
 - Gallery3 (gallery image 3 — use ONLY here): ${r.gallery3}
 
-CRITICAL: All 9 URLs above are unique. Use each URL exactly once in its labeled section. Never repeat an image anywhere on the page.`;
+Use each labeled URL in its designated section only.`;
 }
 
 export function buildIndustryHeroListForPrompt(): string {
-  return Object.entries(INDUSTRY_IMAGE_SETS)
-    .map(([name, set]) => `- ${name}: ${set.hero}`)
+  return Object.entries(INDUSTRY_HERO_OPTIONS)
+    .map(
+      ([name, ids]) =>
+        `- ${name}: ${ids.map((id) => unsplashUrl(id, 1600)).join(" | ")}`,
+    )
     .join("\n");
 }

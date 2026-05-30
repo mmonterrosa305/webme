@@ -5,6 +5,7 @@ import type { BusinessProfile } from "./scrapeBusinessData";
 import {
   buildIndustryHeroListForPrompt,
   formatIndustryImagePromptBlock,
+  getRandomHero,
 } from "./industry-images";
 import {
   COLOR_PALETTES,
@@ -30,7 +31,7 @@ const SYSTEM_PROMPT = `You build polished single-page business websites. The fil
 ## Images — fixed industry URL map (required)
 CRITICAL: Every image must show work being done, tools, or the final result of the service. NEVER use images of plants, furniture, or unrelated objects. If unsure, use the hero image again.
 Use only images.unsplash.com URLs from the Resolved industry images block in the user prompt (do not use source.unsplash.com).
-Each site has 9 labeled image slots — use the exact URL for each slot:
+Each site has 9 labeled image slots — use the exact URL for each slot. The Hero URL is randomly selected per build from the industry's hero options below.
 - Hero → full-screen background only
 - About → About section right column only
 - Service1, Service2, Service3, Service4 → service cards 1–4 backgrounds only
@@ -180,6 +181,7 @@ async function fetchReferenceImageBlocks(
 }
 
 function buildUserPrompt(input: BuildSiteInput): string {
+  const heroUrl = getRandomHero(input.industry);
   const palette = getPalette(input.paletteId);
   const style = getStyle(input.styleId);
   const profile = input.businessProfile;
@@ -240,7 +242,7 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ## Design style — "${style.label}"
 ${style.description}
 
-${formatIndustryImagePromptBlock(input.industry)}
+${formatIndustryImagePromptBlock(input.industry, heroUrl)}
 
 ## Sections to include (exactly eight, in order — no extra sections)
 1. Hero — full screen, exact Hero URL, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
