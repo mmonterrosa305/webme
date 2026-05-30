@@ -428,7 +428,7 @@ export function SavedLeads() {
         <div className="px-5 py-10 text-sm text-neutral-500">
           {loading
             ? "Loading..."
-            : "No saved leads yet. Run a search to save prospects to Supabase."}
+            : "No saved leads yet. Build a site from search results to add leads here."}
         </div>
       )}
     </Panel>

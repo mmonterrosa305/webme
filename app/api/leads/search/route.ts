@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { saveSearchLeadsToSupabase } from "@/lib/leads/save-search-leads";
 import type { LeadSearchResult } from "@/lib/leads/types";
 
 function getGooglePlacesApiKey(): string {
@@ -431,30 +430,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let saveResult;
-
-    try {
-      saveResult = await saveSearchLeadsToSupabase(leads);
-    } catch (saveError) {
-      const message =
-        saveError instanceof Error ? saveError.message : String(saveError);
-
-      console.error("[leads/search] Supabase save threw:", message);
-      saveResult = {
-        attempted: leads.length,
-        savedIds: [],
-        errors: [message],
-      };
-    }
-
-    return NextResponse.json({
-      leads,
-      saved: {
-        attempted: saveResult.attempted,
-        inserted: saveResult.savedIds.length,
-        errors: saveResult.errors,
-      },
-    });
+    return NextResponse.json({ leads });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to search leads.";

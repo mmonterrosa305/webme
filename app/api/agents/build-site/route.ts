@@ -70,6 +70,15 @@ export async function POST(request: Request) {
     const logoSvg =
       typeof body.logoSvg === "string" ? body.logoSvg.trim() : undefined;
 
+    const address =
+      typeof body.address === "string" ? body.address.trim() : undefined;
+    const existingWebsiteUrl =
+      typeof body.existingWebsiteUrl === "string"
+        ? body.existingWebsiteUrl.trim()
+        : undefined;
+    const hasWebsite =
+      typeof body.hasWebsite === "boolean" ? body.hasWebsite : undefined;
+
     if (!businessName || !city || !industry) {
       return NextResponse.json(
         { error: "businessName, city, and industry are required." },
@@ -119,40 +128,37 @@ export async function POST(request: Request) {
     const siteBuiltAt = new Date().toISOString();
 
     const supabase = createAdminClient();
-    const leadUpdate: Record<string, string> = {
+    const leadRow = {
+      business_name: businessName,
+      city,
+      industry,
+      address: address ?? businessProfile.address,
+      phone: businessProfile.phone,
+      has_website: hasWebsite ?? Boolean(businessProfile.website),
+      existing_website_url:
+        existingWebsiteUrl ?? businessProfile.website,
+      owner_email: businessProfile.ownerEmail,
+      owner_name: businessProfile.ownerName,
       site_html: html,
       site_slug: siteSlug,
       site_built_at: siteBuiltAt,
       status: "pending_review",
     };
 
-    if (businessProfile.ownerEmail) {
-      leadUpdate.owner_email = businessProfile.ownerEmail;
-    }
+    const { error: leadSaveError } = await supabase.from("leads").upsert(
+      leadRow,
+      { onConflict: "business_name,city" },
+    );
 
-    if (businessProfile.ownerName) {
-      leadUpdate.owner_name = businessProfile.ownerName;
-    }
-
-    if (businessProfile.phone) {
-      leadUpdate.phone = businessProfile.phone;
-    }
-
-    const { error: leadUpdateError } = await supabase
-      .from("leads")
-      .update(leadUpdate)
-      .eq("business_name", businessName)
-      .eq("city", city);
-
-    if (leadUpdateError) {
-      console.error("Failed to update lead in Supabase:", leadUpdateError.message);
-    } else if (businessProfile.ownerEmail || businessProfile.ownerName) {
-      console.log("[build-site] Saved contact info to lead:", {
+    if (leadSaveError) {
+      console.error("[build-site] Failed to save lead in Supabase:", leadSaveError.message);
+    } else {
+      console.log("[build-site] Saved lead to Supabase:", {
         businessName,
         city,
+        siteSlug,
         ownerEmail: businessProfile.ownerEmail,
         ownerName: businessProfile.ownerName,
-        phone: businessProfile.phone,
       });
     }
 
