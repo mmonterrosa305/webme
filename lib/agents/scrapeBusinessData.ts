@@ -1,4 +1,5 @@
-import { URL } from "node:url";
+
+import { scrapeContactInfo } from "./scrapeContactInfo";
 
 type SourceName =
   | "googlePlaces"
@@ -6,7 +7,9 @@ type SourceName =
   | "facebook"
   | "instagram"
   | "yelp"
-  | "hunter";
+  | "hunter"
+  | "websiteScrape"
+  | "customSearchContact";
 
 export type BusinessProfile = {
   businessName: string;
@@ -79,11 +82,6 @@ type YelpResult = {
   priceRange: string | null;
   photos: string[];
   website: string | null;
-};
-
-type HunterResult = {
-  ownerName: string | null;
-  ownerEmail: string | null;
 };
 
 type GoogleImageResult = {
@@ -175,19 +173,6 @@ function formatYelpHours(hours: any[] | undefined): string[] {
 
     return `${day} ${start.slice(0, 2)}:${start.slice(2)}-${end.slice(0, 2)}:${end.slice(2)}`;
   });
-}
-
-function extractDomain(urlString: string | null): string | null {
-  if (!urlString) {
-    return null;
-  }
-
-  try {
-    const url = new URL(urlString.startsWith("http") ? urlString : `https://${urlString}`);
-    return url.hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
 }
 
 function humanizeType(type: string): string {
@@ -640,55 +625,6 @@ async function scrapeYelp(
   };
 }
 
-async function scrapeHunter(website: string | null): Promise<HunterResult> {
-  const apiKey = getOptionalEnv("HUNTER_API_KEY");
-  const domain = extractDomain(website);
-
-  if (!apiKey || !domain) {
-    return {
-      ownerName: null,
-      ownerEmail: null,
-    };
-  }
-
-  const data = await fetchJson<{
-    data?: {
-      emails?: Array<{
-        value?: string;
-        confidence?: number;
-        first_name?: string;
-        last_name?: string;
-        position?: string;
-      }>;
-    };
-  }>(
-    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=10&api_key=${apiKey}`,
-  );
-
-  const emails = data.data?.emails ?? [];
-
-  const best = emails
-    .slice()
-    .sort((a, b) => {
-      const aOwner = /(owner|founder|ceo|president)/i.test(a.position ?? "") ? 1 : 0;
-      const bOwner = /(owner|founder|ceo|president)/i.test(b.position ?? "") ? 1 : 0;
-
-      if (aOwner !== bOwner) {
-        return bOwner - aOwner;
-      }
-
-      return (b.confidence ?? 0) - (a.confidence ?? 0);
-    })[0];
-
-  return {
-    ownerName:
-      uniqueStrings([
-        [best?.first_name, best?.last_name].filter(Boolean).join(" "),
-      ])[0] ?? null,
-    ownerEmail: best?.value ?? null,
-  };
-}
-
 export async function scrapeBusinessData(
   input: ScrapeBusinessDataInput,
 ): Promise<BusinessProfile> {
@@ -761,19 +697,38 @@ export async function scrapeBusinessData(
   ]);
 
   const website = firstNonEmpty(google.website, yelp.website, facebook.website);
+  const phone = firstNonEmpty(google.phone, yelp.phone, facebook.phone);
 
-  const hunter = await scrapeHunter(website).catch((error: Error) => {
-    sourceErrors.hunter = error.message;
+  const contact = await scrapeContactInfo({
+    businessName,
+    city,
+    website,
+    phone,
+  }).catch((error: Error) => {
+    sourceErrors.customSearchContact = error.message;
     return {
-      ownerName: null,
+      emails: [],
       ownerEmail: null,
-    } satisfies HunterResult;
+      ownerName: null,
+      phone,
+      errors: [error.message],
+    };
   });
+
+  for (const message of contact.errors) {
+    if (message.startsWith("websiteScrape:")) {
+      sourceErrors.websiteScrape = message.replace("websiteScrape: ", "");
+    } else if (message.startsWith("customSearchEmail:")) {
+      sourceErrors.customSearchContact = message.replace("customSearchEmail: ", "");
+    } else if (message.startsWith("hunter:")) {
+      sourceErrors.hunter = message.replace("hunter: ", "");
+    }
+  }
 
   return {
     businessName: firstNonEmpty(google.businessName, yelp.businessName, businessName) ?? businessName,
     address: firstNonEmpty(google.address, yelp.address),
-    phone: firstNonEmpty(google.phone, yelp.phone, facebook.phone),
+    phone: contact.phone ?? phone,
     hours: google.hours.length > 0 ? google.hours : yelp.hours,
     rating: firstNonEmpty(google.rating, yelp.rating),
     reviewCount: firstNonEmpty(google.reviewCount, yelp.reviewCount),
@@ -782,8 +737,8 @@ export async function scrapeBusinessData(
       ...yelp.topReviews,
       ...facebook.reviews,
     ]).slice(0, 6),
-    ownerName: hunter.ownerName,
-    ownerEmail: hunter.ownerEmail,
+    ownerName: contact.ownerName,
+    ownerEmail: contact.ownerEmail,
     services: uniqueStrings([
       ...google.services,
       ...facebook.services,

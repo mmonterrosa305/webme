@@ -119,19 +119,41 @@ export async function POST(request: Request) {
     const siteBuiltAt = new Date().toISOString();
 
     const supabase = createAdminClient();
+    const leadUpdate: Record<string, string> = {
+      site_html: html,
+      site_slug: siteSlug,
+      site_built_at: siteBuiltAt,
+      status: "pending_review",
+    };
+
+    if (businessProfile.ownerEmail) {
+      leadUpdate.owner_email = businessProfile.ownerEmail;
+    }
+
+    if (businessProfile.ownerName) {
+      leadUpdate.owner_name = businessProfile.ownerName;
+    }
+
+    if (businessProfile.phone) {
+      leadUpdate.phone = businessProfile.phone;
+    }
+
     const { error: leadUpdateError } = await supabase
       .from("leads")
-      .update({
-        site_html: html,
-        site_slug: siteSlug,
-        site_built_at: siteBuiltAt,
-        status: "pending_review",
-      })
+      .update(leadUpdate)
       .eq("business_name", businessName)
       .eq("city", city);
 
     if (leadUpdateError) {
       console.error("Failed to update lead in Supabase:", leadUpdateError.message);
+    } else if (businessProfile.ownerEmail || businessProfile.ownerName) {
+      console.log("[build-site] Saved contact info to lead:", {
+        businessName,
+        city,
+        ownerEmail: businessProfile.ownerEmail,
+        ownerName: businessProfile.ownerName,
+        phone: businessProfile.phone,
+      });
     }
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import slugify from "slugify";
 import { useMemo, useState } from "react";
 
@@ -20,7 +21,9 @@ const inputClassName =
 type BuildState = {
   loading: boolean;
   html?: string;
+  siteSlug?: string;
   error?: string;
+  previewError?: string;
 };
 
 function downloadHtmlFile(name: string, html: string) {
@@ -37,19 +40,21 @@ function downloadHtmlFile(name: string, html: string) {
   URL.revokeObjectURL(url);
 }
 
-function openHtmlPreview(html: string) {
+function openHtmlPreview(html: string): string | null {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const previewWindow = window.open(url, "_blank", "noopener,noreferrer");
 
   if (!previewWindow) {
     URL.revokeObjectURL(url);
-    throw new Error("Popup blocked. Please allow popups and try again.");
+    return "Popup blocked. Use the preview link or allow popups for this site.";
   }
 
   window.setTimeout(() => {
     URL.revokeObjectURL(url);
   }, 60_000);
+
+  return null;
 }
 
 export function LeadsSearch() {
@@ -126,6 +131,7 @@ export function LeadsSearch() {
 
       const data = (await response.json()) as {
         html?: string;
+        siteSlug?: string;
         error?: string;
       };
 
@@ -135,8 +141,14 @@ export function LeadsSearch() {
 
       setBuildStates((current) => ({
         ...current,
-        [lead.placeId]: { loading: false, html: data.html },
+        [lead.placeId]: {
+          loading: false,
+          html: data.html,
+          siteSlug: data.siteSlug,
+        },
       }));
+
+      window.dispatchEvent(new CustomEvent("webme:leads-saved"));
     } catch (error) {
       setBuildStates((current) => ({
         ...current,
@@ -204,13 +216,40 @@ export function LeadsSearch() {
             </button>
             {buildState?.html ? (
               <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => openHtmlPreview(buildState.html!)}
-                  className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900"
-                >
-                  Preview Site
-                </button>
+                {buildState.siteSlug ? (
+                  <Link
+                    href={`/preview/${buildState.siteSlug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-neutral-700 hover:text-neutral-900"
+                  >
+                    Preview Site
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const previewError = openHtmlPreview(buildState.html!);
+                      if (previewError) {
+                        setBuildStates((current) => ({
+                          ...current,
+                          [lead.placeId]: {
+                            ...current[lead.placeId],
+                            previewError,
+                          },
+                        }));
+                      }
+                    }}
+                    className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900"
+                  >
+                    Preview Site
+                  </button>
+                )}
+                {buildState.previewError ? (
+                  <p className="max-w-48 text-xs text-amber-700">
+                    {buildState.previewError}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   onClick={() =>
