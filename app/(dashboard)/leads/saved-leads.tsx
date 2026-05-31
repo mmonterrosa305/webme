@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { DataTable, Panel } from "../_components/dashboard-ui";
 import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
@@ -273,6 +273,13 @@ export function SavedLeads() {
   }
 
   async function handleSendOutreach(lead: SavedLead) {
+    console.log("[SavedLeads] Send Outreach clicked", {
+      leadId: lead.id,
+      businessName: lead.business_name,
+      status: lead.status,
+      siteSlug: lead.site_slug,
+    });
+
     setActionError(null);
     setSuccessMessage(null);
     setPending(lead.id, true);
@@ -284,36 +291,57 @@ export function SavedLeads() {
         body: JSON.stringify({ leadId: lead.id }),
       });
 
-      const data = (await response.json()) as {
+      let data: {
         lead?: SavedLead;
         previewUrl?: string;
+        ownerEmail?: string;
         error?: string;
-      };
+        success?: boolean;
+      } = {};
 
-      if (!response.ok || !data.lead) {
-        throw new Error(data.error ?? "Failed to send outreach email.");
+      try {
+        data = (await response.json()) as typeof data;
+      } catch {
+        throw new Error(
+          response.ok
+            ? "Outreach sent but the server returned an invalid response."
+            : `Request failed (${response.status}). Check the server logs.`,
+        );
       }
 
-      setLeads((current) =>
-        current.map((item) => (item.id === lead.id ? data.lead! : item)),
-      );
+      console.log("[SavedLeads] Send Outreach response", {
+        ok: response.ok,
+        status: response.status,
+        data,
+      });
+
+      if (!response.ok) {
+        throw new Error(data.error ?? `Failed to send outreach email (${response.status}).`);
+      }
+
+      if (data.lead) {
+        setLeads((current) =>
+          current.map((item) => (item.id === lead.id ? data.lead! : item)),
+        );
+      }
+
       setSuccessMessage(
-        `Outreach email sent to ${lead.business_name}${data.previewUrl ? ` — preview: ${data.previewUrl}` : ""}.`,
+        `Outreach email sent to ${data.ownerEmail ?? "the business owner"}${data.previewUrl ? ` — preview: ${data.previewUrl}` : ""}.`,
       );
     } catch (outreachError) {
-      setActionError(
+      const message =
         outreachError instanceof Error
           ? outreachError.message
-          : "Failed to send outreach email.",
-      );
+          : "Failed to send outreach email.";
+
+      console.error("[SavedLeads] Send Outreach failed", message);
+      setActionError(message);
     } finally {
       setPending(lead.id, false);
     }
   }
 
-  const rows = useMemo(
-    () =>
-      leads.map((lead) => {
+  const rows = leads.map((lead) => {
         const isActionPending = pendingIds.has(lead.id);
         const isRegenerating = regeneratingIds.has(lead.id);
         const showSiteActions = hasBuiltSite(lead);
@@ -375,7 +403,7 @@ export function SavedLeads() {
               <button
                 type="button"
                 disabled={isActionPending || isRegenerating}
-                onClick={() => handleSendOutreach(lead)}
+                onClick={() => void handleSendOutreach(lead)}
                 className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isActionPending ? "Sending..." : "Send Outreach"}
@@ -391,9 +419,7 @@ export function SavedLeads() {
             </button>
           </div>,
         ];
-      }),
-    [leads, pendingIds, regeneratingIds],
-  );
+  });
 
   return (
     <Panel
@@ -405,19 +431,19 @@ export function SavedLeads() {
       }
     >
       {error ? (
-        <p className="px-5 py-5 text-sm text-red-600" role="alert">
-          {error}
-        </p>
+        <div className="mx-5 mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3" role="alert">
+          <p className="text-sm font-medium text-red-800">{error}</p>
+        </div>
       ) : null}
       {successMessage ? (
-        <p className="px-5 pb-5 text-sm text-emerald-700" role="status">
-          {successMessage}
-        </p>
+        <div className="mx-5 mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3" role="status">
+          <p className="text-sm font-medium text-emerald-800">{successMessage}</p>
+        </div>
       ) : null}
       {actionError ? (
-        <p className="px-5 pb-5 text-sm text-red-600" role="alert">
-          {actionError}
-        </p>
+        <div className="mx-5 mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3" role="alert">
+          <p className="text-sm font-medium text-red-800">{actionError}</p>
+        </div>
       ) : null}
       {!loading && leads.length > 0 ? (
         <DataTable

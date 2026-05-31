@@ -7,59 +7,71 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+export function getOutreachSenderName(): string {
+  return process.env.OUTREACH_SENDER_NAME?.trim() || "Maynor";
+}
+
+export function getOutreachPreviewBaseUrl(): string {
+  const configured = process.env.OUTREACH_PREVIEW_BASE_URL?.trim();
+
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  return "https://webme-x6ed.onrender.com/preview";
+}
+
 export function buildColdOutreachEmail({
   businessName,
   ownerName,
   previewUrl,
+  senderName = getOutreachSenderName(),
 }: {
   businessName: string;
   ownerName: string | null;
   previewUrl: string;
+  senderName?: string;
 }): { subject: string; html: string; text: string } {
   const greeting = ownerName?.trim() ? `Hi ${ownerName.trim()},` : "Hi there,";
-  const subject = `${businessName} — we built your website, no strings attached`;
+  const subject = "I built your business a website — take a look";
   const safeBusiness = escapeHtml(businessName);
   const safePreviewUrl = escapeHtml(previewUrl);
+  const safeSender = escapeHtml(senderName);
 
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 640px; margin: 0 auto; color: #171717; line-height: 1.6;">
       <p style="margin: 0 0 16px;">${escapeHtml(greeting)}</p>
       <p style="margin: 0 0 16px;">
-        I came across <strong>${safeBusiness}</strong> and noticed you might not have a website online yet — or at least not one that's easy for customers to find.
-      </p>
-      <p style="margin: 0 0 16px;">
-        So we took the liberty of building a professional site for your business. No pitch deck, no pressure — just something you can look at and decide if it's useful.
+        I put together a website for <strong>${safeBusiness}</strong> — no cost to preview it, and no obligation.
       </p>
       <p style="margin: 0 0 24px;">
-        Here's your free preview link. It's completely free to view, and there's zero obligation. If you love it, you can claim it for a small fee whenever you're ready.
+        Take a look when you have a minute:
       </p>
       <p style="margin: 0 0 32px; text-align: center;">
         <a href="${safePreviewUrl}" style="display: inline-block; background: #16a34a; color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 8px;">
-          View My Free Website
+          Click here to see your website!
         </a>
       </p>
       <p style="margin: 0 0 16px;">
-        Take a look when you have a minute — we'd love to know what you think.
+        If you like it, happy to help you claim it. If not, no worries at all.
       </p>
       <p style="margin: 0;">
         Best,<br />
-        The WebMe Team
+        ${safeSender}
       </p>
     </div>
   `.trim();
 
   const text = `${greeting}
 
-I came across ${businessName} and noticed you might not have a website online yet — or at least not one that's easy for customers to find.
+I put together a website for ${businessName} — no cost to preview it, and no obligation.
 
-So we took the liberty of building a professional site for your business. No pitch deck, no pressure — just something you can look at and decide if it's useful.
+Click here to see your website: ${previewUrl}
 
-Here's your free preview link (${previewUrl}). It's completely free to view, and there's zero obligation. If you love it, you can claim it for a small fee whenever you're ready.
-
-Take a look when you have a minute — we'd love to know what you think.
+If you like it, happy to help you claim it. If not, no worries at all.
 
 Best,
-The WebMe Team`;
+${senderName}`;
 
   return { subject, html, text };
 }

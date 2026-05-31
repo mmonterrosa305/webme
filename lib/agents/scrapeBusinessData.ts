@@ -711,6 +711,7 @@ export async function scrapeBusinessData(
       ownerEmail: null,
       ownerName: null,
       phone,
+      source: null,
       errors: [error.message],
     };
   });

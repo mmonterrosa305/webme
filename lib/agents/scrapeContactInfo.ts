@@ -45,8 +45,11 @@ const WEBSITE_CONTACT_PATHS = [
   "",
   "/contact",
   "/contact-us",
+  "/contact.html",
   "/about",
   "/about-us",
+  "/about.html",
+  "/get-in-touch",
 ];
 
 export type ContactScrapeResult = {
@@ -54,6 +57,7 @@ export type ContactScrapeResult = {
   ownerEmail: string | null;
   ownerName: string | null;
   phone: string | null;
+  source: "website" | "hunter" | "customSearch" | null;
   errors: string[];
 };
 
@@ -124,11 +128,71 @@ function isValidEmail(email: string): boolean {
 }
 
 export function extractEmailsFromText(text: string): string[] {
-  const matches = text.match(EMAIL_REGEX) ?? [];
+  const deobfuscated = text
+    .replace(/\s*\(\s*at\s*\)\s*/gi, "@")
+    .replace(/\s*\[\s*at\s*\]\s*/gi, "@")
+    .replace(/\s+at\s+/gi, "@")
+    .replace(/\s*\(\s*dot\s*\)\s*/gi, ".")
+    .replace(/\s*\[\s*dot\s*\]\s*/gi, ".")
+    .replace(/\s+dot\s+/gi, ".");
+
+  const matches = deobfuscated.match(EMAIL_REGEX) ?? [];
+  const mailtoMatches = [
+    ...text.matchAll(
+      /mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi,
+    ),
+  ].map((match) => match[1]);
+
+  const jsonLdEmails: string[] = [];
+
+  for (const block of text.matchAll(
+    /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  )) {
+    try {
+      const parsed = JSON.parse(block[1]) as unknown;
+      collectJsonLdEmails(parsed, jsonLdEmails);
+    } catch {
+      // ignore malformed JSON-LD
+    }
+  }
 
   return uniqueStrings(
-    matches.map((email) => email.replace(/[.,;:!?)]+$/, "").toLowerCase()),
+    [...matches, ...mailtoMatches, ...jsonLdEmails].map((email) =>
+      email.replace(/[.,;:!?)]+$/, "").toLowerCase(),
+    ),
   ).filter(isValidEmail);
+}
+
+function collectJsonLdEmails(node: unknown, out: string[]): void {
+  if (!node) {
+    return;
+  }
+
+  if (typeof node === "string") {
+    if (node.includes("@")) {
+      out.push(...(node.match(EMAIL_REGEX) ?? []));
+    }
+
+    return;
+  }
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      collectJsonLdEmails(item, out);
+    }
+
+    return;
+  }
+
+  if (typeof node === "object") {
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (key === "email" && typeof value === "string") {
+        out.push(value);
+      } else {
+        collectJsonLdEmails(value, out);
+      }
+    }
+  }
 }
 
 function scoreOwnerEmail(email: string, businessDomain: string | null): number {
@@ -267,7 +331,7 @@ async function runCustomSearch(
   );
 
   if (!response.ok) {
-    throw new Error(`Custom Search failed: ${response.status}`);
+    return [];
   }
 
   const data = (await response.json()) as {
@@ -376,57 +440,61 @@ export async function scrapeHunterContacts(
     return { ownerName: null, ownerEmail: null, emails: [] };
   }
 
-  const response = await fetch(
-    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=10&api_key=${apiKey}`,
-  );
+  try {
+    const response = await fetch(
+      `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=10&api_key=${apiKey}`,
+    );
 
-  if (!response.ok) {
-    throw new Error(`Hunter.io failed: ${response.status}`);
-  }
+    if (!response.ok) {
+      return { ownerName: null, ownerEmail: null, emails: [] };
+    }
 
-  const data = (await response.json()) as {
-    data?: {
-      emails?: Array<{
-        value?: string;
-        confidence?: number;
-        first_name?: string;
-        last_name?: string;
-        position?: string;
-      }>;
+    const data = (await response.json()) as {
+      data?: {
+        emails?: Array<{
+          value?: string;
+          confidence?: number;
+          first_name?: string;
+          last_name?: string;
+          position?: string;
+        }>;
+      };
     };
-  };
 
-  const emails = uniqueStrings(
-    (data.data?.emails ?? []).map((entry) => entry.value ?? null),
-  );
+    const emails = uniqueStrings(
+      (data.data?.emails ?? []).map((entry) => entry.value ?? null),
+    );
 
-  const best = (data.data?.emails ?? [])
-    .slice()
-    .sort((a, b) => {
-      const aOwner = /(owner|founder|ceo|president)/i.test(a.position ?? "")
-        ? 1
-        : 0;
-      const bOwner = /(owner|founder|ceo|president)/i.test(b.position ?? "")
-        ? 1
-        : 0;
+    const best = (data.data?.emails ?? [])
+      .slice()
+      .sort((a, b) => {
+        const aOwner = /(owner|founder|ceo|president)/i.test(a.position ?? "")
+          ? 1
+          : 0;
+        const bOwner = /(owner|founder|ceo|president)/i.test(b.position ?? "")
+          ? 1
+          : 0;
 
-      if (aOwner !== bOwner) {
-        return bOwner - aOwner;
-      }
+        if (aOwner !== bOwner) {
+          return bOwner - aOwner;
+        }
 
-      return (b.confidence ?? 0) - (a.confidence ?? 0);
-    })[0];
+        return (b.confidence ?? 0) - (a.confidence ?? 0);
+      })[0];
 
-  const ownerName =
-    uniqueStrings([
-      [best?.first_name, best?.last_name].filter(Boolean).join(" "),
-    ])[0] ?? null;
+    const ownerName =
+      uniqueStrings([
+        [best?.first_name, best?.last_name].filter(Boolean).join(" "),
+      ])[0] ?? null;
 
-  return {
-    ownerName,
-    ownerEmail: best?.value ?? null,
-    emails,
-  };
+    return {
+      ownerName,
+      ownerEmail: best?.value ?? null,
+      emails,
+    };
+  } catch {
+    return { ownerName: null, ownerEmail: null, emails: [] };
+  }
 }
 
 export async function scrapeContactInfo(input: {
@@ -438,13 +506,16 @@ export async function scrapeContactInfo(input: {
   const errors: string[] = [];
   const allEmails: string[] = [];
   let hunterOwnerName: string | null = null;
-  let hunterOwnerEmail: string | null = null;
   let customSearchOwnerName: string | null = null;
-  let phone = input.phone;
+  const phone = input.phone;
 
+  let websiteEmails: string[] = [];
+
+  // Step 1: Scrape the business website (homepage, /contact, /about, etc.)
   if (input.website) {
     try {
-      allEmails.push(...(await scrapeWebsiteForEmails(input.website)));
+      websiteEmails = await scrapeWebsiteForEmails(input.website);
+      allEmails.push(...websiteEmails);
     } catch (error) {
       errors.push(
         `websiteScrape: ${error instanceof Error ? error.message : String(error)}`,
@@ -452,25 +523,59 @@ export async function scrapeContactInfo(input: {
     }
   }
 
-  try {
-    allEmails.push(
-      ...(await scrapeEmailsFromCustomSearch(input.businessName, input.city)),
-    );
-  } catch (error) {
-    errors.push(
-      `customSearchEmail: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  let ownerEmail = pickBestOwnerEmail(websiteEmails, input.website);
+  let source: "website" | "hunter" | "customSearch" | null = ownerEmail
+    ? "website"
+    : null;
+
+  // Step 2: Hunter.io domain search — only when website scrape found no email
+  if (!ownerEmail && input.website) {
+    const hunter = await scrapeHunterContacts(input.website);
+
+    if (hunter.emails.length === 0 && !hunter.ownerEmail) {
+      const apiKey = getOptionalEnv("HUNTER_API_KEY");
+
+      if (!apiKey) {
+        errors.push("hunter: HUNTER_API_KEY not configured");
+      } else if (!extractDomain(input.website)) {
+        errors.push("hunter: could not parse domain from website URL");
+      } else {
+        errors.push("hunter: no emails returned for domain");
+      }
+    }
+
+    hunterOwnerName = hunter.ownerName;
+    allEmails.push(...hunter.emails);
+
+    const hunterPick =
+      pickBestOwnerEmail(hunter.emails, input.website) ?? hunter.ownerEmail;
+
+    if (hunterPick) {
+      ownerEmail = hunterPick;
+      source = "hunter";
+    }
   }
 
-  try {
-    const hunter = await scrapeHunterContacts(input.website);
-    hunterOwnerName = hunter.ownerName;
-    hunterOwnerEmail = hunter.ownerEmail;
-    allEmails.push(...hunter.emails);
-  } catch (error) {
-    errors.push(
-      `hunter: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  // Step 3: Google Custom Search — last resort if still no email
+  if (!ownerEmail) {
+    try {
+      const searchEmails = await scrapeEmailsFromCustomSearch(
+        input.businessName,
+        input.city,
+      );
+      allEmails.push(...searchEmails);
+
+      const searchPick = pickBestOwnerEmail(searchEmails, input.website);
+
+      if (searchPick) {
+        ownerEmail = searchPick;
+        source = "customSearch";
+      }
+    } catch (error) {
+      errors.push(
+        `customSearchEmail: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   try {
@@ -484,16 +589,16 @@ export async function scrapeContactInfo(input: {
     );
   }
 
-  const ownerEmail =
-    pickBestOwnerEmail(allEmails, input.website) ?? hunterOwnerEmail;
   const ownerName = hunterOwnerName ?? customSearchOwnerName;
 
   console.log("[scrapeContactInfo]", {
     businessName: input.businessName,
     city: input.city,
+    website: input.website ?? null,
     emailsFound: uniqueStrings(allEmails).length,
     ownerEmail: ownerEmail ?? null,
     ownerName: ownerName ?? null,
+    source,
     phone: phone ?? null,
     errors: errors.length,
   });
@@ -503,6 +608,7 @@ export async function scrapeContactInfo(input: {
     ownerEmail,
     ownerName,
     phone,
+    source,
     errors,
   };
 }

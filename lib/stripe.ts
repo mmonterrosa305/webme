@@ -25,3 +25,13 @@ export function getAppUrl(): string {
 
   return url.replace(/\/$/, "");
 }
+
+export function getStripeWebhookSecret(): string {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+
+  if (!secret) {
+    throw new Error("Missing STRIPE_WEBHOOK_SECRET environment variable.");
+  }
+
+  return secret;
+}
