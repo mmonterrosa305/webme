@@ -13,7 +13,7 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const body = await request.text();
+  const rawBody = Buffer.from(await request.arrayBuffer());
   const signature = request.headers.get("stripe-signature");
 
   if (!signature) {
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   try {
     event = getStripe().webhooks.constructEvent(
-      body,
+      rawBody,
       signature,
       getStripeWebhookSecret(),
     );
