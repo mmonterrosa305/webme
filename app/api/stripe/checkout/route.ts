@@ -81,6 +81,14 @@ export async function POST(request: Request) {
         business_name: lead.business_name,
         stripe_env_requirements: REQUIRED_ENV_VARS.join(","),
       },
+      subscription_data: {
+        metadata: {
+          lead_id: lead.id,
+          site_slug: slug,
+          plan,
+          business_name: lead.business_name,
+        },
+      },
       success_url: `${appUrl}/preview/${slug}?checkout=success`,
       cancel_url: `${appUrl}/preview/${slug}?checkout=canceled`,
     });

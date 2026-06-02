@@ -26,12 +26,26 @@ export function getAppUrl(): string {
   return url.replace(/\/$/, "");
 }
 
-export function getStripeWebhookSecret(): string {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+export function getStripeWebhookSecrets(): string[] {
+  const raw = process.env.STRIPE_WEBHOOK_SECRET?.trim();
 
-  if (!secret) {
+  if (!raw) {
     throw new Error("Missing STRIPE_WEBHOOK_SECRET environment variable.");
   }
 
-  return secret;
+  const secrets = raw
+    .split(",")
+    .map((secret) => secret.trim())
+    .filter(Boolean);
+
+  if (secrets.length === 0) {
+    throw new Error("Missing STRIPE_WEBHOOK_SECRET environment variable.");
+  }
+
+  return secrets;
+}
+
+/** @deprecated Use getStripeWebhookSecrets() */
+export function getStripeWebhookSecret(): string {
+  return getStripeWebhookSecrets()[0]!;
 }
