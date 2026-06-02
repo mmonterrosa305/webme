@@ -242,7 +242,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-                Simple, honest pricing
+                Select your plan
               </h2>
               <p className="mt-4 text-lg text-neutral-600">
                 No hidden fees. Cancel anytime.
