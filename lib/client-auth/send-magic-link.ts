@@ -3,7 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 import { getClientAuthCallbackUrl } from "./app-url";
 import { buildPortalLoginEmail } from "./build-portal-login-email";
-import { isPortalEligiblePlan } from "./constants";
+import {
+  CLIENT_MAGIC_LINK_EXPIRY_SECONDS,
+  isPortalEligiblePlan,
+} from "./constants";
+import { ensureClientMagicLinkExpiry } from "./ensure-magic-link-expiry";
 
 export async function sendClientPortalMagicLink(
   email: string,
@@ -18,10 +22,17 @@ export async function sendClientPortalMagicLink(
     throw new Error("Email is required.");
   }
 
+  await ensureClientMagicLinkExpiry();
+
   const supabase = createAdminClient();
   const redirectTo = getClientAuthCallbackUrl();
 
   console.log("[client-auth/send-magic-link] Auth callback URL:", redirectTo);
+  console.log(
+    "[client-auth/send-magic-link] Magic link expiry:",
+    CLIENT_MAGIC_LINK_EXPIRY_SECONDS,
+    "seconds",
+  );
   console.log(
     "[client-auth/send-magic-link] Generating Supabase magic link for:",
     normalizedEmail,
@@ -35,6 +46,7 @@ export async function sendClientPortalMagicLink(
       data: {
         app_role: "client",
         business_name: businessName,
+        magic_link_expires_in_seconds: CLIENT_MAGIC_LINK_EXPIRY_SECONDS,
       },
     },
   });
@@ -64,6 +76,7 @@ export async function sendClientPortalMagicLink(
     businessName,
     magicLink,
     isWelcome: options.isWelcome ?? false,
+    expiresInSeconds: CLIENT_MAGIC_LINK_EXPIRY_SECONDS,
   });
 
   const fromEmail = getResendFromEmail();

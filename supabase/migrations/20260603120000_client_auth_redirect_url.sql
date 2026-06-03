@@ -4,3 +4,7 @@
 --   Redirect URLs: https://mywebme.com/auth/callback
 -- For local development also add:
 --   http://localhost:3000/auth/callback
+--
+-- Client magic link expiry (10 minutes):
+--   Authentication → Providers → Email → Email OTP Expiration = 600
+--   (matches CLIENT_MAGIC_LINK_EXPIRY_SECONDS in lib/client-auth/constants.ts)

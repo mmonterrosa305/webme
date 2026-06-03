@@ -1,5 +1,8 @@
 import type { ClientPlan } from "@/lib/clients/types";
 
+/** Client magic link validity — must match Supabase Auth → Email OTP Expiration (seconds). */
+export const CLIENT_MAGIC_LINK_EXPIRY_SECONDS = 600;
+
 /** Pro and Elite plans in the product map to starter and premium in Stripe/Supabase. */
 export const PORTAL_ELIGIBLE_PLANS = new Set<ClientPlan>(["starter", "premium"]);
 
