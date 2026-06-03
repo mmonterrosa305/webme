@@ -1,25 +1,9 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 
-function getResendApiKey(): string {
-  const key = process.env.RESEND_API_KEY?.trim();
-
-  if (!key || key.startsWith("your_")) {
-    throw new Error("Missing RESEND_API_KEY environment variable.");
-  }
-
-  return key;
-}
-
-function getFromEmail(): string {
-  const email = process.env.RESEND_FROM_EMAIL?.trim();
-
-  if (!email) {
-    throw new Error("Missing RESEND_FROM_EMAIL environment variable.");
-  }
-
-  return email;
-}
+import {
+  createResendClient,
+  getResendFromEmail,
+} from "@/lib/email/resend";
 
 function escapeHtml(value: string): string {
   return value
@@ -51,8 +35,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const resend = new Resend(getResendApiKey());
-    const from = getFromEmail();
+    const resend = createResendClient();
+    const from = getResendFromEmail();
 
     const escapedName = escapeHtml(name);
     const escapedEmail = escapeHtml(email);

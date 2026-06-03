@@ -56,6 +56,20 @@ ${buildIndustryHeroListForPrompt()}
 7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
 8. Footer — logo/wordmark, links or contact line, copyright © 2025.
 
+## Client-editable markers (required)
+Add these exact data-webme attributes so clients can edit their site later:
+- Hero section wrapper: data-webme="hero-image" on the element with the hero background-image
+- Hero h1: data-webme="headline"
+- Hero subheadline (first p under h1): data-webme="tagline"
+- Header/nav logo img: data-webme="logo"
+- About section image: data-webme="about-image"
+- Service card backgrounds (in order): data-webme="service-image-1" through data-webme="service-image-4"
+- Gallery images (left to right): data-webme="gallery-image-1" through data-webme="gallery-image-3"
+- Contact sidebar phone: data-webme="phone" (also use tel: link)
+- Contact sidebar address: data-webme="address"
+- Contact sidebar hours list wrapper: data-webme="hours-block" with each hour as an li
+- Business name in footer: data-webme="business-name"
+
 ## Animations
 - Fade-in on load for hero and main sections only. No scroll animations, no Intersection Observer, no complex effects.
 

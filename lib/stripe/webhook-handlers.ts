@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 
 import type { ClientPlan } from "@/lib/clients/types";
+import { sendClientPortalMagicLinkIfEligible } from "@/lib/client-auth/send-magic-link";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -211,6 +212,16 @@ export async function handleCheckoutSessionCompleted(
   const { oneTimeAmount, monthlyAmount } = getPlanAmounts(plan);
   const supabase = createAdminClient();
 
+  const { data: leadRecord, error: leadRecordError } = await supabase
+    .from("leads")
+    .select("site_slug, site_html, phone, address")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (leadRecordError) {
+    throw new Error(`Failed to load lead site data: ${leadRecordError.message}`);
+  }
+
   const { error: leadUpdateError } = await supabase
     .from("leads")
     .update({ status: "won" })
@@ -225,11 +236,14 @@ export async function handleCheckoutSessionCompleted(
     business_name: businessName,
     package: plan,
     owner_email: email,
+    phone: leadRecord?.phone ?? null,
     stripe_customer_id: customerId,
     stripe_subscription_id: subscriptionId,
     subscription_status: "active",
     one_time_amount: oneTimeAmount,
     monthly_amount: monthlyAmount,
+    site_slug: leadRecord?.site_slug ?? null,
+    site_html: leadRecord?.site_html ?? null,
     created_at: new Date().toISOString(),
   };
 
@@ -252,11 +266,14 @@ export async function handleCheckoutSessionCompleted(
         business_name: clientRow.business_name,
         package: clientRow.package,
         owner_email: clientRow.owner_email,
+        phone: clientRow.phone,
         stripe_customer_id: clientRow.stripe_customer_id,
         stripe_subscription_id: clientRow.stripe_subscription_id,
         subscription_status: clientRow.subscription_status,
         one_time_amount: clientRow.one_time_amount,
         monthly_amount: clientRow.monthly_amount,
+        site_slug: clientRow.site_slug,
+        site_html: clientRow.site_html,
       })
       .eq("lead_id", leadId);
 
@@ -273,6 +290,29 @@ export async function handleCheckoutSessionCompleted(
 
   if (clientInsertError) {
     throw new Error(`Failed to create client: ${clientInsertError.message}`);
+  }
+
+  try {
+    const sent = await sendClientPortalMagicLinkIfEligible(
+      email,
+      businessName,
+      plan,
+    );
+
+    if (sent) {
+      console.log("[stripe/webhook] Sent client portal magic link", {
+        email,
+        businessName,
+        plan,
+      });
+    }
+  } catch (magicLinkError) {
+    console.error(
+      "[stripe/webhook] Failed to send client portal magic link:",
+      magicLinkError instanceof Error
+        ? magicLinkError.message
+        : magicLinkError,
+    );
   }
 }
 

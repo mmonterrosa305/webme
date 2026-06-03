@@ -1,0 +1,6 @@
+-- Supabase Auth redirect URL required for client magic links.
+-- In Supabase Dashboard → Authentication → URL Configuration, add:
+--   Site URL: https://mywebme.com
+--   Redirect URLs: https://mywebme.com/auth/callback
+-- For local development also add:
+--   http://localhost:3000/auth/callback
