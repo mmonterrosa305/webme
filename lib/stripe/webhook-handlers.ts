@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 
 import type { ClientPlan } from "@/lib/clients/types";
-import { sendClientPortalMagicLinkIfEligible } from "@/lib/client-auth/send-magic-link";
+import { sendClientPortalOtpIfEligible } from "@/lib/client-auth/send-client-otp";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -293,14 +293,14 @@ export async function handleCheckoutSessionCompleted(
   }
 
   try {
-    const sent = await sendClientPortalMagicLinkIfEligible(
+    const sent = await sendClientPortalOtpIfEligible(
       email,
       businessName,
       plan,
     );
 
     if (sent) {
-      console.log("[stripe/webhook] Sent client portal magic link", {
+      console.log("[stripe/webhook] Sent client portal sign-in code", {
         email,
         businessName,
         plan,
@@ -308,7 +308,7 @@ export async function handleCheckoutSessionCompleted(
     }
   } catch (magicLinkError) {
     console.error(
-      "[stripe/webhook] Failed to send client portal magic link:",
+      "[stripe/webhook] Failed to send client portal sign-in code:",
       magicLinkError instanceof Error
         ? magicLinkError.message
         : magicLinkError,

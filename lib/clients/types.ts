@@ -4,7 +4,7 @@ export type ClientStatus = "active" | "payment_failed";
 
 export type Client = {
   id: string;
-  lead_id: string;
+  lead_id: string | null;
   business_name: string;
   package: ClientPlan | string;
   owner_email: string;

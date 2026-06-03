@@ -50,11 +50,35 @@ export async function POST(request: Request) {
       );
     }
 
+    const htmlBefore = existing.siteHtml;
+    const hasOriginalName = /mc pool service/i.test(htmlBefore);
+
+    console.log("[client/site/preview POST] content received", {
+      previousBusinessName: existing.content.businessName,
+      nextBusinessName: nextContent.businessName,
+      previousHeadline: existing.content.headline,
+      nextHeadline: nextContent.headline,
+      previousPhone: existing.content.phone,
+      nextPhone: nextContent.phone,
+      previousAddress: existing.content.address,
+      nextAddress: nextContent.address,
+      htmlContainsOriginalBusinessName: hasOriginalName,
+      htmlSnippetBefore: htmlBefore.match(/logo-text[^>]*>[^<]+/i)?.[0] ?? null,
+    });
+
     const previewHtml = applySiteContent(
       existing.siteHtml,
       existing.content,
       nextContent,
     );
+
+    console.log("[client/site/preview POST] preview html result", {
+      htmlContainsOriginalBusinessName: /mc pool service/i.test(previewHtml),
+      htmlContainsNextBusinessName: previewHtml.includes(nextContent.businessName),
+      htmlSnippetAfter:
+        previewHtml.match(/logo-text[^>]*>[^<]+/gi)?.slice(0, 3) ?? null,
+      titleAfter: previewHtml.match(/<title>([^<]+)<\/title>/i)?.[1] ?? null,
+    });
 
     return NextResponse.json({ html: previewHtml });
   } catch (error) {

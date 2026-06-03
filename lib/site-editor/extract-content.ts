@@ -31,6 +31,36 @@ function getAttrValue(
   return $(selector).first().attr(attr)?.trim() ?? "";
 }
 
+function extractBusinessName($: cheerio.CheerioAPI, fallback: string): string {
+  const tagged = $('[data-webme="business-name"]').first().text().trim();
+  if (tagged) {
+    return tagged;
+  }
+
+  const logoText = $(".logo-text").first().text().trim();
+  if (logoText) {
+    return logoText;
+  }
+
+  const title = $("title").first().text().trim();
+  if (title) {
+    const beforePipe = title.split("|")[0]?.trim();
+    if (beforePipe) {
+      return beforePipe;
+    }
+  }
+
+  const headerLink = $("header a").first();
+  if (headerLink.length && headerLink.find("img").length === 0) {
+    const headerText = headerLink.text().trim();
+    if (headerText) {
+      return headerText;
+    }
+  }
+
+  return fallback.trim();
+}
+
 function extractHeadline($: cheerio.CheerioAPI): string {
   const tagged = $('[data-webme="headline"]').first().text().trim();
   if (tagged) {
@@ -260,7 +290,7 @@ export function extractSiteContent(
   const $ = cheerio.load(siteHtml);
 
   return {
-    businessName,
+    businessName: extractBusinessName($, businessName),
     phone: extractPhone($, phone?.trim() ?? ""),
     address: extractAddress($, address?.trim() ?? ""),
     hours: metadata?.hours?.trim() ?? extractHours($),

@@ -6,6 +6,8 @@ export default function ClientLayout({
   children: ReactNode;
 }>) {
   return (
-    <div className="min-h-full bg-white font-sans text-neutral-900">{children}</div>
+    <div className="h-dvh w-full overflow-hidden font-sans text-neutral-900">
+      {children}
+    </div>
   );
 }

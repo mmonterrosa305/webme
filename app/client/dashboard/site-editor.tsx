@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getPlanDisplayName,
@@ -23,6 +23,8 @@ const inputClassName =
 
 const labelClassName = "mb-1.5 block text-sm font-medium text-neutral-700";
 
+const PREVIEW_DEBOUNCE_MS = 1000;
+
 function cloneContent(content: SiteContent): SiteContent {
   return {
     ...content,
@@ -39,50 +41,74 @@ export function SiteEditor({
 }: SiteEditorProps) {
   const [savedContent, setSavedContent] = useState(initialContent);
   const [draftContent, setDraftContent] = useState(initialContent);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const previewBlobRef = useRef<string | null>(null);
 
   const hasChanges = useMemo(
     () => JSON.stringify(savedContent) !== JSON.stringify(draftContent),
     [draftContent, savedContent],
   );
 
-  const refreshPreview = useCallback(async (content: SiteContent) => {
-    setPreviewLoading(true);
+  const setPreviewFromHtml = useCallback((html: string) => {
+    const blob = new Blob([html], { type: "text/html" });
+    const nextSrc = URL.createObjectURL(blob);
 
-    try {
-      const response = await fetch("/api/client/site/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-
-      const data = (await response.json()) as { html?: string; error?: string };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Failed to update preview.");
-      }
-
-      setPreviewHtml(data.html ?? null);
-    } catch (previewError) {
-      setError(
-        previewError instanceof Error
-          ? previewError.message
-          : "Failed to update preview.",
-      );
-    } finally {
-      setPreviewLoading(false);
+    if (previewBlobRef.current) {
+      URL.revokeObjectURL(previewBlobRef.current);
     }
+
+    previewBlobRef.current = nextSrc;
+    setPreviewSrc(nextSrc);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewBlobRef.current) {
+        URL.revokeObjectURL(previewBlobRef.current);
+      }
+    };
+  }, []);
+
+  const refreshPreview = useCallback(
+    async (content: SiteContent) => {
+      try {
+        const response = await fetch("/api/client/site/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+
+        const data = (await response.json()) as { html?: string; error?: string };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to update preview.");
+        }
+
+        if (data.html) {
+          setPreviewFromHtml(data.html);
+        }
+      } catch (previewError) {
+        setError(
+          previewError instanceof Error
+            ? previewError.message
+            : "Failed to update preview.",
+        );
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [setPreviewFromHtml],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void refreshPreview(draftContent);
-    }, 400);
+    }, PREVIEW_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
   }, [draftContent, refreshPreview]);
@@ -191,68 +217,158 @@ export function SiteEditor({
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div>
-            <p className="text-sm font-medium text-neutral-500">
-              MyWebMe client portal
-            </p>
-            <h1 className="text-xl font-semibold text-neutral-900">
-              {draftContent.businessName}
-            </h1>
-            <p className="mt-1 text-sm text-neutral-600">
-              {getPlanDisplayName(plan)} · {getSiteStatusLabel(subscriptionStatus)}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={previewUrl}
-              target="_blank"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
-            >
-              View live site
-            </Link>
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={!hasChanges || publishing}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={handlePublish}
-              disabled={!hasChanges || publishing}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {publishing ? "Publishing…" : "Publish"}
-            </button>
-          </div>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 20px",
+          borderBottom: "1px solid #e5e7eb",
+          background: "white",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "#111827",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {draftContent.businessName}
+          </p>
+          <p
+            style={{
+              margin: "2px 0 0",
+              fontSize: "12px",
+              color: "#6b7280",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {getPlanDisplayName(plan)} · {getSiteStatusLabel(subscriptionStatus)}
+          </p>
         </div>
-      </header>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+          <Link
+            href={previewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-block",
+              padding: "6px 12px",
+              fontSize: "12px",
+              fontWeight: 500,
+              color: "#374151",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              textDecoration: "none",
+              background: "white",
+            }}
+          >
+            View live
+          </Link>
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={!hasChanges || publishing}
+            style={{
+              padding: "6px 12px",
+              fontSize: "12px",
+              fontWeight: 500,
+              color: "#374151",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              background: "white",
+              cursor: !hasChanges || publishing ? "not-allowed" : "pointer",
+              opacity: !hasChanges || publishing ? 0.5 : 1,
+            }}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={handlePublish}
+            disabled={!hasChanges || publishing}
+            style={{
+              padding: "6px 12px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              background: "#111827",
+              cursor: !hasChanges || publishing ? "not-allowed" : "pointer",
+              opacity: !hasChanges || publishing ? 0.5 : 1,
+            }}
+          >
+            {publishing ? "Publishing…" : "Publish"}
+          </button>
+        </div>
+      </div>
 
       {(message || error) && (
-        <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3 sm:px-6">
+        <div
+          style={{
+            flexShrink: 0,
+            padding: "8px 20px",
+            borderBottom: "1px solid #e5e7eb",
+            background: "white",
+          }}
+        >
           {message ? (
-            <p className="text-sm text-green-700" role="status">
+            <p style={{ margin: 0, fontSize: "14px", color: "#15803d" }} role="status">
               {message}
             </p>
           ) : null}
           {error ? (
-            <p className="text-sm text-red-600" role="alert">
+            <p style={{ margin: 0, fontSize: "14px", color: "#dc2626" }} role="alert">
               {error}
             </p>
           ) : null}
         </div>
       )}
 
-      <div className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-6 lg:grid-cols-[380px_1fr] lg:px-6">
-        <aside className="space-y-6">
-          <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-900">
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          flex: 1,
+          minHeight: 0,
+          height: "100%",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: "380px",
+            minWidth: "380px",
+            height: "100%",
+            overflowY: "auto",
+            background: "white",
+            borderRight: "1px solid #e5e7eb",
+            padding: "20px 16px",
+            boxSizing: "border-box",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <section className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
+            <h2 className="text-sm font-semibold text-neutral-900">
               Business info
             </h2>
             <div className="mt-4 space-y-4">
@@ -312,8 +428,8 @@ export function SiteEditor({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-900">
+          <section className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
+            <h2 className="text-sm font-semibold text-neutral-900">
               Headline & tagline
             </h2>
             <div className="mt-4 space-y-4">
@@ -347,8 +463,8 @@ export function SiteEditor({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-900">Logo</h2>
+          <section className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
+            <h2 className="text-sm font-semibold text-neutral-900">Logo</h2>
             <div className="mt-4 space-y-3">
               {draftContent.logoUrl ? (
                 <img
@@ -373,8 +489,8 @@ export function SiteEditor({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-900">Photos</h2>
+          <section className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
+            <h2 className="text-sm font-semibold text-neutral-900">Photos</h2>
             <div className="mt-4 space-y-4">
               {IMAGE_SLOTS.map((slot) => (
                 <div key={slot}>
@@ -405,27 +521,56 @@ export function SiteEditor({
               ))}
             </div>
           </section>
-        </aside>
-
-        <section className="flex min-h-[70vh] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-neutral-900">Preview</h2>
-              <p className="text-xs text-neutral-500">
-                Changes update here before you publish.
-              </p>
-            </div>
-            <p className="text-xs text-neutral-500">
-              {previewLoading ? "Updating…" : `/${siteSlug}`}
-            </p>
           </div>
-          <iframe
-            title="Site preview"
-            srcDoc={previewHtml ?? ""}
-            sandbox="allow-scripts allow-same-origin"
-            className="min-h-0 w-full flex-1 border-0 bg-white"
-          />
-        </section>
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            height: "100%",
+            background: "#f3f4f6",
+            position: "relative",
+            minWidth: 0,
+          }}
+        >
+          {previewLoading && !previewSrc ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                height: "100%",
+                fontSize: "14px",
+                color: "#6b7280",
+              }}
+            >
+              Loading preview…
+            </div>
+          ) : null}
+          {previewSrc ? (
+            <iframe
+              title="Site preview"
+              src={previewSrc}
+              sandbox="allow-scripts allow-same-origin"
+              style={{ width: "100%", height: "100%", border: "none" }}
+            />
+          ) : !previewLoading ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                height: "100%",
+                fontSize: "14px",
+                color: "#9ca3af",
+              }}
+            >
+              Preview will appear here
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

@@ -1,37 +1,14 @@
 import type { Client } from "@/lib/clients/types";
+import { resolveClientLead } from "@/lib/client-auth/resolve-client-lead";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { extractSiteContent } from "./extract-content";
 import type { ClientSiteData, SiteMetadata } from "./types";
 
-type LeadSiteRow = {
-  id: string;
-  business_name: string;
-  phone: string | null;
-  address: string | null;
-  site_slug: string | null;
-  site_html: string | null;
-  site_metadata: SiteMetadata | null;
-};
-
 export async function getClientSiteData(
   client: Client,
 ): Promise<ClientSiteData | null> {
-  const supabase = createAdminClient();
-
-  const { data: lead, error } = await supabase
-    .from("leads")
-    .select(
-      "id, business_name, phone, address, site_slug, site_html, site_metadata",
-    )
-    .eq("id", client.lead_id)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const leadRow = lead as LeadSiteRow | null;
+  const leadRow = await resolveClientLead(client);
 
   if (!leadRow?.site_html || !leadRow.site_slug) {
     return null;
@@ -61,6 +38,12 @@ export async function publishClientSite(
   content: ClientSiteData["content"],
   metadata: SiteMetadata,
 ): Promise<{ siteSlug: string }> {
+  const leadRow = await resolveClientLead(client);
+
+  if (!leadRow?.id) {
+    throw new Error("No website is linked to this client account.");
+  }
+
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
@@ -73,7 +56,7 @@ export async function publishClientSite(
       site_html: siteHtml,
       site_metadata: metadata,
     })
-    .eq("id", client.lead_id)
+    .eq("id", leadRow.id)
     .select("site_slug")
     .single();
 
@@ -89,6 +72,7 @@ export async function publishClientSite(
       site_html: siteHtml,
       site_slug: lead.site_slug,
       site_last_updated: now,
+      lead_id: leadRow.id,
     })
     .eq("id", client.id);
 

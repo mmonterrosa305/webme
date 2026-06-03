@@ -33,7 +33,7 @@ export async function ensureClientMagicLinkExpiry(): Promise<void> {
 
   if (!accessToken || !projectRef) {
     console.log(
-      "[client-auth/send-magic-link] Magic link expiry:",
+      "[client-auth/send-otp] OTP expiry:",
       CLIENT_MAGIC_LINK_EXPIRY_SECONDS,
       "seconds — set Supabase Auth → Email → Email OTP Expiration to match",
     );
@@ -58,7 +58,7 @@ export async function ensureClientMagicLinkExpiry(): Promise<void> {
     if (!response.ok) {
       const body = await response.text();
       console.warn(
-        "[client-auth/send-magic-link] Could not sync mailer_otp_exp:",
+        "[client-auth/send-otp] Could not sync mailer_otp_exp:",
         response.status,
         body,
       );
@@ -66,13 +66,13 @@ export async function ensureClientMagicLinkExpiry(): Promise<void> {
     }
 
     console.log(
-      "[client-auth/send-magic-link] Synced Supabase mailer_otp_exp to",
+      "[client-auth/send-otp] Synced Supabase mailer_otp_exp to",
       CLIENT_MAGIC_LINK_EXPIRY_SECONDS,
       "seconds",
     );
   } catch (error) {
     console.warn(
-      "[client-auth/send-magic-link] Failed to sync mailer_otp_exp:",
+      "[client-auth/send-otp] Failed to sync mailer_otp_exp:",
       error instanceof Error ? error.message : error,
     );
   }

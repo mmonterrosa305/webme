@@ -13,8 +13,128 @@ function replaceGlobalUrl(html: string, oldUrl: string, newUrl: string): string 
 
 function setText($: cheerio.CheerioAPI, selector: string, value: string) {
   const element = $(selector).first();
-  if (element.length && value) {
+  if (element.length) {
     element.text(value);
+  }
+}
+
+function replaceGlobalText(html: string, search: string, replace: string): string {
+  if (!search || search.trim() === replace.trim()) {
+    return html;
+  }
+
+  const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return html.replace(new RegExp(escaped, "gi"), () => replace);
+}
+
+function getBusinessNameReplaceTargets(
+  $: cheerio.CheerioAPI,
+  previousContent: SiteContent,
+): string[] {
+  const targets = new Set<string>();
+
+  function add(value: string | undefined | null) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      targets.add(trimmed);
+    }
+  }
+
+  add(previousContent.businessName);
+
+  add($('[data-webme="business-name"]').first().text());
+  $(".logo-text").each((_, element) => {
+    add($(element).text());
+  });
+
+  const title = $("title").first().text().trim();
+  if (title) {
+    add(title.split("|")[0]?.trim());
+  }
+
+  return [...targets].sort((left, right) => right.length - left.length);
+}
+
+function applyBusinessName(
+  $: cheerio.CheerioAPI,
+  nextContent: SiteContent,
+) {
+  if (!nextContent.businessName) {
+    return;
+  }
+
+  setText($, '[data-webme="business-name"]', nextContent.businessName);
+
+  $(".logo-text").each((_, element) => {
+    $(element).text(nextContent.businessName);
+  });
+
+  const titleElement = $("title").first();
+  const title = titleElement.text().trim();
+  if (title.includes("|")) {
+    titleElement.text(
+      `${nextContent.businessName}${title.slice(title.indexOf("|"))}`,
+    );
+  } else if (title) {
+    titleElement.text(nextContent.businessName);
+  } else {
+    titleElement.text(nextContent.businessName);
+  }
+
+  const headerLink = $("header a").first();
+  if (headerLink.length && headerLink.find("img").length === 0) {
+    headerLink.text(nextContent.businessName);
+  }
+}
+
+function applyPhone($: cheerio.CheerioAPI, nextContent: SiteContent) {
+  if (!nextContent.phone) {
+    return;
+  }
+
+  setText($, '[data-webme="phone"]', nextContent.phone);
+
+  const normalizedPhone = nextContent.phone.replace(/\s+/g, "");
+
+  $('a[href^="tel:"]').each((_, element) => {
+    $(element).attr("href", `tel:${normalizedPhone}`);
+    $(element).text(nextContent.phone);
+  });
+}
+
+function applyAddress($: cheerio.CheerioAPI, nextContent: SiteContent) {
+  if (!nextContent.address) {
+    return;
+  }
+
+  setText($, '[data-webme="address"]', nextContent.address);
+  setText($, '[data-webme="address-block"]', nextContent.address);
+}
+
+function applyHeadline($: cheerio.CheerioAPI, nextContent: SiteContent) {
+  if (!nextContent.headline) {
+    return;
+  }
+
+  setText($, '[data-webme="headline"]', nextContent.headline);
+
+  const heroHeading = $("section").first().find("h1").first();
+  if (heroHeading.length) {
+    heroHeading.text(nextContent.headline);
+  }
+}
+
+function applyTagline($: cheerio.CheerioAPI, nextContent: SiteContent) {
+  if (!nextContent.tagline) {
+    return;
+  }
+
+  setText($, '[data-webme="tagline"]', nextContent.tagline);
+
+  const heroSection = $("section").first();
+  const heroParagraph = heroSection.find("p").first();
+  if (heroParagraph.length) {
+    heroParagraph.text(nextContent.tagline);
   }
 }
 
@@ -77,58 +197,13 @@ export function applySiteContent(
   nextContent: SiteContent,
 ): string {
   const $ = cheerio.load(siteHtml);
+  const businessNameTargets = getBusinessNameReplaceTargets($, previousContent);
 
-  if (nextContent.headline) {
-    setText($, '[data-webme="headline"]', nextContent.headline);
-    const heroHeading = $("section").first().find("h1").first();
-    if (heroHeading.length) {
-      heroHeading.text(nextContent.headline);
-    }
-  }
-
-  if (nextContent.tagline) {
-    setText($, '[data-webme="tagline"]', nextContent.tagline);
-    const heroSection = $("section").first();
-    const heroParagraph = heroSection.find("p").first();
-    if (heroParagraph.length) {
-      heroParagraph.text(nextContent.tagline);
-    }
-  }
-
-  if (nextContent.businessName) {
-    setText($, '[data-webme="business-name"]', nextContent.businessName);
-    $("title").text(nextContent.businessName);
-    $("footer").find("*").each((_, element) => {
-      const text = $(element).text();
-      if (
-        previousContent.businessName &&
-        text.includes(previousContent.businessName)
-      ) {
-        $(element).text(
-          text.replaceAll(previousContent.businessName, nextContent.businessName),
-        );
-      }
-    });
-  }
-
-  if (nextContent.phone) {
-    setText($, '[data-webme="phone"]', nextContent.phone);
-    $('a[href^="tel:"]').each((_, element) => {
-      $(element).attr("href", `tel:${nextContent.phone.replace(/\s+/g, "")}`);
-      if (
-        previousContent.phone &&
-        $(element).text().includes(previousContent.phone)
-      ) {
-        $(element).text(nextContent.phone);
-      }
-    });
-  }
-
-  if (nextContent.address) {
-    setText($, '[data-webme="address"]', nextContent.address);
-    setText($, '[data-webme="address-block"]', nextContent.address);
-  }
-
+  applyHeadline($, nextContent);
+  applyTagline($, nextContent);
+  applyBusinessName($, nextContent);
+  applyPhone($, nextContent);
+  applyAddress($, nextContent);
   applyHours($, nextContent.hours);
 
   if (nextContent.logoUrl) {
@@ -168,6 +243,19 @@ export function applySiteContent(
   }
 
   let html = $.html();
+
+  for (const target of businessNameTargets) {
+    html = replaceGlobalText(
+      html,
+      target,
+      nextContent.businessName,
+    );
+  }
+
+  html = replaceGlobalText(html, previousContent.headline, nextContent.headline);
+  html = replaceGlobalText(html, previousContent.tagline, nextContent.tagline);
+  html = replaceGlobalText(html, previousContent.phone, nextContent.phone);
+  html = replaceGlobalText(html, previousContent.address, nextContent.address);
 
   if (
     nextContent.logoUrl &&
