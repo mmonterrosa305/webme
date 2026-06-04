@@ -46,7 +46,7 @@ const PLANS = [
   },
   {
     name: "Pro",
-    price: "$199 one-time + $29/mo hosting",
+    price: "$199 one-time + first month free, then $29/mo",
     priceNote: null,
     badge: "Most popular",
     features: [
@@ -56,12 +56,14 @@ const PLANS = [
       "1 fully designed page",
       "Google-ready setup",
       "Site stays live if you cancel",
+      "Edit your website anytime",
+      "First month of hosting free",
     ],
     featured: true,
   },
   {
     name: "Elite",
-    price: "$599 one-time + $59/mo hosting",
+    price: "$599 one-time + first month free, then $59/mo",
     priceNote: null,
     features: [
       "Everything in Pro",
@@ -70,6 +72,8 @@ const PLANS = [
       "E-commerce ready",
       "Custom logo design",
       "Priority support",
+      "Edit your website anytime",
+      "First month of hosting free",
     ],
     featured: false,
   },
