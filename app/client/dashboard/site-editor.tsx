@@ -6,9 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getPlanDisplayName,
   getSiteStatusLabel,
+  isPortalEligiblePlan,
 } from "@/lib/client-auth/constants";
 import type { SiteContent, SiteImageSlot } from "@/lib/site-editor/types";
 import { IMAGE_SLOT_LABELS, IMAGE_SLOTS } from "@/lib/site-editor/types";
+
+import { DomainClaimSection } from "./domain-claim-section";
+import { UpgradeSuccessBanner } from "./upgrade-success-banner";
 
 type SiteEditorProps = {
   initialContent: SiteContent;
@@ -16,6 +20,9 @@ type SiteEditorProps = {
   plan: string;
   subscriptionStatus: string;
   previewUrl: string;
+  domainRequested?: string | null;
+  domainStatus?: string | null;
+  showUpgradeSuccess?: boolean;
 };
 
 const inputClassName =
@@ -38,7 +45,12 @@ export function SiteEditor({
   plan,
   subscriptionStatus,
   previewUrl,
+  domainRequested = null,
+  domainStatus = null,
+  showUpgradeSuccess = false,
 }: SiteEditorProps) {
+  const showDomainClaimSection =
+    isPortalEligiblePlan(plan) && domainStatus !== "active";
   const [savedContent, setSavedContent] = useState(initialContent);
   const [draftContent, setDraftContent] = useState(initialContent);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
@@ -322,6 +334,8 @@ export function SiteEditor({
         </div>
       </div>
 
+      {showUpgradeSuccess ? <UpgradeSuccessBanner /> : null}
+
       {(message || error) && (
         <div
           style={{
@@ -572,6 +586,28 @@ export function SiteEditor({
           ) : null}
         </div>
       </div>
+
+      {showDomainClaimSection ? (
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: "1px solid #e5e7eb",
+            background: "#ffffff",
+            overflowY: "auto",
+            maxHeight: "45vh",
+            display: "flex",
+            justifyContent: "center",
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <DomainClaimSection
+            plan={plan}
+            domainRequested={domainRequested}
+            domainStatus={domainStatus}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

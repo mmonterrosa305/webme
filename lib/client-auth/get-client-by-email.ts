@@ -18,7 +18,7 @@ export async function getClientByEmail(
   const { data, error } = await supabase
     .from("clients")
     .select(
-      "id, lead_id, business_name, package, owner_email, stripe_customer_id, stripe_subscription_id, subscription_status, one_time_amount, monthly_amount, created_at",
+      "id, lead_id, business_name, package, owner_email, stripe_customer_id, stripe_subscription_id, subscription_status, one_time_amount, monthly_amount, created_at, site_url, domain_requested, domain_status",
     )
     .ilike("owner_email", normalizedEmail)
     .maybeSingle();

@@ -2,6 +2,8 @@ export type ClientPlan = "starter" | "monthly" | "premium";
 
 export type ClientStatus = "active" | "payment_failed";
 
+export type DomainStatus = "pending" | "active" | "failed" | null;
+
 export type Client = {
   id: string;
   lead_id: string | null;
@@ -14,4 +16,7 @@ export type Client = {
   one_time_amount: number;
   monthly_amount: number;
   created_at: string;
+  site_url: string | null;
+  domain_requested: string | null;
+  domain_status: DomainStatus | string | null;
 };

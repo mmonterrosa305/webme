@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { getAppUrl, getStripe } from "@/lib/stripe";
+import {
+  checkoutCustomTextForTrial,
+  subscriptionDataWithTrial,
+} from "@/lib/stripe/subscription-trial";
 
 const PLANS = {
   starter: {
@@ -66,6 +70,12 @@ export async function POST(request: Request) {
         : null;
     const subPriceId = getPriceId(planConfig.subPriceEnv);
     const appUrl = getAppUrl();
+    const subscriptionMetadata = {
+      lead_id: lead.id,
+      site_slug: slug,
+      plan,
+      business_name: lead.business_name,
+    };
 
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
@@ -81,14 +91,14 @@ export async function POST(request: Request) {
         business_name: lead.business_name,
         stripe_env_requirements: REQUIRED_ENV_VARS.join(","),
       },
-      subscription_data: {
-        metadata: {
-          lead_id: lead.id,
-          site_slug: slug,
-          plan,
-          business_name: lead.business_name,
-        },
-      },
+      ...(setupPriceId
+        ? {
+            custom_text: checkoutCustomTextForTrial(),
+            subscription_data: subscriptionDataWithTrial(subscriptionMetadata),
+          }
+        : {
+            subscription_data: { metadata: subscriptionMetadata },
+          }),
       success_url: `${appUrl}/preview/${slug}?checkout=success`,
       cancel_url: `${appUrl}/preview/${slug}?checkout=canceled`,
     });
