@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HeroBackground } from "./hero-background";
 
 export const metadata: Metadata = {
   title: "MyWebMe — Professional websites for local businesses",
@@ -188,15 +189,15 @@ export default function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8 lg:py-32">
+        <HeroBackground>
           <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-600">
+            <span className="inline-flex rounded-full border border-white/40 bg-white/10 px-3 py-1 text-xs font-medium text-white">
               Built for local businesses
             </span>
-            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl">
+            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
               Your business deserves a website that works for you
             </h1>
-            <p className="mt-6 text-lg leading-relaxed text-neutral-600">
+            <p className="mt-6 text-lg leading-relaxed text-white">
               We build you a professional website — fast, affordable, and
               stress-free. You focus on running your business. We handle
               everything else.
@@ -206,7 +207,7 @@ export default function LandingPage() {
               <OutlineButton href="#how-it-works">How it works</OutlineButton>
             </div>
           </div>
-        </section>
+        </HeroBackground>
 
         {/* How it works */}
         <section
