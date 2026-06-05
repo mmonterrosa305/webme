@@ -6,8 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getPlanDisplayName,
   getSiteStatusLabel,
-  isPortalEligiblePlan,
 } from "@/lib/client-auth/constants";
+import type { ClientEditQuota } from "@/lib/client-edits/quota";
+import {
+  isFullEditorPlan,
+  isLimitedDashboardPlan,
+  planSupportsDomainClaim,
+} from "@/lib/plans/edit-limits";
 import type { SiteContent, SiteImageSlot } from "@/lib/site-editor/types";
 import { IMAGE_SLOT_LABELS, IMAGE_SLOTS } from "@/lib/site-editor/types";
 
@@ -23,6 +28,7 @@ type SiteEditorProps = {
   domainRequested?: string | null;
   domainStatus?: string | null;
   showUpgradeSuccess?: boolean;
+  editQuota: ClientEditQuota;
 };
 
 const inputClassName =
@@ -48,9 +54,13 @@ export function SiteEditor({
   domainRequested = null,
   domainStatus = null,
   showUpgradeSuccess = false,
+  editQuota: initialEditQuota,
 }: SiteEditorProps) {
   const showDomainClaimSection =
-    isPortalEligiblePlan(plan) && domainStatus !== "active";
+    planSupportsDomainClaim(plan) && domainStatus !== "active";
+  const isLimitedPlan = isLimitedDashboardPlan(plan);
+  const isFullEditor = isFullEditorPlan(plan);
+  const [editQuota, setEditQuota] = useState(initialEditQuota);
   const [savedContent, setSavedContent] = useState(initialContent);
   const [draftContent, setDraftContent] = useState(initialContent);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
@@ -65,6 +75,11 @@ export function SiteEditor({
     () => JSON.stringify(savedContent) !== JSON.stringify(draftContent),
     [draftContent, savedContent],
   );
+
+  const canPublish =
+    hasChanges &&
+    !publishing &&
+    (editQuota.unlimited || editQuota.remaining > 0);
 
   const setPreviewFromHtml = useCallback((html: string) => {
     const blob = new Blob([html], { type: "text/html" });
@@ -211,6 +226,14 @@ export function SiteEditor({
 
       setSavedContent(cloneContent(draftContent));
       setMessage(data.message ?? "Your site is live.");
+
+      if (isLimitedPlan) {
+        setEditQuota((current) => ({
+          ...current,
+          used: current.used + 1,
+          remaining: Math.max(0, current.remaining - 1),
+        }));
+      }
     } catch (publishError) {
       setError(
         publishError instanceof Error
@@ -316,7 +339,7 @@ export function SiteEditor({
           <button
             type="button"
             onClick={handlePublish}
-            disabled={!hasChanges || publishing}
+            disabled={!canPublish}
             style={{
               padding: "6px 12px",
               fontSize: "12px",
@@ -325,8 +348,8 @@ export function SiteEditor({
               border: "none",
               borderRadius: "6px",
               background: "#111827",
-              cursor: !hasChanges || publishing ? "not-allowed" : "pointer",
-              opacity: !hasChanges || publishing ? 0.5 : 1,
+              cursor: !canPublish ? "not-allowed" : "pointer",
+              opacity: !canPublish ? 0.5 : 1,
             }}
           >
             {publishing ? "Publishing…" : "Publish"}
@@ -381,9 +404,25 @@ export function SiteEditor({
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {isLimitedPlan ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-medium text-amber-900">
+                {editQuota.remaining > 0
+                  ? `${editQuota.remaining} of ${editQuota.limit} edit remaining this month`
+                  : `0 edits remaining — resets ${editQuota.resetDate}`}
+              </p>
+              {editQuota.remaining <= 0 ? (
+                <p className="mt-2 text-sm text-amber-800">
+                  Upgrade to Pro for unlimited editing, photo uploads, and a
+                  custom domain.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <section className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
             <h2 className="text-sm font-semibold text-neutral-900">
-              Business info
+              {isLimitedPlan ? "Site details" : "Business info"}
             </h2>
             <div className="mt-4 space-y-4">
               <div>
@@ -410,6 +449,24 @@ export function SiteEditor({
                   className={inputClassName}
                 />
               </div>
+              {isLimitedPlan ? (
+                <div>
+                  <label htmlFor="tagline" className={labelClassName}>
+                    Tagline
+                  </label>
+                  <textarea
+                    id="tagline"
+                    rows={3}
+                    value={draftContent.tagline}
+                    onChange={(event) =>
+                      updateField("tagline", event.target.value)
+                    }
+                    className={inputClassName}
+                  />
+                </div>
+              ) : null}
+              {isFullEditor ? (
+                <>
               <div>
                 <label htmlFor="address" className={labelClassName}>
                   Address
@@ -439,9 +496,13 @@ export function SiteEditor({
                   One line per entry.
                 </p>
               </div>
+                </>
+              ) : null}
             </div>
           </section>
 
+          {isFullEditor ? (
+          <>
           <section className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
             <h2 className="text-sm font-semibold text-neutral-900">
               Headline & tagline
@@ -535,6 +596,8 @@ export function SiteEditor({
               ))}
             </div>
           </section>
+          </>
+          ) : null}
           </div>
         </div>
 

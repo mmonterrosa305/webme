@@ -4,6 +4,7 @@ import {
   ClientAuthError,
   requirePortalClient,
 } from "@/lib/client-auth/require-portal-client";
+import { getClientEditQuota } from "@/lib/client-edits/quota";
 import { getClientSiteData } from "@/lib/site-editor/get-client-site";
 
 export async function GET() {
@@ -25,6 +26,7 @@ export async function GET() {
       plan: siteData.plan,
       subscriptionStatus: siteData.subscriptionStatus,
       previewUrl: `/preview/${siteData.siteSlug}`,
+      editQuota: await getClientEditQuota(client.id, client.package),
     });
   } catch (error) {
     if (error instanceof ClientAuthError) {

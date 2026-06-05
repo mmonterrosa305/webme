@@ -20,7 +20,7 @@ type DomainClaimSectionProps = {
 };
 
 const SEARCH_BAR_STYLE = {
-  width: "300px",
+  width: "340px",
   maxWidth: "100%",
   minWidth: 0,
 } as const;
@@ -369,7 +369,7 @@ export function DomainClaimSection({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Type the domain you want"
-          className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-[1.75rem] leading-tight text-neutral-900 outline-none placeholder:text-neutral-400"
+          className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm leading-tight text-neutral-900 outline-none placeholder:text-neutral-400"
         />
         <button
           type="submit"

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { isPortalEligiblePlan } from "@/lib/client-auth/constants";
 import { getClientByEmail } from "@/lib/client-auth/get-client-by-email";
+import { getClientEditQuota } from "@/lib/client-edits/quota";
 import { getClientSiteData } from "@/lib/site-editor/get-client-site";
 import { createClient } from "@/lib/supabase/server";
 
@@ -34,6 +35,8 @@ export default async function ClientDashboardPage({
   if (!client || !isPortalEligiblePlan(client.package)) {
     redirect("/client/login?error=auth");
   }
+
+  const editQuota = await getClientEditQuota(client.id, client.package);
 
   const siteData = await getClientSiteData(client);
 
@@ -76,6 +79,7 @@ export default async function ClientDashboardPage({
       domainRequested={client.domain_requested ?? null}
       domainStatus={client.domain_status ?? null}
       showUpgradeSuccess={showUpgradeSuccess}
+      editQuota={editQuota}
     />
   );
 }

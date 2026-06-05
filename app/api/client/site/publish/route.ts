@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
 import {
+  assertClientCanEdit,
+  recordClientEdit,
+} from "@/lib/client-edits/quota";
+import {
   ClientAuthError,
   requirePortalClient,
 } from "@/lib/client-auth/require-portal-client";
+import { isLimitedDashboardPlan } from "@/lib/plans/edit-limits";
 import { applySiteContent } from "@/lib/site-editor/apply-content";
 import { contentToMetadata } from "@/lib/site-editor/extract-content";
 import {
@@ -54,6 +59,10 @@ export async function POST(request: Request) {
       );
     }
 
+    if (isLimitedDashboardPlan(client.package)) {
+      await assertClientCanEdit(client.id, client.package);
+    }
+
     const updatedHtml = applySiteContent(
       existing.siteHtml,
       existing.content,
@@ -67,6 +76,10 @@ export async function POST(request: Request) {
       nextContent,
       metadata,
     );
+
+    if (isLimitedDashboardPlan(client.package)) {
+      await recordClientEdit(client.id);
+    }
 
     return NextResponse.json({
       success: true,

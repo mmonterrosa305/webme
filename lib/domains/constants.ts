@@ -18,7 +18,7 @@ export function getDomainPriceLimit(plan: string): number {
 }
 
 export function isDomainClaimEligiblePlan(plan: string): plan is ClientPlan {
-  return plan === "starter" || plan === "premium";
+  return plan === "premium";
 }
 
 export function normalizeDomainQuery(value: string): string {

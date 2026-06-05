@@ -4,8 +4,12 @@ import type { ClientPlan } from "@/lib/clients/types";
 export const CLIENT_MAGIC_LINK_EXPIRY_SECONDS = 600;
 export const CLIENT_OTP_EXPIRY_SECONDS = CLIENT_MAGIC_LINK_EXPIRY_SECONDS;
 
-/** Pro and Elite plans in the product map to starter and premium in Stripe/Supabase. */
-export const PORTAL_ELIGIBLE_PLANS = new Set<ClientPlan>(["starter", "premium"]);
+/** Pro, Elite, and Basic plans can access the client dashboard. */
+export const PORTAL_ELIGIBLE_PLANS = new Set<ClientPlan>([
+  "starter",
+  "premium",
+  "monthly",
+]);
 
 export function isPortalEligiblePlan(plan: string | null | undefined): boolean {
   return PORTAL_ELIGIBLE_PLANS.has(plan as ClientPlan);
