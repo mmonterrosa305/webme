@@ -166,8 +166,13 @@ export default function LandingPage() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="text-lg font-medium text-neutral-900">
-            mywebme
+          <Link href="/" className="flex items-center">
+            <img
+              src="/logo.png"
+              alt="MyWebMe"
+              height="100"
+              style={{ height: "100px", width: "auto" }}
+            />
           </Link>
           <div className="flex items-center gap-4 sm:gap-8">
             <div className="flex items-center gap-4 sm:gap-8">

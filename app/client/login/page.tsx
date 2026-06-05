@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -113,10 +112,7 @@ function ClientLoginForm() {
     <div className="flex min-h-full flex-1 items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link href="/" className="text-lg font-medium text-neutral-900">
-            mywebme
-          </Link>
-          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-neutral-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
             Client portal
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-neutral-600">
