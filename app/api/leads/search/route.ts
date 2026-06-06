@@ -2,6 +2,34 @@ import { NextResponse } from "next/server";
 
 import type { LeadSearchResult } from "@/lib/leads/types";
 
+const PLACES_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText";
+const PLACES_FIELD_MASK = [
+  "places.id",
+  "places.displayName",
+  "places.formattedAddress",
+  "places.rating",
+  "places.userRatingCount",
+  "places.nationalPhoneNumber",
+  "places.websiteUri",
+  "nextPageToken",
+].join(",");
+
+type PlacesTextSearchPlace = {
+  id?: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  rating?: number;
+  userRatingCount?: number;
+  nationalPhoneNumber?: string;
+  websiteUri?: string;
+};
+
+type PlacesTextSearchResponse = {
+  places?: PlacesTextSearchPlace[];
+  nextPageToken?: string;
+  error?: { message?: string; status?: string };
+};
+
 function getGooglePlacesApiKey(): string {
   const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
 
@@ -202,10 +230,57 @@ async function verifyWebsiteWithCustomSearch(
   return domainMatchesBusinessName(businessName, topResult) ? topResult : false;
 }
 
-async function sleep(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+async function searchGooglePlaces(
+  apiKey: string,
+  query: string,
+  maxPages = 3,
+): Promise<PlacesTextSearchPlace[]> {
+  const allResults: PlacesTextSearchPlace[] = [];
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < maxPages; page++) {
+    const body: { textQuery: string; pageSize: number; pageToken?: string } = {
+      textQuery: query,
+      pageSize: 20,
+    };
+
+    if (pageToken) {
+      body.pageToken = pageToken;
+    }
+
+    const response = await fetch(PLACES_SEARCH_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": PLACES_FIELD_MASK,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+
+      throw new Error(
+        `Google Places search failed: ${response.status} ${message}`,
+      );
+    }
+
+    const data = (await response.json()) as PlacesTextSearchResponse;
+
+    if (data.error?.message) {
+      throw new Error(data.error.message);
+    }
+
+    allResults.push(...(data.places ?? []));
+    pageToken = data.nextPageToken;
+
+    if (!pageToken) {
+      break;
+    }
+  }
+
+  return allResults;
 }
 
 export async function POST(request: Request) {
@@ -223,69 +298,10 @@ export async function POST(request: Request) {
     }
 
     const apiKey = getGooglePlacesApiKey();
-    const allResults: Array<{
-      place_id?: string;
-      name?: string;
-      formatted_address?: string;
-      rating?: number;
-      user_ratings_total?: number;
-    }> = [];
-    let nextPageToken: string | undefined;
-    let pageCount = 0;
-
-    do {
-      const params = new URLSearchParams({
-        key: apiKey,
-        query: `${industry} in ${location}`,
-      });
-
-      if (nextPageToken) {
-        params.set("pagetoken", nextPageToken);
-      }
-
-      if (pageCount > 0) {
-        await sleep(2000);
-      }
-
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`,
-      );
-
-      if (!response.ok) {
-        const message = await response.text();
-
-        throw new Error(
-          `Google Places search failed: ${response.status} ${message}`,
-        );
-      }
-
-      const data = (await response.json()) as {
-        results?: Array<{
-          place_id?: string;
-          name?: string;
-          formatted_address?: string;
-          rating?: number;
-          user_ratings_total?: number;
-        }>;
-        next_page_token?: string;
-        status?: string;
-        error_message?: string;
-      };
-
-      if (
-        data.status &&
-        data.status !== "OK" &&
-        data.status !== "ZERO_RESULTS"
-      ) {
-        throw new Error(
-          data.error_message ?? `Google Places status: ${data.status}`,
-        );
-      }
-
-      allResults.push(...(data.results ?? []));
-      nextPageToken = data.next_page_token;
-      pageCount += 1;
-    } while (nextPageToken && pageCount < 3);
+    const allResults = await searchGooglePlaces(
+      apiKey,
+      `${industry} in ${location}`,
+    );
 
     const customSearchFlagged: Array<{
       businessName: string;
@@ -294,36 +310,9 @@ export async function POST(request: Request) {
 
     const leads: LeadSearchResult[] = await Promise.all(
       allResults.map(async (place) => {
-        const businessName = place.name ?? "Unknown Business";
-        let googleWebsite: string | null = null;
-        let phone: string | null = null;
-
-        if (place.place_id) {
-          try {
-            const detailsParams = new URLSearchParams({
-              key: apiKey,
-              place_id: place.place_id,
-              fields: "website,formatted_phone_number",
-            });
-            const detailsResponse = await fetch(
-              `https://maps.googleapis.com/maps/api/place/details/json?${detailsParams}`,
-            );
-
-            if (detailsResponse.ok) {
-              const detailsData = (await detailsResponse.json()) as {
-                result?: {
-                  website?: string;
-                  formatted_phone_number?: string;
-                };
-              };
-
-              googleWebsite = detailsData.result?.website ?? null;
-              phone = detailsData.result?.formatted_phone_number ?? null;
-            }
-          } catch {
-            googleWebsite = null;
-          }
-        }
+        const businessName = place.displayName?.text ?? "Unknown Business";
+        const googleWebsite = place.websiteUri ?? null;
+        const phone = place.nationalPhoneNumber ?? null;
 
         if (!googleWebsite) {
           let customSearchMatch: string | null = null;
@@ -360,28 +349,28 @@ export async function POST(request: Request) {
             );
 
             return {
-              placeId: place.place_id ?? crypto.randomUUID(),
+              placeId: place.id ?? crypto.randomUUID(),
               businessName,
               city: location,
               industry,
-              address: place.formatted_address ?? null,
+              address: place.formattedAddress ?? null,
               phone,
               rating: place.rating ?? null,
-              reviewCount: place.user_ratings_total ?? null,
+              reviewCount: place.userRatingCount ?? null,
               website: customSearchMatch,
               websiteStatus: "has_site_review",
             };
           }
 
           return {
-            placeId: place.place_id ?? crypto.randomUUID(),
+            placeId: place.id ?? crypto.randomUUID(),
             businessName,
             city: location,
             industry,
-            address: place.formatted_address ?? null,
+            address: place.formattedAddress ?? null,
             phone,
             rating: place.rating ?? null,
-            reviewCount: place.user_ratings_total ?? null,
+            reviewCount: place.userRatingCount ?? null,
             website: null,
             websiteStatus: "no_website",
           };
@@ -399,14 +388,14 @@ export async function POST(request: Request) {
         }
 
         return {
-          placeId: place.place_id ?? crypto.randomUUID(),
+          placeId: place.id ?? crypto.randomUUID(),
           businessName,
           city: location,
           industry,
-          address: place.formatted_address ?? null,
+          address: place.formattedAddress ?? null,
           phone,
           rating: place.rating ?? null,
-          reviewCount: place.user_ratings_total ?? null,
+          reviewCount: place.userRatingCount ?? null,
           website:
             typeof verificationResult === "string"
               ? verificationResult

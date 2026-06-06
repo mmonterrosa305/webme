@@ -209,6 +209,14 @@ function classifyImageUrls(
     }
 
     const element = $(selector).first();
+    const videoSrc =
+      element.attr("src")?.trim() ??
+      element.find("source").first().attr("src")?.trim();
+    if (videoSrc) {
+      images[slot] = videoSrc;
+      continue;
+    }
+
     const src = element.attr("src")?.trim();
     if (src) {
       images[slot] = src;

@@ -228,7 +228,13 @@ export function applySiteContent(
       continue;
     }
 
-    if (element.is("img")) {
+    if (element.is("video")) {
+      const source = element.find("source").first();
+      if (source.length) {
+        source.attr("src", nextUrl);
+      }
+      element.attr("src", nextUrl);
+    } else if (element.is("img")) {
       element.attr("src", nextUrl);
     } else {
       const style = element.attr("style") ?? "";

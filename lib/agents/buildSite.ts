@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages";
 
 import type { BusinessProfile } from "./scrapeBusinessData";
+import { fetchPexelsVideo } from "./fetch-pexels-video";
 import {
   buildIndustryHeroListForPrompt,
   formatIndustryImagePromptBlock,
@@ -32,22 +33,24 @@ const SYSTEM_PROMPT = `You build polished single-page business websites. The fil
 CRITICAL: Every image must show work being done, tools, or the final result of the service. NEVER use images of plants, furniture, or unrelated objects. If unsure, use the hero image again.
 Use only images.unsplash.com URLs from the Resolved industry images block in the user prompt (do not use source.unsplash.com).
 Each site has 9 labeled image slots — use the exact URL for each slot. The Hero URL is randomly selected per build from the industry's hero options below.
-- Hero → full-screen background only
+- Hero → full-screen background video when a Hero video URL is provided in the user prompt; otherwise full-screen background image using the Hero URL
 - About → About section right column only
 - Service1, Service2, Service3, Service4 → service cards 1–4 backgrounds only
 - Gallery1, Gallery2, Gallery3 → gallery row left, center, right only
 Use each labeled URL in its designated section only. The user prompt lists all 9 URLs.
 Hero reference list (for category matching only — use exact URLs from user prompt):
 ${buildIndustryHeroListForPrompt()}
-- Hero: full-screen cinematic background-image (min-height 100vh, background-size: cover, background-position: center).
+- Hero (video): when user prompt includes Hero video URL — min-height 100vh section with absolutely positioned <video> (autoplay loop muted playsinline, no controls, object-fit:cover, width/height 100%), poster set to Hero URL, dark overlay rgba(0,0,0,0.5), white headline content above video.
+- Hero (image fallback): when no Hero video URL — full-screen cinematic background-image (min-height 100vh, background-size: cover, background-position: center).
 - Hero overlay: rgba(0,0,0,0.5) for text readability.
+- Hero text spacing (required): the hero headline/content wrapper must have generous top padding — at least padding-top: 120px (or equivalent, e.g. pt-30) — so the headline never sits too close to the top edge or nav.
 - Service cards: min-height 250px, cover background, dark overlay, white text — each card uses its own ServiceN URL.
 - About: 2-column layout, large image on right using About URL only.
 - Gallery row: 3 side-by-side images using Gallery1, Gallery2, Gallery3 only.
 - Do NOT use scraped business photo URLs, Pexels, or random image URLs.
 
 ## Sections (include ONLY these eight — in this order)
-1. Hero — full-screen (100vh), mapped fixed industry image URL from the list above, dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Fade-in on load.
+1. Hero — full-screen (100vh). If user prompt includes Hero video URL: use that MP4 as background video (autoplay, loop, muted, playsinline, no controls, object-fit cover) with Hero URL as poster/fallback. Otherwise use Hero URL as background-image. Dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Hero text wrapper: padding-top at least 120px. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
 3. Services — 4 service cards in a responsive grid. Card backgrounds: Service1, Service2, Service3, Service4 (each a different photo). Min-height 250px, dark overlay, white title + short description.
 4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using About URL only.
@@ -58,7 +61,7 @@ ${buildIndustryHeroListForPrompt()}
 
 ## Client-editable markers (required)
 Add these exact data-webme attributes so clients can edit their site later:
-- Hero section wrapper: data-webme="hero-image" on the element with the hero background-image
+- Hero section wrapper: data-webme="hero-image" on the <video> element (video hero) or on the element with the hero background-image (image hero)
 - Hero h1: data-webme="headline"
 - Hero subheadline (first p under h1): data-webme="tagline"
 - Header/nav logo img: data-webme="logo"
@@ -75,7 +78,8 @@ Add these exact data-webme attributes so clients can edit their site later:
 
 ## Design
 - Premium Google Fonts pairing (display + body). Mobile responsive. Cinematic photo hero; alternating section backgrounds (subtle gradients or solid fills) below the hero.
-- Reuse CSS classes (.btn, .card, .section, .grid, .hero-overlay) to save lines while keeping a polished, high-end look.`;
+- Hero content must always sit well below the top — minimum padding-top: 120px on the hero text container.
+- Reuse CSS classes (.btn, .card, .section, .grid, .hero-overlay, .hero-content) to save lines while keeping a polished, high-end look.`;
 
 export type BuildSiteInput = {
   city: string;
@@ -194,8 +198,11 @@ async function fetchReferenceImageBlocks(
     .map((result) => result.value);
 }
 
-function buildUserPrompt(input: BuildSiteInput): string {
-  const heroUrl = getRandomHero(input.industry);
+function buildUserPrompt(
+  input: BuildSiteInput,
+  options: { heroUrl: string; heroVideoUrl: string | null },
+): string {
+  const { heroUrl, heroVideoUrl } = options;
   const palette = getPalette(input.paletteId);
   const style = getStyle(input.styleId);
   const profile = input.businessProfile;
@@ -258,8 +265,25 @@ ${style.description}
 
 ${formatIndustryImagePromptBlock(input.industry, heroUrl)}
 
+${
+  heroVideoUrl
+    ? `## Hero background video (required)
+Use this exact MP4 as the full-screen hero background (not a static image):
+- Hero video URL: ${heroVideoUrl}
+- Hero poster / fallback image: ${heroUrl} (set as video poster attribute)
+- Place data-webme="hero-image" on the <video> element
+- Video attributes: autoplay loop muted playsinline, no controls
+- Style video: position absolute, inset 0, width 100%, height 100%, object-fit cover, z-index 0
+- Section: position relative, min-height 100vh, overflow hidden
+- Overlay div above video: rgba(0,0,0,0.5)
+- Hero text content above overlay (z-index 2), white typography, padding-top at least 120px on the text wrapper
+- Do NOT use background-image for the hero when this video URL is provided`
+    : `## Hero background
+No hero video available — use the Hero URL above as a full-screen background-image. Hero text wrapper: padding-top at least 120px.`
+}
+
 ## Sections to include (exactly eight, in order — no extra sections)
-1. Hero — full screen, exact Hero URL, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA
+1. Hero — full screen, ${heroVideoUrl ? "Hero video URL with poster fallback" : "exact Hero URL"}, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA, hero text padding-top at least 120px
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
 3. Services — 4 cards from: ${formatList(profile.services, "invent 4 typical services")} — backgrounds: Service1, Service2, Service3, Service4 (one URL per card)
 4. About — 2 columns: text/stats on left; right = exact About URL
@@ -278,6 +302,7 @@ ${logoInstructions}
 - Max 500 lines. ALL CSS in <head> before <body>. Concise copy, rich cinematic design.
 - CRITICAL: Every image must show work being done, tools, or the final result of the service. NEVER use plants, furniture, or unrelated objects. If unsure, use the Hero URL.
 - Use ONLY the 9 labeled URLs from Resolved industry images in their designated sections.
+- Hero text container: padding-top at least 120px so headline never hugs the top.
 - Fade-in on load only.
 
 ## Content instructions
@@ -305,8 +330,9 @@ function extractHtml(raw: string): string {
 
 async function buildMessageContent(
   input: BuildSiteInput,
+  options: { heroUrl: string; heroVideoUrl: string | null },
 ): Promise<MessageParam["content"]> {
-  const prompt = buildUserPrompt(input);
+  const prompt = buildUserPrompt(input, options);
   const brandReferenceBlocks = await fetchReferenceImageBlocks(
     input.businessProfile.brandImageUrls,
   );
@@ -367,6 +393,10 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
 
   const client = new Anthropic({ apiKey: getAnthropicApiKey() });
 
+  const heroUrl = getRandomHero(input.industry);
+  const heroVideoUrl = await fetchPexelsVideo(industry);
+  const messageOptions = { heroUrl, heroVideoUrl };
+
   const message = await client.messages.create({
     model: MODEL,
     max_tokens: 8192,
@@ -374,7 +404,7 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
     messages: [
       {
         role: "user",
-        content: await buildMessageContent(input),
+        content: await buildMessageContent(input, messageOptions),
       },
     ],
   });
