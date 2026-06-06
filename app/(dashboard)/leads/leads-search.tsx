@@ -21,9 +21,7 @@ const inputClassName =
 type BuildState = {
   loading: boolean;
   html?: string;
-  htmlB?: string;
   siteSlug?: string;
-  siteSlugB?: string;
   error?: string;
   previewError?: string;
 };
@@ -144,9 +142,7 @@ export function LeadsSearch() {
         [lead.placeId]: {
           loading: false,
           html: data.html,
-          htmlB: data.htmlB,
           siteSlug: data.siteSlug,
-          siteSlugB: data.siteSlugB,
         },
       }));
 
@@ -219,31 +215,14 @@ export function LeadsSearch() {
             {buildState?.html ? (
               <div className="flex flex-col gap-2">
                 {buildState.siteSlug ? (
-                  <div className="space-y-1">
-                    <p className="text-xs text-neutral-500">
-                      2 versions built — pick one:
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      <Link
-                        href={`/preview/${buildState.siteSlug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-neutral-700 hover:text-neutral-900"
-                      >
-                        Version A
-                      </Link>
-                      {buildState.siteSlugB ? (
-                        <Link
-                          href={`/preview/${buildState.siteSlugB}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-neutral-700 hover:text-neutral-900"
-                        >
-                          Version B
-                        </Link>
-                      ) : null}
-                    </div>
-                  </div>
+                  <Link
+                    href={`/preview/${buildState.siteSlug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-neutral-700 hover:text-neutral-900"
+                  >
+                    Preview Site
+                  </Link>
                 ) : (
                   <button
                     type="button"

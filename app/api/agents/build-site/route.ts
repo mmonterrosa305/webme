@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import slugify from "slugify";
 
-import { buildTwoSites, type BuildSiteInput } from "@/lib/agents/buildSite";
+import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import {
@@ -124,14 +124,13 @@ export async function POST(request: Request) {
       logoSvg,
     };
 
-    const { htmlA, htmlB } = await buildTwoSites(buildInput);
+    const html = await buildSite(buildInput);
 
     const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
-    const siteSlugB = `${slugify(businessName, { lower: true, strict: true })}-b-${Date.now()}`;
     const siteBuiltAt = new Date().toISOString();
 
     const supabase = createAdminClient();
-    const baseLeadRow = {
+    const leadRow = {
       business_name: businessName,
       city,
       industry,
@@ -142,73 +141,37 @@ export async function POST(request: Request) {
         existingWebsiteUrl ?? businessProfile.website,
       owner_email: businessProfile.ownerEmail,
       owner_name: businessProfile.ownerName,
+      site_html: html,
+      site_slug: siteSlug,
       site_built_at: siteBuiltAt,
       status: "pending_review",
-    };
-
-    const leadRowA = {
-      ...baseLeadRow,
-      site_html: htmlA,
-      site_slug: siteSlug,
       site_version: "A",
     };
 
-    const leadRowB = {
-      ...baseLeadRow,
-      site_html: htmlB,
-      site_slug: siteSlugB,
-      site_version: "B",
-    };
-
-    const { error: leadSaveErrorA } = await supabase.from("leads").upsert(
-      leadRowA,
-      { onConflict: "business_name,city" },
-    );
-
-    if (leadSaveErrorA) {
-      console.error(
-        "[build-site] Failed to save lead A in Supabase:",
-        leadSaveErrorA.message,
-      );
-    } else {
-      console.log("[build-site] Saved lead A to Supabase:", {
-        businessName,
-        city,
-        siteSlug,
-        siteVersion: "A",
-        ownerEmail: businessProfile.ownerEmail,
-        ownerName: businessProfile.ownerName,
-      });
-    }
-
-    const { error: leadSaveErrorB } = await supabase.from("leads").upsert(
-      leadRowB,
+    const { error: leadSaveError } = await supabase.from("leads").upsert(
+      leadRow,
       { onConflict: "site_slug" },
     );
 
-    if (leadSaveErrorB) {
+    if (leadSaveError) {
       console.error(
-        "[build-site] Failed to save lead B in Supabase:",
-        leadSaveErrorB.message,
+        "[build-site] Failed to save lead in Supabase:",
+        leadSaveError.message,
       );
     } else {
-      console.log("[build-site] Saved lead B to Supabase:", {
+      console.log("[build-site] Saved lead to Supabase:", {
         businessName,
         city,
-        siteSlug: siteSlugB,
-        siteVersion: "B",
+        siteSlug,
         ownerEmail: businessProfile.ownerEmail,
         ownerName: businessProfile.ownerName,
       });
     }
 
     return NextResponse.json({
-      html: htmlA,
-      htmlA,
-      htmlB,
+      html,
       businessProfile,
       siteSlug,
-      siteSlugB,
       siteBuiltAt,
     });
   } catch (error) {
