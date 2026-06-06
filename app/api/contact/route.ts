@@ -4,6 +4,7 @@ import {
   createResendClient,
   getResendFromEmail,
 } from "@/lib/email/resend";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function escapeHtml(value: string): string {
   return value
@@ -22,8 +23,23 @@ export async function POST(request: Request) {
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     const message = typeof body.message === "string" ? body.message.trim() : "";
-    const ownerEmail =
+    let ownerEmail =
       typeof body.ownerEmail === "string" ? body.ownerEmail.trim() : "";
+    const siteSlug =
+      typeof body.siteSlug === "string" ? body.siteSlug.trim() : "";
+
+    if (!ownerEmail && siteSlug) {
+      const supabase = createAdminClient();
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("contact_email")
+        .eq("site_slug", siteSlug)
+        .single();
+
+      if (clientRow?.contact_email) {
+        ownerEmail = clientRow.contact_email.trim();
+      }
+    }
 
     if (!name || !email || !phone || !message || !ownerEmail) {
       return NextResponse.json(

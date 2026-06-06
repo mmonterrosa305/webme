@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages";
+import slugify from "slugify";
 
 import type { BusinessProfile } from "./scrapeBusinessData";
 import { fetchPexelsVideo } from "./fetch-pexels-video";
@@ -56,7 +57,7 @@ ${buildIndustryHeroListForPrompt()}
 4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using About URL only.
 5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
 6. Gallery row — 3 side-by-side images using Gallery1, Gallery2, Gallery3 from Resolved industry images.
-7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail }; inline success/error, no reload.
+7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail, siteSlug: "SITE_SLUG_PLACEHOLDER" }; inline success/error, no reload.
 8. Footer — logo/wordmark, links or contact line, copyright © 2025.
 
 ## Client-editable markers (required)
@@ -200,9 +201,9 @@ async function fetchReferenceImageBlocks(
 
 function buildUserPrompt(
   input: BuildSiteInput,
-  options: { heroUrl: string; heroVideoUrl: string | null },
+  options: { heroUrl: string; heroVideoUrl: string | null; siteSlug: string },
 ): string {
-  const { heroUrl, heroVideoUrl } = options;
+  const { heroUrl, heroVideoUrl, siteSlug } = options;
   const palette = getPalette(input.paletteId);
   const style = getStyle(input.styleId);
   const profile = input.businessProfile;
@@ -289,7 +290,7 @@ No hero video available — use the Hero URL above as a full-screen background-i
 4. About — 2 columns: text/stats on left; right = exact About URL
 5. Testimonials — 3 reviews with stars (use review text above when available)
 6. Gallery row — Gallery1, Gallery2, Gallery3 (left to right, all different photos)
-7. Contact — form + sidebar with phone/address/hours
+7. Contact — form + sidebar with phone/address/hours; include siteSlug: "${siteSlug}" in the contact fetch JSON
 8. Footer — © 2025
 
 ## Brand reference images (inspiration only)
@@ -330,7 +331,7 @@ function extractHtml(raw: string): string {
 
 async function buildMessageContent(
   input: BuildSiteInput,
-  options: { heroUrl: string; heroVideoUrl: string | null },
+  options: { heroUrl: string; heroVideoUrl: string | null; siteSlug: string },
 ): Promise<MessageParam["content"]> {
   const prompt = buildUserPrompt(input, options);
   const brandReferenceBlocks = await fetchReferenceImageBlocks(
@@ -378,7 +379,9 @@ async function buildMessageContent(
   return prompt;
 }
 
-export async function buildSite(input: BuildSiteInput): Promise<string> {
+export async function buildSite(
+  input: BuildSiteInput,
+): Promise<{ html: string; siteSlug: string }> {
   const city = input.city.trim();
   const industry = input.industry.trim();
   const businessName = input.businessProfile.businessName.trim();
@@ -395,7 +398,8 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
 
   const heroUrl = getRandomHero(input.industry);
   const heroVideoUrl = await fetchPexelsVideo(industry);
-  const messageOptions = { heroUrl, heroVideoUrl };
+  const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
+  const messageOptions = { heroUrl, heroVideoUrl, siteSlug };
 
   const message = await client.messages.create({
     model: MODEL,
@@ -427,12 +431,12 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
     throw new Error("Model response did not contain valid HTML.");
   }
 
-  return html;
+  return { html, siteSlug };
 }
 
 export async function buildTwoSites(
   input: BuildSiteInput,
-): Promise<{ htmlA: string; htmlB: string }> {
+): Promise<{ htmlA: string; htmlB: string; slugA: string; slugB: string }> {
   const styleIndex = DESIGN_STYLES.findIndex((style) => style.id === input.styleId);
   const paletteIndex = COLOR_PALETTES.findIndex(
     (palette) => palette.id === input.paletteId,
@@ -447,10 +451,8 @@ export async function buildTwoSites(
     paletteId: nextPaletteId,
   };
 
-  const [htmlA, htmlB] = await Promise.all([
-    buildSite(input),
-    buildSite(inputB),
-  ]);
+  const [{ html: htmlA, siteSlug: slugA }, { html: htmlB, siteSlug: slugB }] =
+    await Promise.all([buildSite(input), buildSite(inputB)]);
 
-  return { htmlA, htmlB };
+  return { htmlA, htmlB, slugA, slugB };
 }

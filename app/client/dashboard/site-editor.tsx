@@ -449,6 +449,22 @@ export function SiteEditor({
                   className={inputClassName}
                 />
               </div>
+              <div>
+                <label htmlFor="contactEmail" className={labelClassName}>
+                  Contact form email
+                </label>
+                <input
+                  id="contactEmail"
+                  value={draftContent.contactEmail ?? ""}
+                  onChange={(event) =>
+                    updateField("contactEmail", event.target.value)
+                  }
+                  className={inputClassName}
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Inquiries from your website contact form will be sent here.
+                </p>
+              </div>
               {isLimitedPlan ? (
                 <div>
                   <label htmlFor="tagline" className={labelClassName}>

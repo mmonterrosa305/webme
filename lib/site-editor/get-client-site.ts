@@ -16,17 +16,28 @@ export async function getClientSiteData(
 
   const metadata = leadRow.site_metadata ?? null;
 
+  const content = extractSiteContent(leadRow.site_html, {
+    businessName: leadRow.business_name,
+    phone: leadRow.phone,
+    address: leadRow.address,
+    metadata,
+  });
+
+  const supabase = createAdminClient();
+  const { data: clientRow } = await supabase
+    .from("clients")
+    .select("contact_email")
+    .eq("id", client.id)
+    .single();
+
+  content.contactEmail = clientRow?.contact_email ?? "";
+
   return {
     clientId: client.id,
     leadId: leadRow.id,
     siteSlug: leadRow.site_slug,
     siteHtml: leadRow.site_html,
-    content: extractSiteContent(leadRow.site_html, {
-      businessName: leadRow.business_name,
-      phone: leadRow.phone,
-      address: leadRow.address,
-      metadata,
-    }),
+    content,
     plan: client.package,
     subscriptionStatus: client.subscription_status,
   };
@@ -69,6 +80,7 @@ export async function publishClientSite(
     .update({
       business_name: content.businessName,
       phone: content.phone || null,
+      contact_email: content.contactEmail || null,
       site_html: siteHtml,
       site_slug: lead.site_slug,
       site_last_updated: now,

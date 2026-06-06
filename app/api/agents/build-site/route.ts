@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import slugify from "slugify";
 
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -124,9 +123,8 @@ export async function POST(request: Request) {
       logoSvg,
     };
 
-    const html = await buildSite(buildInput);
+    const { html, siteSlug } = await buildSite(buildInput);
 
-    const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
     const siteBuiltAt = new Date().toISOString();
 
     const supabase = createAdminClient();

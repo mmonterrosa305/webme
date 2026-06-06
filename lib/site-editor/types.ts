@@ -12,6 +12,7 @@ export type SiteImageSlot =
 export type SiteContent = {
   businessName: string;
   phone: string;
+  contactEmail?: string;
   address: string;
   hours: string;
   headline: string;
