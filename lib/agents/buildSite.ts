@@ -429,3 +429,28 @@ export async function buildSite(input: BuildSiteInput): Promise<string> {
 
   return html;
 }
+
+export async function buildTwoSites(
+  input: BuildSiteInput,
+): Promise<{ htmlA: string; htmlB: string }> {
+  const styleIndex = DESIGN_STYLES.findIndex((style) => style.id === input.styleId);
+  const paletteIndex = COLOR_PALETTES.findIndex(
+    (palette) => palette.id === input.paletteId,
+  );
+  const nextStyleId = DESIGN_STYLES[(styleIndex + 1) % DESIGN_STYLES.length].id;
+  const nextPaletteId =
+    COLOR_PALETTES[(paletteIndex + 1) % COLOR_PALETTES.length].id;
+
+  const inputB: BuildSiteInput = {
+    ...input,
+    styleId: nextStyleId,
+    paletteId: nextPaletteId,
+  };
+
+  const [htmlA, htmlB] = await Promise.all([
+    buildSite(input),
+    buildSite(inputB),
+  ]);
+
+  return { htmlA, htmlB };
+}

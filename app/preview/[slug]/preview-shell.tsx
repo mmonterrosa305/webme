@@ -85,8 +85,19 @@ function ModalBackdrop({
   );
 }
 
-export function PreviewShell({ lead }: { lead: LeadPreview }) {
+export function PreviewShell({
+  lead,
+  leadB = null,
+}: {
+  lead: LeadPreview;
+  leadB?: LeadPreview | null;
+}) {
   const pricingRef = useRef<HTMLElement>(null);
+  const [chosenLead, setChosenLead] = useState<LeadPreview | null>(
+    leadB ? null : lead,
+  );
+  const activeLead = chosenLead ?? lead;
+  const showComparison = Boolean(leadB) && chosenLead === null;
   const [modal, setModal] = useState<Modal>(null);
   const [payingPlan, setPayingPlan] = useState<PlanId | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -105,7 +116,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
 
   const loadEditStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/preview/${lead.site_slug}/edits`);
+      const response = await fetch(`/api/preview/${activeLead.site_slug}/edits`);
       const data = (await response.json()) as {
         fields?: PreviewFields;
         editsRemaining?: number;
@@ -136,11 +147,15 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     } finally {
       setLoadingEdits(false);
     }
-  }, [lead.site_slug]);
+  }, [activeLead.site_slug]);
 
   useEffect(() => {
+    if (showComparison) {
+      return;
+    }
+
     void loadEditStatus();
-  }, [loadEditStatus]);
+  }, [loadEditStatus, showComparison]);
 
   const hasFieldChanges =
     savedFields !== null &&
@@ -156,7 +171,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: lead.site_slug, plan }),
+        body: JSON.stringify({ slug: activeLead.site_slug, plan }),
       });
 
       const data = (await response.json()) as { url?: string; error?: string };
@@ -188,7 +203,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     setEditError(null);
 
     try {
-      const response = await fetch(`/api/preview/${lead.site_slug}/edits`, {
+      const response = await fetch(`/api/preview/${activeLead.site_slug}/edits`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(fields),
@@ -277,14 +292,65 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         </div>
       </header>
 
-      <iframe
-        title={`Website preview for ${lead.business_name}`}
-        srcDoc={siteHtml}
-        sandbox="allow-scripts allow-same-origin"
-        className="min-h-[55vh] w-full flex-1 border-0 bg-white"
-      />
+      {showComparison && leadB ? (
+        <div className="grid min-h-[55vh] flex-1 grid-cols-2">
+          <div className="flex min-h-[55vh] flex-col bg-white">
+            <p className="shrink-0 border-b border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900">
+              Option A
+            </p>
+            <iframe
+              title={`Website preview option A for ${lead.business_name}`}
+              srcDoc={lead.site_html}
+              sandbox="allow-scripts allow-same-origin"
+              className="min-h-0 w-full flex-1 border-0 bg-white"
+            />
+            <div className="shrink-0 border-t border-neutral-200 p-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setChosenLead(lead);
+                  setSiteHtml(lead.site_html);
+                }}
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+              >
+                Choose This One
+              </button>
+            </div>
+          </div>
+          <div className="flex min-h-[55vh] flex-col bg-white">
+            <p className="shrink-0 border-b border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900">
+              Option B
+            </p>
+            <iframe
+              title={`Website preview option B for ${leadB.business_name}`}
+              srcDoc={leadB.site_html}
+              sandbox="allow-scripts allow-same-origin"
+              className="min-h-0 w-full flex-1 border-0 bg-white"
+            />
+            <div className="shrink-0 border-t border-neutral-200 p-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setChosenLead(leadB);
+                  setSiteHtml(leadB.site_html);
+                }}
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+              >
+                Choose This One
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <iframe
+          title={`Website preview for ${activeLead.business_name}`}
+          srcDoc={siteHtml}
+          sandbox="allow-scripts allow-same-origin"
+          className="min-h-[55vh] w-full flex-1 border-0 bg-white"
+        />
+      )}
 
-      {editsRemaining > 0 ? (
+      {!showComparison && editsRemaining > 0 ? (
         <div className="shrink-0 border-t border-neutral-200 bg-white px-4 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] sm:px-6">
           <div className="mx-auto max-w-4xl">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -378,6 +444,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         </div>
       ) : null}
 
+      {!showComparison ? (
       <section
         id="pricing"
         ref={pricingRef}
@@ -388,7 +455,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
             Claim your site
           </h2>
           <p className="mt-2 text-center text-sm text-neutral-600">
-            Choose a plan to launch {fields.businessName || lead.business_name}{" "}
+            Choose a plan to launch {fields.businessName || activeLead.business_name}{" "}
             — setup fee plus monthly hosting.
           </p>
 
@@ -441,6 +508,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
           ) : null}
         </div>
       </section>
+      ) : null}
 
       {modal === "packages" ? (
         <ModalBackdrop onClose={() => setModal(null)}>
