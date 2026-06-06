@@ -25,7 +25,6 @@ const PACKAGES = [
       "Site on webme subdomain",
       "1 page · 1 edit per month",
       "Cancel anytime",
-      "First month free",
     ],
   },
   {

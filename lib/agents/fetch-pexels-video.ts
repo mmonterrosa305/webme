@@ -48,6 +48,7 @@ function pickHdLandscapeFile(
 }
 
 function pickBestVideoUrl(videos: PexelsVideo[]): string | null {
+  const urls: string[] = [];
   const inRange = videos.filter(
     (video) =>
       video.duration >= MIN_DURATION_SECONDS &&
@@ -57,32 +58,38 @@ function pickBestVideoUrl(videos: PexelsVideo[]): string | null {
   for (const video of inRange) {
     const file = pickHdLandscapeFile(video);
     if (file?.link) {
-      return file.link;
+      urls.push(file.link);
     }
   }
 
-  for (const video of videos) {
-    const file = pickHdLandscapeFile(video);
-    if (file?.link) {
-      return file.link;
+  if (urls.length === 0) {
+    for (const video of videos) {
+      const file = pickHdLandscapeFile(video);
+      if (file?.link) {
+        urls.push(file.link);
+      }
     }
   }
 
-  return null;
+  if (urls.length === 0) {
+    return null;
+  }
+
+  return urls[Math.floor(Math.random() * urls.length)];
 }
 
-async function searchPexelsVideos(query: string): Promise<string | null> {
+async function searchPexelsVideos(query: string): Promise<string[]> {
   const apiKey = getPexelsApiKey();
 
   if (!apiKey) {
-    return null;
+    return [];
   }
 
   const params = new URLSearchParams({
     query,
     orientation: "landscape",
     size: "medium",
-    per_page: "15",
+    per_page: "30",
     min_duration: String(MIN_DURATION_SECONDS),
     max_duration: String(MAX_DURATION_SECONDS),
   });
@@ -92,11 +99,34 @@ async function searchPexelsVideos(query: string): Promise<string | null> {
   });
 
   if (!response.ok) {
-    return null;
+    return [];
   }
 
   const data = (await response.json()) as PexelsSearchResponse;
-  return pickBestVideoUrl(data.videos ?? []);
+  const urls: string[] = [];
+  const inRange = (data.videos ?? []).filter(
+    (video) =>
+      video.duration >= MIN_DURATION_SECONDS &&
+      video.duration <= MAX_DURATION_SECONDS,
+  );
+
+  for (const video of inRange) {
+    const file = pickHdLandscapeFile(video);
+    if (file?.link) {
+      urls.push(file.link);
+    }
+  }
+
+  if (urls.length === 0) {
+    for (const video of data.videos ?? []) {
+      const file = pickHdLandscapeFile(video);
+      if (file?.link) {
+        urls.push(file.link);
+      }
+    }
+  }
+
+  return urls;
 }
 
 /** Search Pexels for a landscape HD hero video matching the business industry. */
@@ -104,18 +134,35 @@ export async function fetchPexelsVideo(industry: string): Promise<string | null>
   const query = industry.trim();
 
   if (!query) {
-    return searchPexelsVideos(FALLBACK_QUERY);
+    const fallbackUrls = await searchPexelsVideos(FALLBACK_QUERY);
+    return fallbackUrls.length > 0
+      ? fallbackUrls[Math.floor(Math.random() * fallbackUrls.length)]
+      : null;
   }
 
-  const industryMatch = await searchPexelsVideos(query);
+  const queries = [query];
+  if (query.toLowerCase().endsWith("ing")) {
+    const stem = query.toLowerCase().slice(0, -3);
+    queries.push(`${stem}er`, `${stem}ers`);
+  }
 
-  if (industryMatch) {
-    return industryMatch;
+  const allUrls: string[] = [];
+
+  for (const searchQuery of [...new Set(queries)]) {
+    const urls = await searchPexelsVideos(searchQuery);
+    allUrls.push(...urls);
+  }
+
+  if (allUrls.length > 0) {
+    return allUrls[Math.floor(Math.random() * allUrls.length)];
   }
 
   if (query.toLowerCase() === FALLBACK_QUERY) {
     return null;
   }
 
-  return searchPexelsVideos(FALLBACK_QUERY);
+  const fallbackUrls = await searchPexelsVideos(FALLBACK_QUERY);
+  return fallbackUrls.length > 0
+    ? fallbackUrls[Math.floor(Math.random() * fallbackUrls.length)]
+    : null;
 }
