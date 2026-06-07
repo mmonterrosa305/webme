@@ -85,6 +85,8 @@ export function SavedLeads() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
+  const [editingEmail, setEditingEmail] = useState<Record<string, string>>({});
+  const [savingEmail, setSavingEmail] = useState<Set<string>>(new Set());
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -150,6 +152,64 @@ export function SavedLeads() {
       }
       return next;
     });
+  }
+
+  function setSavingEmailId(id: string, saving: boolean) {
+    setSavingEmail((current) => {
+      const next = new Set(current);
+      if (saving) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  async function handleSaveEmail(lead: SavedLead, email: string) {
+    setActionError(null);
+    setSavingEmailId(lead.id, true);
+
+    try {
+      const response = await fetch("/api/leads/saved", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: lead.id,
+          action: "update_email",
+          email,
+        }),
+      });
+      const data = (await response.json()) as {
+        lead?: SavedLead;
+        error?: string;
+      };
+
+      if (!response.ok || !data.lead) {
+        throw new Error(data.error ?? "Failed to save email.");
+      }
+
+      setLeads((current) =>
+        current.map((item) =>
+          item.id === lead.id
+            ? { ...data.lead!, regenerate_count: item.regenerate_count }
+            : item,
+        ),
+      );
+      setEditingEmail((current) => {
+        const next = { ...current };
+        delete next[lead.id];
+        return next;
+      });
+    } catch (saveError) {
+      setActionError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save email.",
+      );
+    } finally {
+      setSavingEmailId(lead.id, false);
+    }
   }
 
   async function patchLead(
@@ -349,6 +409,8 @@ export function SavedLeads() {
   const rows = leads.map((lead) => {
         const isActionPending = pendingIds.has(lead.id);
         const isRegenerating = regeneratingIds.has(lead.id);
+        const isSavingEmail = savingEmail.has(lead.id);
+        const emailValue = editingEmail[lead.id] ?? lead.owner_email ?? "";
         const showSiteActions = hasBuiltSite(lead);
         const showReviewActions = isPendingReview(lead);
         const showOutreach = isApproved(lead) && hasBuiltSite(lead);
@@ -364,6 +426,32 @@ export function SavedLeads() {
             {lead.industry ?? "—"}
           </span>,
           <LeadStatusBadge key="status" status={lead.status} lead={lead} />,
+          <div key="email" className="flex min-w-[220px] flex-col gap-1.5">
+            <input
+              type="email"
+              value={emailValue}
+              onChange={(event) =>
+                setEditingEmail((current) => ({
+                  ...current,
+                  [lead.id]: event.target.value,
+                }))
+              }
+              placeholder="Owner email"
+              disabled={isSavingEmail}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <button
+              type="button"
+              disabled={
+                isSavingEmail ||
+                emailValue.trim() === (lead.owner_email ?? "").trim()
+              }
+              onClick={() => void handleSaveEmail(lead, emailValue)}
+              className="text-left text-xs font-medium text-neutral-600 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSavingEmail ? "Saving..." : "Save email"}
+            </button>
+          </div>,
           <div key="actions" className="flex flex-col gap-2">
             {isRegenerating ? (
               <span className="flex items-center gap-2 text-sm text-neutral-600">
@@ -459,7 +547,7 @@ export function SavedLeads() {
       ) : null}
       {!loading && leads.length > 0 ? (
         <DataTable
-          columns={["Business", "City", "Industry", "Status", "Actions"]}
+          columns={["Business", "City", "Industry", "Status", "Email", "Actions"]}
           rows={rows}
         />
       ) : (

@@ -9,7 +9,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("leads")
-      .select("id, business_name, city, industry, status, site_slug")
+      .select("id, business_name, city, industry, status, site_slug, owner_email")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -52,13 +52,16 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "id is required." }, { status: 400 });
     }
 
-    const updates: Record<string, string> = {};
+    const updates: Record<string, string | null> = {};
 
     if (action === "approved") {
       updates.status = "approved";
     } else if (action === "outreach_sent") {
       updates.status = "outreach_sent";
       updates.outreach_sent_at = new Date().toISOString();
+    } else if (action === "update_email") {
+      const email = typeof body.email === "string" ? body.email.trim() : "";
+      updates.owner_email = email || null;
     } else {
       return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
@@ -68,7 +71,7 @@ export async function PATCH(request: Request) {
       .from("leads")
       .update(updates)
       .eq("id", id)
-      .select("id, business_name, city, industry, status, site_slug")
+      .select("id, business_name, city, industry, status, site_slug, owner_email")
       .maybeSingle();
 
     if (error) {
