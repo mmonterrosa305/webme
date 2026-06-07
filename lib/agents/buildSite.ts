@@ -57,7 +57,7 @@ ${buildIndustryHeroListForPrompt()}
 4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using About URL only.
 5. Testimonials — 3 review cards with star rating (★), quote (1–2 sentences), customer name. Adapt from real reviews when provided.
 6. Gallery row — 3 side-by-side images using Gallery1, Gallery2, Gallery3 from Resolved industry images.
-7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail, siteSlug: "SITE_SLUG_PLACEHOLDER" }; inline success/error, no reload.
+7. Contact — 2-column: left = form (Name, Email, Phone, Message + hidden ownerEmail); right = business info sidebar (phone, address, hours). Submit via fetch("/api/contact") POST JSON { name, email, phone, message, ownerEmail, siteSlug: "SITE_SLUG_PLACEHOLDER", businessName: "BUSINESS_NAME_PLACEHOLDER" }; inline success/error, no reload.
 8. Footer — logo/wordmark, links or contact line, copyright © 2025.
 
 ## Client-editable markers (required)
@@ -290,7 +290,7 @@ No hero video available — use the Hero URL above as a full-screen background-i
 4. About — 2 columns: text/stats on left; right = exact About URL
 5. Testimonials — 3 reviews with stars (use review text above when available)
 6. Gallery row — Gallery1, Gallery2, Gallery3 (left to right, all different photos)
-7. Contact — form + sidebar with phone/address/hours; include siteSlug: "${siteSlug}" in the contact fetch JSON
+7. Contact — form + sidebar with phone/address/hours; include siteSlug: "${siteSlug}", businessName: "${profile.businessName}" in the contact fetch JSON
 8. Footer — © 2025
 
 ## Brand reference images (inspiration only)

@@ -23,6 +23,8 @@ export async function POST(request: Request) {
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     const message = typeof body.message === "string" ? body.message.trim() : "";
+    const businessName =
+      typeof body.businessName === "string" ? body.businessName.trim() : "";
     let ownerEmail =
       typeof body.ownerEmail === "string" ? body.ownerEmail.trim() : "";
     const siteSlug =
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
     const escapedMessage = escapeHtml(message).replaceAll("\n", "<br />");
 
     await resend.emails.send({
-      from,
+      from: `${businessName || "Your Website"} <sites@mywebme.com>`,
       to: ownerEmail,
       replyTo: email,
       subject: `New message from your website - ${name}`,
