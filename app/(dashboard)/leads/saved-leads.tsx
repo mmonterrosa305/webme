@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { DataTable, Panel } from "../_components/dashboard-ui";
-import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
+import { COLOR_PALETTES, DEFAULT_SECTIONS, DESIGN_STYLES } from "@/lib/agents/site-options";
 import type { LeadStatus, SavedLead } from "@/lib/leads/types";
 
 const STATUS_STYLES: Record<
@@ -205,6 +205,11 @@ export function SavedLeads() {
     setRegenerating(lead.id, true);
 
     try {
+      const randomPalette =
+        COLOR_PALETTES[Math.floor(Math.random() * COLOR_PALETTES.length)];
+      const randomStyle =
+        DESIGN_STYLES[Math.floor(Math.random() * DESIGN_STYLES.length)];
+
       const response = await fetch("/api/agents/build-site", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -212,8 +217,8 @@ export function SavedLeads() {
           businessName: lead.business_name,
           city: lead.city,
           industry: lead.industry,
-          paletteId: "midnight",
-          styleId: "modern-minimal",
+          paletteId: randomPalette.id,
+          styleId: randomStyle.id,
           sections: DEFAULT_SECTIONS,
           createLogoForMe: true,
         }),
