@@ -38,4 +38,5 @@ export type SavedLead = {
   industry: string | null;
   status: LeadStatus | string | null;
   site_slug: string | null;
+  regenerate_count?: number;
 };

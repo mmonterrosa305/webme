@@ -16,7 +16,23 @@ export async function GET() {
       throw new Error(error.message);
     }
 
-    return NextResponse.json({ leads: (data ?? []) as SavedLead[] });
+    const rows = data ?? [];
+    const countByBusiness = new Map<string, number>();
+
+    for (const row of rows) {
+      const key = `${row.business_name}::${row.city}`;
+      countByBusiness.set(key, (countByBusiness.get(key) ?? 0) + 1);
+    }
+
+    const leads: SavedLead[] = rows.map((row) => {
+      const key = `${row.business_name}::${row.city}`;
+      return {
+        ...row,
+        regenerate_count: countByBusiness.get(key) ?? 1,
+      };
+    });
+
+    return NextResponse.json({ leads });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to load saved leads.";
