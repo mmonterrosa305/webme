@@ -146,6 +146,16 @@ export async function POST(request: Request) {
       site_version: "A",
     };
 
+    const { error: deleteError } = await supabase
+      .from("leads")
+      .delete()
+      .eq("business_name", businessName)
+      .eq("city", city);
+
+    if (deleteError) {
+      console.error("[build-site] Failed to delete old leads:", deleteError.message);
+    }
+
     const { error: leadSaveError } = await supabase.from("leads").upsert(
       leadRow,
       { onConflict: "site_slug" },
