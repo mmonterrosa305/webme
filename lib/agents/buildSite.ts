@@ -3,7 +3,7 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages
 import slugify from "slugify";
 
 import type { BusinessProfile } from "./scrapeBusinessData";
-import { fetchPexelsVideo } from "./fetch-pexels-video";
+import { fetchHeroVideo } from "./fetch-pexels-video";
 import {
   buildIndustryHeroListForPrompt,
   formatIndustryImagePromptBlock,
@@ -397,7 +397,7 @@ export async function buildSite(
   const client = new Anthropic({ apiKey: getAnthropicApiKey() });
 
   const heroUrl = getRandomHero(input.industry);
-  const heroVideoUrl = await fetchPexelsVideo(industry);
+  const heroVideoUrl = await fetchHeroVideo(industry);
   const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
   const messageOptions = { heroUrl, heroVideoUrl, siteSlug };
 

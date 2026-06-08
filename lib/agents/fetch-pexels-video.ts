@@ -1,3 +1,5 @@
+import { fetchPixabayVideo } from "./fetch-pixabay-video";
+
 const PEXELS_VIDEO_SEARCH = "https://api.pexels.com/videos/search";
 const FALLBACK_QUERY = "small business";
 const MIN_DURATION_SECONDS = 10;
@@ -129,15 +131,12 @@ async function searchPexelsVideos(query: string): Promise<string[]> {
   return urls;
 }
 
-/** Search Pexels for a landscape HD hero video matching the business industry. */
-export async function fetchPexelsVideo(industry: string): Promise<string | null> {
+/** Search Pexels for landscape HD hero video URLs matching the business industry. */
+export async function fetchPexelsVideoUrls(industry: string): Promise<string[]> {
   const query = industry.trim();
 
   if (!query) {
-    const fallbackUrls = await searchPexelsVideos(FALLBACK_QUERY);
-    return fallbackUrls.length > 0
-      ? fallbackUrls[Math.floor(Math.random() * fallbackUrls.length)]
-      : null;
+    return searchPexelsVideos(FALLBACK_QUERY);
   }
 
   const queries = [query];
@@ -154,15 +153,30 @@ export async function fetchPexelsVideo(industry: string): Promise<string | null>
   }
 
   if (allUrls.length > 0) {
-    return allUrls[Math.floor(Math.random() * allUrls.length)];
+    return allUrls;
   }
 
   if (query.toLowerCase() === FALLBACK_QUERY) {
+    return [];
+  }
+
+  return searchPexelsVideos(FALLBACK_QUERY);
+}
+
+export async function fetchHeroVideo(industry: string): Promise<string | null> {
+  const [pexelsUrls, pixabayUrl] = await Promise.all([
+    fetchPexelsVideoUrls(industry),
+    fetchPixabayVideo(industry),
+  ]);
+
+  const combined = [...pexelsUrls];
+  if (pixabayUrl) {
+    combined.push(pixabayUrl);
+  }
+
+  if (combined.length === 0) {
     return null;
   }
 
-  const fallbackUrls = await searchPexelsVideos(FALLBACK_QUERY);
-  return fallbackUrls.length > 0
-    ? fallbackUrls[Math.floor(Math.random() * fallbackUrls.length)]
-    : null;
+  return combined[Math.floor(Math.random() * combined.length)];
 }
