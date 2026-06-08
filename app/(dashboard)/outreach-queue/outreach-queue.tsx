@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
 import { Panel, DataTable } from "../_components/dashboard-ui";
 
 type QueueItem = {
@@ -24,6 +25,7 @@ export function OutreachQueue() {
   const [emails, setEmails] = useState<Record<string, string>>({});
   const [sending, setSending] = useState<Set<string>>(new Set());
   const [sendingAll, setSendingAll] = useState(false);
+  const [buildingIds, setBuildingIds] = useState<Set<string>>(new Set());
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -49,6 +51,58 @@ export function OutreachQueue() {
   }, []);
 
   useEffect(() => { void loadQueue(); }, [loadQueue]);
+
+  async function handleBuildSite(item: QueueItem) {
+    setBuildingIds((current) => new Set(current).add(item.id));
+    setActionError(null);
+
+    try {
+      const response = await fetch("/api/agents/build-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: item.business_name,
+          city: item.city,
+          industry: item.industry,
+          paletteId: "midnight",
+          styleId: "modern-minimal",
+          sections: DEFAULT_SECTIONS,
+          createLogoForMe: true,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        siteSlug?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.siteSlug) {
+        throw new Error(data.error ?? "Failed to build site.");
+      }
+
+      await fetch("/api/outreach-queue", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, site_slug: data.siteSlug }),
+      });
+
+      setQueue((current) =>
+        current.map((q) =>
+          q.id === item.id ? { ...q, site_slug: data.siteSlug! } : q,
+        ),
+      );
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to build site.",
+      );
+    } finally {
+      setBuildingIds((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
 
   async function sendOutreach(item: QueueItem) {
     const email = emails[item.id]?.trim();
@@ -136,6 +190,18 @@ export function OutreachQueue() {
       className={inputClassName}
     />,
     <div key="actions" className="flex flex-col gap-2">
+      {!item.site_slug ? (
+        <button
+          type="button"
+          onClick={() => void handleBuildSite(item)}
+          disabled={
+            buildingIds.has(item.id) || sending.has(item.id) || sendingAll
+          }
+          className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:opacity-60"
+        >
+          {buildingIds.has(item.id) ? "Building..." : "Build Site"}
+        </button>
+      ) : null}
       <button type="button" onClick={() => void sendOutreach(item)}
         disabled={sending.has(item.id) || sendingAll}
         className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:opacity-60">

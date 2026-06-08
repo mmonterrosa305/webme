@@ -69,6 +69,8 @@ export async function PATCH(request: Request) {
     const id = typeof body.id === "string" ? body.id.trim() : "";
     const ownerEmail =
       typeof body.owner_email === "string" ? body.owner_email.trim() : undefined;
+    const siteSlug =
+      typeof body.site_slug === "string" ? body.site_slug.trim() : undefined;
     const status =
       typeof body.status === "string" ? body.status.trim() : undefined;
 
@@ -82,13 +84,17 @@ export async function PATCH(request: Request) {
       updates.owner_email = ownerEmail || null;
     }
 
+    if (siteSlug !== undefined) {
+      updates.site_slug = siteSlug;
+    }
+
     if (status !== undefined) {
       updates.status = status;
     }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { error: "owner_email or status is required." },
+        { error: "owner_email, status, or site_slug is required." },
         { status: 400 },
       );
     }
