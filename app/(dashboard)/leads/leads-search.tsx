@@ -66,6 +66,11 @@ export function LeadsSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [results, setResults] = useState<LeadSearchResult[]>([]);
   const [buildStates, setBuildStates] = useState<Record<string, BuildState>>({});
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+  const [queueSuccessMessage, setQueueSuccessMessage] = useState<string | null>(
+    null,
+  );
+  const [addingToQueue, setAddingToQueue] = useState(false);
 
   async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,6 +183,23 @@ export function LeadsSearch() {
               : { label: "Has site", variant: "default" as const };
 
         return [
+          <input
+            key="select"
+            type="checkbox"
+            checked={selectedLeads.has(lead.placeId)}
+            onChange={() => {
+              setSelectedLeads((current) => {
+                const next = new Set(current);
+                if (next.has(lead.placeId)) {
+                  next.delete(lead.placeId);
+                } else {
+                  next.add(lead.placeId);
+                }
+                return next;
+              });
+            }}
+            className="h-4 w-4 rounded border-neutral-300"
+          />,
           <div key="business" className="space-y-1">
             <span className="block font-medium text-neutral-900">
               {lead.businessName}
@@ -265,8 +287,49 @@ export function LeadsSearch() {
           </div>,
         ];
       }),
-    [buildStates, visibleResults],
+    [buildStates, visibleResults, selectedLeads],
   );
+
+  async function handleAddToOutreachQueue() {
+    setQueueSuccessMessage(null);
+    setAddingToQueue(true);
+
+    try {
+      const leads = visibleResults
+        .filter((lead) => selectedLeads.has(lead.placeId))
+        .map((lead) => ({
+          businessName: lead.businessName,
+          city: lead.city,
+          industry: lead.industry,
+          address: lead.address,
+          phone: lead.phone,
+          siteSlug: buildStates[lead.placeId]?.siteSlug,
+        }));
+
+      const response = await fetch("/api/outreach-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leads }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to add to Outreach Queue.");
+      }
+
+      setSelectedLeads(new Set());
+      setQueueSuccessMessage("Added to Outreach Queue");
+    } catch (error) {
+      setSearchError(
+        error instanceof Error
+          ? error.message
+          : "Failed to add to Outreach Queue.",
+      );
+    } finally {
+      setAddingToQueue(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -361,6 +424,7 @@ export function LeadsSearch() {
         {visibleResults.length > 0 ? (
           <DataTable
             columns={[
+              "Select",
               "Business",
               "Address",
               "Phone",
@@ -381,6 +445,34 @@ export function LeadsSearch() {
           </div>
         )}
       </Panel>
+
+      {selectedLeads.size > 0 ? (
+        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-lg">
+          <p className="text-sm font-medium text-neutral-900">
+            {selectedLeads.size} business
+            {selectedLeads.size === 1 ? "" : "es"} selected
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleAddToOutreachQueue()}
+            disabled={addingToQueue}
+            className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {addingToQueue ? "Adding..." : "Add to Outreach Queue"}
+          </button>
+        </div>
+      ) : null}
+
+      {queueSuccessMessage ? (
+        <div
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4"
+          role="status"
+        >
+          <p className="text-sm font-medium text-emerald-800">
+            {queueSuccessMessage}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
