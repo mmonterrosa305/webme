@@ -5,6 +5,10 @@ import slugify from "slugify";
 import type { BusinessProfile } from "./scrapeBusinessData";
 import { fetchHeroVideo } from "./fetch-pexels-video";
 import {
+  fetchIndustryPhotos,
+  type IndustryPhotoSet,
+} from "./fetch-pixabay-photos";
+import {
   buildIndustryHeroListForPrompt,
   formatIndustryImagePromptBlock,
   getRandomHero,
@@ -201,9 +205,14 @@ async function fetchReferenceImageBlocks(
 
 function buildUserPrompt(
   input: BuildSiteInput,
-  options: { heroUrl: string; heroVideoUrl: string | null; siteSlug: string },
+  options: {
+    heroUrl: string;
+    heroVideoUrl: string | null;
+    siteSlug: string;
+    pixabayPhotos: IndustryPhotoSet | null;
+  },
 ): string {
-  const { heroUrl, heroVideoUrl, siteSlug } = options;
+  const { heroUrl, heroVideoUrl, siteSlug, pixabayPhotos } = options;
   const palette = getPalette(input.paletteId);
   const style = getStyle(input.styleId);
   const profile = input.businessProfile;
@@ -226,6 +235,21 @@ function buildUserPrompt(
     logoInstructions =
       "No logo provided — use a refined typographic wordmark of the business name in the header.";
   }
+
+  const industryImageBlock = pixabayPhotos
+    ? `## Resolved industry images for "${input.industry}"
+- Matched category: ${input.industry}
+- Hero (full-screen background — use ONLY here): ${heroUrl}
+- About (right column image — use ONLY here): ${pixabayPhotos.about}
+- Service1 (service card 1 background — use ONLY here): ${pixabayPhotos.service1}
+- Service2 (service card 2 background — use ONLY here): ${pixabayPhotos.service2}
+- Service3 (service card 3 background — use ONLY here): ${pixabayPhotos.service3}
+- Service4 (service card 4 background — use ONLY here): ${pixabayPhotos.service4}
+- Gallery1 (gallery image 1 — use ONLY here): ${pixabayPhotos.gallery1}
+- Gallery2 (gallery image 2 — use ONLY here): ${pixabayPhotos.gallery2}
+- Gallery3 (gallery image 3 — use ONLY here): ${pixabayPhotos.gallery3}
+Use each labeled URL in its designated section only.`
+    : formatIndustryImagePromptBlock(input.industry, heroUrl);
 
   return `Build a complete single-file HTML website with these specifications:
 
@@ -264,7 +288,7 @@ Use these as the starting palette. If the brand reference images clearly indicat
 ## Design style — "${style.label}"
 ${style.description}
 
-${formatIndustryImagePromptBlock(input.industry, heroUrl)}
+${industryImageBlock}
 
 ${
   heroVideoUrl
@@ -331,7 +355,12 @@ function extractHtml(raw: string): string {
 
 async function buildMessageContent(
   input: BuildSiteInput,
-  options: { heroUrl: string; heroVideoUrl: string | null; siteSlug: string },
+  options: {
+    heroUrl: string;
+    heroVideoUrl: string | null;
+    siteSlug: string;
+    pixabayPhotos: IndustryPhotoSet | null;
+  },
 ): Promise<MessageParam["content"]> {
   const prompt = buildUserPrompt(input, options);
   const brandReferenceBlocks = await fetchReferenceImageBlocks(
@@ -398,8 +427,9 @@ export async function buildSite(
 
   const heroUrl = getRandomHero(input.industry);
   const heroVideoUrl = await fetchHeroVideo(industry);
+  const pixabayPhotos = await fetchIndustryPhotos(industry);
   const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
-  const messageOptions = { heroUrl, heroVideoUrl, siteSlug };
+  const messageOptions = { heroUrl, heroVideoUrl, siteSlug, pixabayPhotos };
 
   const message = await client.messages.create({
     model: MODEL,
