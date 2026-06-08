@@ -68,6 +68,7 @@ type InstagramResult = {
   bio: string | null;
   posts: string[];
   hashtags: string[];
+  photoUrls: string[];
 };
 
 type YelpResult = {
@@ -431,12 +432,29 @@ async function scrapeFacebook(
     reviews = [];
   }
 
+  let photoUrls: string[] = [];
+
+  try {
+    const photosData = await fetchJson<{
+      data?: Array<{ images?: Array<{ source?: string }> }>;
+    }>(
+      `https://graph.facebook.com/v20.0/${page.id}/photos?fields=images&limit=9&access_token=${accessToken}`,
+    );
+    photoUrls = uniqueStrings(
+      (photosData.data ?? []).map(
+        (photo) => photo.images?.[0]?.source ?? null,
+      ),
+    ).slice(0, 9);
+  } catch {
+    photoUrls = [];
+  }
+
   return {
     description: firstNonEmpty(page.description, page.about),
     services: [],
     posts,
     reviews,
-    photos: uniqueStrings([page.cover?.source]),
+    photos: uniqueStrings([page.cover?.source, ...photoUrls]),
     phone: page.phone ?? null,
     website: page.website ?? null,
   };
@@ -463,6 +481,7 @@ async function scrapeInstagram(
       bio: null,
       posts: [],
       hashtags: [],
+      photoUrls: [],
     };
   }
 
@@ -473,6 +492,8 @@ async function scrapeInstagram(
         edge_owner_to_timeline_media?: {
           edges?: Array<{
             node?: {
+              display_url?: string;
+              thumbnail_src?: string;
               edge_media_to_caption?: {
                 edges?: Array<{ node?: { text?: string } }>;
               };
@@ -499,6 +520,12 @@ async function scrapeInstagram(
     ),
   ).slice(0, 9);
 
+  const photoUrls = uniqueStrings(
+    (user?.edge_owner_to_timeline_media?.edges ?? []).map(
+      (edge) => edge.node?.display_url ?? edge.node?.thumbnail_src ?? null,
+    ),
+  ).slice(0, 9);
+
   const hashtags = uniqueStrings(
     posts.flatMap((caption) => caption.match(/#[A-Za-z0-9_]+/g) ?? []),
   ).slice(0, 20);
@@ -507,6 +534,7 @@ async function scrapeInstagram(
     bio: user?.biography ?? null,
     posts,
     hashtags,
+    photoUrls,
   };
 }
 
@@ -676,6 +704,7 @@ export async function scrapeBusinessData(
         bio: null,
         posts: [],
         hashtags: [],
+        photoUrls: [],
       } satisfies InstagramResult;
     }),
     scrapeYelp(businessName, city).catch((error: Error) => {
@@ -755,7 +784,7 @@ export async function scrapeBusinessData(
     facebookDescription: facebook.description,
     yelpCategories: yelp.categories,
     priceRange: yelp.priceRange,
-    photos: uniqueStrings([...yelp.photos, ...facebook.photos]).slice(0, 12),
+    photos: uniqueStrings([...yelp.photos, ...facebook.photos, ...instagram.photoUrls]).slice(0, 12),
     brandImageUrls: googleImages.imageUrls,
     website,
     facebookPosts: facebook.posts,
