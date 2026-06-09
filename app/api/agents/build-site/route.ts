@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import {
   COLOR_PALETTES,
@@ -121,10 +122,19 @@ export async function POST(request: Request) {
     const styleId = typeof body.styleId === "string" ? body.styleId : "";
     const sections = parseSections(body.sections);
     const createLogoForMe = body.createLogoForMe === true;
-    const logoBase64 =
+    let logoBase64 =
       typeof body.logoBase64 === "string" ? body.logoBase64 : undefined;
-    const logoMediaType =
+    let logoMediaType =
       typeof body.logoMediaType === "string" ? body.logoMediaType : undefined;
+
+    if (logoBase64 && logoMediaType) {
+      const noBg = await removeBackground(logoBase64, logoMediaType);
+      if (noBg) {
+        logoBase64 = noBg.base64;
+        logoMediaType = noBg.mediaType;
+      }
+    }
+
     const logoSvg =
       typeof body.logoSvg === "string" ? body.logoSvg.trim() : undefined;
 
