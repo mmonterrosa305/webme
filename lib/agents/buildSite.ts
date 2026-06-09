@@ -70,6 +70,7 @@ Add these exact data-webme attributes so clients can edit their site later:
 - Hero h1: data-webme="headline"
 - Hero subheadline (first p under h1): data-webme="tagline"
 - Header/nav logo img: data-webme="logo"
+- Logo image: always apply style="filter: brightness(0) invert(1); height: 60px; width: auto;" to the logo <img> tag when the navbar background is dark. If the navbar is light/white, use style="height: 60px; width: auto;" without the filter.
 - About section image: data-webme="about-image"
 - Service card backgrounds (in order): data-webme="service-image-1" through data-webme="service-image-4"
 - Gallery images (left to right): data-webme="gallery-image-1" through data-webme="gallery-image-3"

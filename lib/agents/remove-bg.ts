@@ -2,8 +2,18 @@ export async function removeBackground(
   base64Image: string,
   mediaType: string,
 ): Promise<{ base64: string; mediaType: string } | null> {
+  console.log(
+    "[remove-bg] Starting background removal, mediaType:",
+    mediaType,
+    "base64 length:",
+    base64Image.length,
+  );
+
   const apiKey = process.env.REMOVE_BG_API_KEY?.trim();
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.log("[remove-bg] Skipping - no API key");
+    return null;
+  }
 
   try {
     // Convert base64 to blob
@@ -25,20 +35,29 @@ export async function removeBackground(
       body: formData,
     });
 
+    console.log("[remove-bg] Response status:", response.status);
+
     if (!response.ok) {
       console.error(
         "[remove-bg] API error:",
         response.status,
         await response.text(),
       );
+      console.log("[remove-bg] Failed, using original logo");
       return null;
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    const resultBase64 = Buffer.from(arrayBuffer).toString("base64");
 
-    return { base64, mediaType: "image/png" };
+    console.log(
+      "[remove-bg] Success, result base64 length:",
+      resultBase64.length,
+    );
+
+    return { base64: resultBase64, mediaType: "image/png" };
   } catch {
+    console.log("[remove-bg] Failed, using original logo");
     return null;
   }
 }
