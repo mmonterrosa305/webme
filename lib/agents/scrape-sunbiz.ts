@@ -18,8 +18,12 @@ async function fetchWithTimeout(url: string, options?: RequestInit): Promise<str
       ...options,
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
         ...options?.headers,
       },
     });
@@ -65,9 +69,14 @@ export async function scrapeSunbiz(businessName: string): Promise<SunbizResult> 
       SearchNameOrder: "CONTAINS",
     });
 
-    const searchHtml = await fetchWithTimeout(
-      `${SUNBIZ_SEARCH_URL}?${searchParams}`,
-    );
+    const searchHtml = await fetchWithTimeout(SUNBIZ_SEARCH_URL, {
+      method: "POST",
+      body: searchParams,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+    console.log("[sunbiz] search HTML length:", searchHtml?.length, "for:", businessName);
     if (!searchHtml) return empty;
 
     // Find first result link
@@ -75,7 +84,9 @@ export async function scrapeSunbiz(businessName: string): Promise<SunbizResult> 
     if (!linkMatch) return empty;
 
     const detailUrl = `${SUNBIZ_DETAIL_BASE}${linkMatch[1]}`;
+    console.log("[sunbiz] detail URL:", detailUrl);
     const detailHtml = await fetchWithTimeout(detailUrl);
+    console.log("[sunbiz] detail HTML length:", detailHtml?.length);
     if (!detailHtml) return empty;
 
     // Extract owner/officer names
@@ -99,6 +110,8 @@ export async function scrapeSunbiz(businessName: string): Promise<SunbizResult> 
     // Extract any emails
     const emails = extractEmails(detailHtml);
     const ownerEmail = emails[0] || null;
+
+    console.log("[sunbiz] result:", { ownerName, registeredAgent, ownerEmail, status });
 
     return {
       ownerName: ownerName || registeredAgent,
