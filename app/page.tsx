@@ -125,7 +125,7 @@ function PrimaryButton({
   children: React.ReactNode;
   className?: string;
 }) {
-  const classNames = `inline-flex items-center justify-center rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800 ${className}`;
+  const classNames = `inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white transition-colors hover:bg-neutral-800 ${className || "px-5 py-2.5 text-sm font-medium"}`;
 
   if (href.startsWith("mailto:")) {
     return (
