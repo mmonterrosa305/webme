@@ -180,7 +180,7 @@ export default function LandingPage() {
               <NavLink href="#how-it-works">How it works</NavLink>
               <NavLink href="#pricing">Pricing</NavLink>
             </div>
-            <PrimaryButton href="/preview" className="px-4 py-2 text-sm">
+            <PrimaryButton href="/build" className="px-4 py-2 text-sm">
               Get your website
             </PrimaryButton>
           </div>
@@ -203,7 +203,7 @@ export default function LandingPage() {
               everything else.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <PrimaryButton href="/preview">See your free preview</PrimaryButton>
+              <PrimaryButton href="/build">See your free preview</PrimaryButton>
               <OutlineButton href="#how-it-works">How it works</OutlineButton>
             </div>
           </div>

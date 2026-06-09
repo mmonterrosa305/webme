@@ -274,6 +274,14 @@ export function OutreachQueue() {
         className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:opacity-60">
         {sending.has(item.id) ? "Sending..." : "Send Outreach"}
       </button>
+      <a
+        href={`https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults?SearchTerm=${encodeURIComponent(item.business_name)}&SearchType=EntityName&SearchNameOrder=CONTAINS`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-left text-sm font-medium text-blue-600 hover:text-blue-700"
+      >
+        Search Sunbiz
+      </a>
       <button type="button" onClick={() => void removeFromQueue(item.id)}
         className="text-left text-sm font-medium text-red-600 hover:text-red-700">
         Remove

@@ -1,0 +1,250 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState, type FormEvent } from "react";
+import { DEFAULT_SECTIONS, INDUSTRIES } from "@/lib/agents/site-options";
+
+const inputClassName =
+  "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
+
+const labelClassName = "block text-sm font-medium text-neutral-700";
+
+function fileToBase64(
+  file: File,
+): Promise<{ base64: string; mediaType: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("Failed to read logo file."));
+        return;
+      }
+
+      const base64 = result.split(",")[1];
+      if (!base64) {
+        reject(new Error("Failed to read logo file."));
+        return;
+      }
+
+      resolve({ base64, mediaType: file.type });
+    };
+    reader.onerror = () => reject(new Error("Failed to read logo file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+export default function BuildPage() {
+  const [businessName, setBusinessName] = useState("");
+  const [city, setCity] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [phone, setPhone] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    document.title = "Build Your Free Website — MyWebMe";
+  }, []);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      let logoBase64: string | undefined;
+      let logoMediaType: string | undefined;
+
+      if (logoFile) {
+        const logo = await fileToBase64(logoFile);
+        logoBase64 = logo.base64;
+        logoMediaType = logo.mediaType;
+      }
+
+      const response = await fetch("/api/agents/build-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: businessName.trim(),
+          city: city.trim(),
+          industry: industry.trim(),
+          phone: phone.trim() || undefined,
+          tagline: tagline.trim() || undefined,
+          paletteId: "midnight",
+          styleId: "modern-minimal",
+          sections: DEFAULT_SECTIONS,
+          createLogoForMe: !logoFile,
+          ...(logoBase64 && logoMediaType
+            ? { logoBase64, logoMediaType }
+            : {}),
+        }),
+      });
+
+      const data = (await response.json()) as {
+        siteSlug?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.siteSlug) {
+        throw new Error(data.error ?? "Failed to build website.");
+      }
+
+      window.open(`/preview/${data.siteSlug}`, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to build website.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-white text-neutral-900">
+      <header className="border-b border-neutral-200 bg-white">
+        <nav className="mx-auto flex max-w-6xl items-center px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center">
+            <img
+              src="/logo.png"
+              alt="MyWebMe"
+              height="100"
+              style={{ height: "100px", width: "auto" }}
+            />
+          </Link>
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+            Build your free website
+          </h1>
+          <p className="mt-4 text-lg text-neutral-600">
+            Tell us about your business and we&apos;ll create a professional
+            site in about 30 seconds.
+          </p>
+        </div>
+
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="mt-10 space-y-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8"
+        >
+          <div className="space-y-2">
+            <label htmlFor="businessName" className={labelClassName}>
+              Business name
+            </label>
+            <input
+              id="businessName"
+              type="text"
+              required
+              value={businessName}
+              onChange={(event) => setBusinessName(event.target.value)}
+              placeholder="Acme Plumbing"
+              className={inputClassName}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="city" className={labelClassName}>
+              City
+            </label>
+            <input
+              id="city"
+              type="text"
+              required
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              placeholder="Miami, FL"
+              className={inputClassName}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="industry" className={labelClassName}>
+              Industry
+            </label>
+            <select
+              id="industry"
+              required
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value)}
+              className={inputClassName}
+            >
+              <option value="">Select an industry</option>
+              {INDUSTRIES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="phone" className={labelClassName}>
+              Phone <span className="font-normal text-neutral-500">(optional)</span>
+            </label>
+            <input
+              id="phone"
+              type="text"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="(305) 555-0100"
+              className={inputClassName}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="tagline" className={labelClassName}>
+              Tagline <span className="font-normal text-neutral-500">(optional)</span>
+            </label>
+            <input
+              id="tagline"
+              type="text"
+              value={tagline}
+              onChange={(event) => setTagline(event.target.value)}
+              placeholder="Your trusted local experts"
+              className={inputClassName}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="logo" className={labelClassName}>
+              Logo <span className="font-normal text-neutral-500">(optional)</span>
+            </label>
+            <input
+              id="logo"
+              type="file"
+              accept="image/*"
+              onChange={(event) =>
+                setLogoFile(event.target.files?.[0] ?? null)
+              }
+              className="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-lg file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-neutral-900 hover:file:bg-neutral-200"
+            />
+          </div>
+
+          {error ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm font-medium text-red-800">{error}</p>
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+              <p className="text-sm font-medium text-neutral-700">
+                Building your website... this takes about 30 seconds
+              </p>
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-60"
+          >
+            {loading ? "Building..." : "Create My Website"}
+          </button>
+        </form>
+      </main>
+    </div>
+  );
+}
