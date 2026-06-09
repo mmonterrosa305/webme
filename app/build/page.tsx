@@ -35,6 +35,7 @@ function fileToBase64(
 }
 
 export default function BuildPage() {
+  const [email, setEmail] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [city, setCity] = useState("");
   const [industry, setIndustry] = useState("");
@@ -43,9 +44,24 @@ export default function BuildPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   useEffect(() => {
     document.title = "Build Your Free Website — MyWebMe";
+  }, []);
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    (window as any).onTurnstileSuccess = (token: string) => {
+      setTurnstileToken(token);
+    };
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -67,6 +83,8 @@ export default function BuildPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          cfTurnstileToken: turnstileToken,
+          ownerEmail: email.trim(),
           businessName: businessName.trim(),
           city: city.trim(),
           industry: industry.trim(),
@@ -129,6 +147,24 @@ export default function BuildPage() {
           onSubmit={(event) => void handleSubmit(event)}
           className="mt-10 space-y-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8"
         >
+          <div className="space-y-2">
+            <label htmlFor="email" className={labelClassName}>
+              Your email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              className={inputClassName}
+            />
+            <p className="text-sm text-neutral-500">
+              We&apos;ll send you a link to your site when it&apos;s ready.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <label htmlFor="businessName" className={labelClassName}>
               Business name
@@ -236,9 +272,15 @@ export default function BuildPage() {
             </div>
           ) : null}
 
+          <div
+            className="cf-turnstile"
+            data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            data-callback="onTurnstileSuccess"
+          />
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !turnstileToken}
             className="w-full rounded-lg bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-60"
           >
             {loading ? "Building..." : "Create My Website"}

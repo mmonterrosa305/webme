@@ -19,6 +19,10 @@ const VALID_MEDIA_TYPES = new Set([
   "image/webp",
 ]);
 
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
 function isPaletteId(value: string): value is PaletteId {
   return COLOR_PALETTES.some((palette) => palette.id === value);
 }
@@ -48,7 +52,58 @@ function parseSections(value: unknown): SectionId[] | null {
 
 export async function POST(request: Request) {
   try {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      request.headers.get("x-real-ip") ??
+      "unknown";
+
+    const now = Date.now();
+    let entry = rateLimitMap.get(ip);
+    if (!entry) {
+      entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+      rateLimitMap.set(ip, entry);
+    } else if (entry.resetAt <= now) {
+      entry.count = 0;
+      entry.resetAt = now + RATE_LIMIT_WINDOW_MS;
+    }
+
+    if (entry.count >= RATE_LIMIT_MAX) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+
+    entry.count++;
+
     const body = await request.json();
+
+    const cfTurnstileToken =
+      typeof body.cfTurnstileToken === "string"
+        ? body.cfTurnstileToken.trim()
+        : "";
+
+    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY?.trim();
+    if (turnstileSecret && cfTurnstileToken) {
+      const verifyResponse = await fetch(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            secret: turnstileSecret,
+            response: cfTurnstileToken,
+          }),
+        },
+      );
+      const verifyData = (await verifyResponse.json()) as { success: boolean };
+      if (!verifyData.success) {
+        return NextResponse.json(
+          { error: "CAPTCHA verification failed. Please try again." },
+          { status: 400 },
+        );
+      }
+    }
 
     const businessName =
       typeof body.businessName === "string" ? body.businessName.trim() : "";
