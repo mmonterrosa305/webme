@@ -26,6 +26,7 @@ export function OutreachQueue() {
   const [sending, setSending] = useState<Set<string>>(new Set());
   const [sendingAll, setSendingAll] = useState(false);
   const [buildingIds, setBuildingIds] = useState<Set<string>>(new Set());
+  const [findingEmailIds, setFindingEmailIds] = useState<Set<string>>(new Set());
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -51,6 +52,56 @@ export function OutreachQueue() {
   }, []);
 
   useEffect(() => { void loadQueue(); }, [loadQueue]);
+
+  async function handleFindEmail(item: QueueItem) {
+    setFindingEmailIds((current) => new Set(current).add(item.id));
+    setActionError(null);
+
+    try {
+      const response = await fetch("/api/outreach-queue/find-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          businessName: item.business_name,
+          city: item.city,
+          phone: item.phone,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        email?: string | null;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to find email.");
+      }
+
+      const email = data.email?.trim();
+      if (email) {
+        setEmails((current) => ({ ...current, [item.id]: email }));
+        setQueue((current) =>
+          current.map((q) =>
+            q.id === item.id ? { ...q, owner_email: email } : q,
+          ),
+        );
+        setSuccessMessage(`Email found: ${email}`);
+      } else {
+        setActionError(`No email found for ${item.business_name}.`);
+      }
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to find email.",
+      );
+    } finally {
+      setFindingEmailIds((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
 
   async function handleBuildSite(item: QueueItem) {
     setBuildingIds((current) => new Set(current).add(item.id));
@@ -182,13 +233,29 @@ export function OutreachQueue() {
         View Site
       </a>
     ) : <span key="site" className="text-sm text-neutral-400">No site</span>,
-    <input
-      key="email"
-      value={emails[item.id] ?? ""}
-      onChange={e => setEmails(current => ({ ...current, [item.id]: e.target.value }))}
-      placeholder="owner@business.com"
-      className={inputClassName}
-    />,
+    <div key="email" className="space-y-2">
+      <input
+        value={emails[item.id] ?? ""}
+        onChange={e => setEmails(current => ({ ...current, [item.id]: e.target.value }))}
+        placeholder="owner@business.com"
+        className={inputClassName}
+      />
+      {!emails[item.id]?.trim() ? (
+        <button
+          type="button"
+          onClick={() => void handleFindEmail(item)}
+          disabled={
+            findingEmailIds.has(item.id) ||
+            buildingIds.has(item.id) ||
+            sending.has(item.id) ||
+            sendingAll
+          }
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-60"
+        >
+          {findingEmailIds.has(item.id) ? "Finding..." : "Find Email"}
+        </button>
+      ) : null}
+    </div>,
     <div key="actions" className="flex flex-col gap-2">
       {!item.site_slug ? (
         <button
