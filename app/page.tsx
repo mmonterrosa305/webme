@@ -180,7 +180,7 @@ export default function LandingPage() {
               <NavLink href="#how-it-works">How it works</NavLink>
               <NavLink href="#pricing">Pricing</NavLink>
             </div>
-            <PrimaryButton href="/build" className="px-5 py-2.5 text-base font-bold">
+            <PrimaryButton href="/build" className="px-6 py-3 text-lg font-bold">
               Get your website
             </PrimaryButton>
           </div>
