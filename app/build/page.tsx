@@ -62,6 +62,10 @@ export default function BuildPage() {
     (window as any).onTurnstileSuccess = (token: string) => {
       setTurnstileToken(token);
     };
+    // Auto-bypass on localhost for development
+    if (window.location.hostname === "localhost") {
+      setTurnstileToken("localhost-bypass");
+    }
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

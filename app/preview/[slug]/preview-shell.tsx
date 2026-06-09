@@ -272,6 +272,14 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
             >
               No thanks
             </button>
+            <a
+              href={`/site/${lead.site_slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+            >
+              View full site
+            </a>
           </div>
         </div>
       </header>
