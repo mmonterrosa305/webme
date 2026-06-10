@@ -228,7 +228,7 @@ function buildUserPrompt(
       "Use the client's uploaded SVG logo in the header. Embed it inline or as a data URI. SVG markup is provided separately in this message.";
   } else if (input.logoBase64 && input.logoMediaType) {
     logoInstructions =
-      `Use the client's uploaded logo image in the header. Embed it as a base64 data URI in the src attribute of the img tag, like this: <img src="data:${input.logoMediaType};base64,${input.logoBase64}" style="filter: brightness(0) invert(1); height: 60px; width: auto;" data-webme="logo" alt="logo">. Do not use an external URL.`;
+      "Use the client's uploaded logo image (attached) in the header. Embed it directly as a base64 data URI. Apply style: filter: brightness(0) invert(1); height: 60px; width: auto; on the img tag. Do not use an external URL or placeholder src.";
   } else if (input.createLogoForMe) {
     logoInstructions =
       "Design a simple, professional text-and-icon mark logo in pure CSS/SVG inline (no external assets) that fits the brand and palette.";
