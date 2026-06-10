@@ -17,7 +17,36 @@ export type IndustryPhotoSet = {
   gallery3: string;
 };
 
-async function searchPixabayPhotos(query: string, count: number): Promise<string[]> {
+const GENERIC_STOCK_URL_TERMS = [
+  "plant",
+  "flower",
+  "nature",
+  "beach",
+  "sunset",
+  "mountain",
+  "forest",
+  "coffee",
+  "abstract",
+  "handshake",
+  "meeting",
+  "office",
+  "laptop",
+  "workspace",
+  "teamwork",
+  "businesswoman",
+  "businessman",
+];
+
+function isRelevantPhotoUrl(url: string): boolean {
+  const lower = url.toLowerCase();
+  return !GENERIC_STOCK_URL_TERMS.some((term) => lower.includes(term));
+}
+
+async function searchPixabayPhotos(
+  query: string,
+  count: number,
+  category?: string,
+): Promise<string[]> {
   const apiKey = getPixabayApiKey();
   if (!apiKey) return [];
 
@@ -33,6 +62,10 @@ async function searchPixabayPhotos(query: string, count: number): Promise<string
       min_width: "800",
     });
 
+    if (category) {
+      params.set("category", category);
+    }
+
     const response = await fetch(`${PIXABAY_PHOTO_SEARCH}?${params}`);
     if (!response.ok) return [];
 
@@ -42,7 +75,8 @@ async function searchPixabayPhotos(query: string, count: number): Promise<string
 
     const urls = (data.hits ?? [])
       .map(hit => hit.largeImageURL ?? hit.webformatURL ?? null)
-      .filter((url): url is string => Boolean(url));
+      .filter((url): url is string => Boolean(url))
+      .filter(isRelevantPhotoUrl);
 
     // Shuffle and return
     for (let i = urls.length - 1; i > 0; i--) {
@@ -62,16 +96,17 @@ export async function fetchIndustryPhotos(industry: string): Promise<IndustryPho
 
   // Search for 9 unique photos — try specific queries first
   const queries = [
-    `${query} work`,
-    `${query} service`,
-    `${query} professional`,
+    `${query} worker`,
+    `${query} technician`,
+    `${query} equipment`,
+    `${query} professional work`,
   ];
 
   const allUrls: string[] = [];
 
   for (const q of queries) {
     if (allUrls.length >= 9) break;
-    const results = await searchPixabayPhotos(q, 9);
+    const results = await searchPixabayPhotos(q, 9, "industry");
     for (const url of results) {
       if (!allUrls.includes(url)) allUrls.push(url);
     }
