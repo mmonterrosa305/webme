@@ -385,18 +385,6 @@ export function PreviewShell({
         </div>
       ) : null}
 
-      {hoveredSlot ? (
-        <div
-          className="pointer-events-none fixed z-[200] rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg"
-          style={{
-            left: tooltipPosition.x + 12,
-            top: tooltipPosition.y + 12,
-          }}
-        >
-          📍 Will replace: {SLOT_LABELS[hoveredSlot] ?? hoveredSlot}
-        </div>
-      ) : null}
-
       <iframe
         title={`Website preview for ${lead.business_name}`}
         srcDoc={siteHtml}
@@ -676,6 +664,18 @@ export function PreviewShell({
             </button>
           </div>
         </ModalBackdrop>
+      ) : null}
+
+      {hoveredSlot ? (
+        <div
+          className="pointer-events-none fixed z-[9999] rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+          style={{
+            left: tooltipPosition.x + 12,
+            top: tooltipPosition.y + 12,
+          }}
+        >
+          📍 Will replace: {SLOT_LABELS[hoveredSlot] ?? hoveredSlot}
+        </div>
       ) : null}
     </div>
   );
