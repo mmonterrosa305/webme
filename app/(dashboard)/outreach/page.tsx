@@ -13,54 +13,15 @@ export const metadata: Metadata = {
 };
 
 const STATS = [
-  { label: "Emails sent (7d)", value: "412", change: "+22% vs prior week" },
-  { label: "Open rate", value: "48%", change: "Industry avg: 42%" },
-  { label: "Reply rate", value: "12%", change: "+1.8% this month" },
-  { label: "Meetings booked", value: "9", change: "From outreach this week" },
+  { label: "Emails sent (7d)", value: "0", change: "No emails sent yet" },
+  { label: "Open rate", value: "0%", change: "No data yet" },
+  { label: "Reply rate", value: "0%", change: "No data yet" },
+  { label: "Meetings booked", value: "0", change: "No meetings yet" },
 ] as const;
 
-const SEQUENCES = [
-  {
-    name: "Local services — cold intro",
-    steps: 5,
-    enrolled: 84,
-    status: "Active",
-    openRate: "52%",
-    replyRate: "14%",
-  },
-  {
-    name: "Agency follow-up nurture",
-    steps: 4,
-    enrolled: 41,
-    status: "Active",
-    openRate: "46%",
-    replyRate: "11%",
-  },
-  {
-    name: "Re-engage stale leads",
-    steps: 3,
-    enrolled: 29,
-    status: "Paused",
-    openRate: "38%",
-    replyRate: "8%",
-  },
-  {
-    name: "Post-demo thank you",
-    steps: 2,
-    enrolled: 12,
-    status: "Active",
-    openRate: "61%",
-    replyRate: "22%",
-  },
-] as const;
+const SEQUENCES = [] as const;
 
-const SCHEDULED = [
-  ["Northline HVAC", "Follow-up #2", "Today, 2:00 PM", "Queued"],
-  ["Ironclad Roofing", "Cold intro", "Today, 4:30 PM", "Queued"],
-  ["Metro Fitness Co.", "Case study share", "Tomorrow, 9:00 AM", "Queued"],
-  ["Urban Pet Grooming", "Break-up email", "Tomorrow, 11:00 AM", "Queued"],
-  ["Peak Performance PT", "Meeting confirm", "Wed, 10:00 AM", "Draft"],
-] as const;
+const SCHEDULED = [] as const;
 
 export default function OutreachPage() {
   return (
@@ -145,14 +106,7 @@ export default function OutreachPage() {
           subtitle="Aggregate stats across all sequences"
         >
           <div className="grid gap-4 p-5 sm:grid-cols-3">
-            {[
-              { label: "Mon", sent: 58, opens: 31 },
-              { label: "Tue", sent: 72, opens: 38 },
-              { label: "Wed", sent: 65, opens: 34 },
-              { label: "Thu", sent: 81, opens: 42 },
-              { label: "Fri", sent: 69, opens: 36 },
-              { label: "Sat", sent: 12, opens: 5 },
-            ].map((day) => (
+            {[].map((day) => (
               <div key={day.label} className="text-center">
                 <p className="text-xs text-neutral-500">{day.label}</p>
                 <div className="mt-2 flex h-24 items-end justify-center gap-1">

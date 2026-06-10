@@ -7,59 +7,13 @@ export const metadata: Metadata = {
 };
 
 const STATS = [
-  { label: "In pipeline", value: "42", change: "8 moved this week" },
-  { label: "Avg. days to close", value: "18", change: "−3 days vs last month" },
-  { label: "Win rate", value: "34%", change: "+2.1% this quarter" },
-  { label: "Pipeline value", value: "$1.74k/mo", change: "Weighted forecast" },
+  { label: "In pipeline", value: "0", change: "No deals yet" },
+  { label: "Avg. days to close", value: "0", change: "No data yet" },
+  { label: "Win rate", value: "0%", change: "No data yet" },
+  { label: "Pipeline value", value: "$0", change: "No forecast yet" },
 ] as const;
 
-const STAGES = [
-  {
-    name: "Lead",
-    count: 12,
-    deals: [
-      { company: "Metro Fitness Co.", value: "$29/mo", days: 2 },
-      { company: "Lakeside Auto Repair", value: "$29/mo", days: 5 },
-      { company: "Bright Smile Ortho", value: "$59/mo", days: 1 },
-    ],
-  },
-  {
-    name: "Qualified",
-    count: 9,
-    deals: [
-      { company: "Northline HVAC", value: "$59/mo", days: 8 },
-      { company: "Harborview Property", value: "$29/mo", days: 4 },
-      { company: "Urban Pet Grooming", value: "$29/mo", days: 6 },
-    ],
-  },
-  {
-    name: "Site build",
-    count: 8,
-    deals: [
-      { company: "Cedar & Stone Realty", value: "$59/mo", days: 11 },
-      { company: "Blue Oak Landscaping", value: "$29/mo", days: 7 },
-      { company: "Pulse Wellness Studio", value: "$59/mo", days: 3 },
-    ],
-  },
-  {
-    name: "Review",
-    count: 7,
-    deals: [
-      { company: "Summit Legal Partners", value: "$59/mo", days: 14 },
-      { company: "Ironclad Roofing", value: "$29/mo", days: 9 },
-      { company: "Coastal Cafe Group", value: "$29/mo", days: 5 },
-    ],
-  },
-  {
-    name: "Live",
-    count: 6,
-    deals: [
-      { company: "Riverside Dental", value: "$59/mo", days: 0 },
-      { company: "Apex Accounting", value: "$59/mo", days: 0 },
-      { company: "Greenfield Nursery", value: "$29/mo", days: 0 },
-    ],
-  },
-] as const;
+const STAGES = [] as const;
 
 export default function PipelinePage() {
   return (
@@ -127,15 +81,15 @@ export default function PipelinePage() {
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-neutral-500">Stalled (&gt;14 days)</p>
-          <p className="mt-1 text-xl font-semibold text-amber-700">5 deals</p>
+          <p className="mt-1 text-xl font-semibold text-amber-700">0 deals</p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-neutral-500">Lost this month</p>
-          <p className="mt-1 text-xl font-semibold text-neutral-600">7 deals</p>
+          <p className="mt-1 text-xl font-semibold text-neutral-600">0 deals</p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-neutral-500">Next action due</p>
-          <p className="mt-1 text-xl font-semibold text-neutral-900">3 today</p>
+          <p className="mt-1 text-xl font-semibold text-neutral-900">0 today</p>
         </div>
       </div>
     </main>
