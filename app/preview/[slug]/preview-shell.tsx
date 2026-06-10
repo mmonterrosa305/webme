@@ -336,27 +336,36 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               var el = document.querySelector('[data-webme="' + slot + '"]');
               if (!el) return;
 
-              var target = el;
-              if (getComputedStyle(target).position === "static") {
-                target.style.position = "relative";
+              // Wrap in a relative container if needed
+              var wrapper = el.parentElement;
+              if (getComputedStyle(el).position === 'static') {
+                el.style.position = 'relative';
               }
 
               var overlay = document.createElement("div");
               overlay.className = "webme-photo-replace-overlay";
-              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+
+              // For img tags, wrap them
+              if (el.tagName === 'IMG') {
+                var parent = el.parentElement;
+                if (getComputedStyle(parent).position === 'static') {
+                  parent.style.position = 'relative';
+                }
+                overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+                parent.appendChild(overlay);
+              } else {
+                overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+                el.appendChild(overlay);
+              }
 
               var button = document.createElement("button");
               button.type = "button";
               button.textContent = "📷 Replace";
-              button.style.cssText = "border:0;border-radius:8px;background:#fff;color:#111;padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);";
-              button.addEventListener("click", function (event) {
-                event.preventDefault();
-                event.stopPropagation();
-                window.parent.postMessage({ type: "replace-photo", slot: slot }, "*");
-              });
-
+              button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;";
+              button.onclick = function() {
+                window.parent.postMessage({ type: 'replace-photo', slot: slot }, '*');
+              };
               overlay.appendChild(button);
-              target.appendChild(overlay);
             });
           }
 
