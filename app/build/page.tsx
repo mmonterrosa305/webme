@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { DEFAULT_SECTIONS, INDUSTRIES } from "@/lib/agents/site-options";
 
 const inputClassName =
@@ -43,8 +43,16 @@ export default function BuildPage() {
   const [tagline, setTagline] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const progressResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const wasLoadingRef = useRef(false);
 
   useEffect(() => {
     document.title = "Build Your Free Website — MyWebMe";
@@ -67,6 +75,40 @@ export default function BuildPage() {
       setTurnstileToken("localhost-bypass");
     }
   }, []);
+
+  useEffect(() => {
+    if (loading) {
+      setProgress(0);
+      wasLoadingRef.current = true;
+      progressIntervalRef.current = setInterval(() => {
+        setProgress((current) =>
+          Math.min(current + Math.floor(Math.random() * 4) + 1, 90),
+        );
+      }, 1000);
+
+      return () => {
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+      };
+    }
+
+    if (wasLoadingRef.current) {
+      wasLoadingRef.current = false;
+      setProgress(100);
+      progressResetTimeoutRef.current = setTimeout(() => {
+        setProgress(0);
+      }, 1000);
+    }
+
+    return () => {
+      if (progressResetTimeoutRef.current) {
+        clearTimeout(progressResetTimeoutRef.current);
+        progressResetTimeoutRef.current = null;
+      }
+    };
+  }, [loading]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -269,10 +311,17 @@ export default function BuildPage() {
           ) : null}
 
           {loading ? (
-            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
               <p className="text-sm font-medium text-neutral-700">
-                Building your website... this takes about 30 seconds
+                Building your website...
               </p>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
+                <div
+                  className="h-full rounded-full bg-neutral-900 transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-sm text-neutral-600">{progress}% complete</p>
             </div>
           ) : null}
 
