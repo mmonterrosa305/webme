@@ -254,6 +254,47 @@ export function SavedLeads() {
     }
   }
 
+  async function handleAddToQueue(lead: SavedLead) {
+    setActionError(null);
+    setSuccessMessage(null);
+    setPending(lead.id, true);
+
+    try {
+      const response = await fetch("/api/outreach-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leads: [
+            {
+              businessName: lead.business_name,
+              city: lead.city,
+              industry: lead.industry,
+              address: null,
+              phone: null,
+              siteSlug: lead.site_slug,
+            },
+          ],
+        }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to add to Outreach Queue.");
+      }
+
+      setSuccessMessage("Added to Outreach Queue");
+    } catch (queueError) {
+      setActionError(
+        queueError instanceof Error
+          ? queueError.message
+          : "Failed to add to Outreach Queue.",
+      );
+    } finally {
+      setPending(lead.id, false);
+    }
+  }
+
   async function handleRegenerate(lead: SavedLead) {
     if (!lead.industry) {
       setActionError("This lead is missing an industry and cannot be regenerated.");
@@ -413,7 +454,6 @@ export function SavedLeads() {
         const emailValue = editingEmail[lead.id] ?? lead.owner_email ?? "";
         const showSiteActions = hasBuiltSite(lead);
         const showReviewActions = isPendingReview(lead);
-        const showOutreach = isApproved(lead) && hasBuiltSite(lead);
 
         return [
           <span key="business" className="font-medium text-neutral-900">
@@ -494,10 +534,10 @@ export function SavedLeads() {
                 <button
                   type="button"
                   disabled={isActionPending || isRegenerating}
-                  onClick={() => handleApprove(lead)}
+                  onClick={() => void handleAddToQueue(lead)}
                   className="text-left text-sm font-medium text-emerald-700 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isActionPending ? "Saving..." : "Approve"}
+                  {isActionPending ? "Saving..." : "Add to Queue"}
                 </button>
                 <button
                   type="button"
@@ -508,16 +548,6 @@ export function SavedLeads() {
                   {isRegenerating ? "Regenerating..." : "Regenerate"}
                 </button>
               </>
-            ) : null}
-            {showOutreach ? (
-              <button
-                type="button"
-                disabled={isActionPending || isRegenerating}
-                onClick={() => void handleSendOutreach(lead)}
-                className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isActionPending ? "Sending..." : "Send Outreach"}
-              </button>
             ) : null}
             <button
               type="button"
