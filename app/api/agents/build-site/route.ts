@@ -4,6 +4,7 @@ import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
+import { uploadLogo } from "@/lib/agents/upload-logo";
 import {
   COLOR_PALETTES,
   DESIGN_STYLES,
@@ -135,6 +136,17 @@ export async function POST(request: Request) {
       }
     }
 
+    let logoUrl: string | undefined;
+    if (logoBase64 && logoMediaType) {
+      const url = await uploadLogo(logoBase64, logoMediaType, businessName);
+      if (url) {
+        logoUrl = url;
+        // Clear base64 so it's not sent as attachment
+        logoBase64 = undefined;
+        logoMediaType = undefined;
+      }
+    }
+
     const logoSvg =
       typeof body.logoSvg === "string" ? body.logoSvg.trim() : undefined;
 
@@ -189,6 +201,7 @@ export async function POST(request: Request) {
       businessProfile,
       logoBase64,
       logoMediaType: logoMediaType as BuildSiteInput["logoMediaType"],
+      logoUrl,
       logoSvg,
     };
 

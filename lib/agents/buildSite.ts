@@ -98,6 +98,7 @@ export type BuildSiteInput = {
   businessProfile: BusinessProfile;
   logoBase64?: string;
   logoMediaType?: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  logoUrl?: string;
   logoSvg?: string;
 };
 
@@ -226,6 +227,9 @@ function buildUserPrompt(
   if (input.logoSvg) {
     logoInstructions =
       "Use the client's uploaded SVG logo in the header. Embed it inline or as a data URI. SVG markup is provided separately in this message.";
+  } else if (input.logoUrl) {
+    logoInstructions =
+      `Use this logo image URL in the header: ${input.logoUrl} — embed it as <img src="${input.logoUrl}" style="filter: brightness(0) invert(1); height: 60px; width: auto;" data-webme="logo" alt="logo">. Do not modify the URL.`;
   } else if (input.logoBase64 && input.logoMediaType) {
     logoInstructions =
       "Use the client's uploaded logo image (attached) in the header. Embed it directly as a base64 data URI. Apply style: filter: brightness(0) invert(1); height: 60px; width: auto; on the img tag. Do not use an external URL or placeholder src.";
