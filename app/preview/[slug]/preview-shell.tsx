@@ -71,6 +71,17 @@ const SHUFFLE_SLOTS = [
   { slot: "gallery-image-3", label: "Gallery 3" },
 ] as const;
 
+const SLOT_LABELS: Record<string, string> = {
+  "about-image": "About Image",
+  "service-image-1": "Service Card 1",
+  "service-image-2": "Service Card 2",
+  "service-image-3": "Service Card 3",
+  "service-image-4": "Service Card 4",
+  "gallery-image-1": "Gallery Left",
+  "gallery-image-2": "Gallery Center",
+  "gallery-image-3": "Gallery Right",
+};
+
 function ModalBackdrop({
   children,
   onClose,
@@ -103,7 +114,6 @@ export function PreviewShell({
   shuffleMode?: boolean;
 }) {
   const pricingRef = useRef<HTMLElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [modal, setModal] = useState<Modal>(null);
   const [payingPlan, setPayingPlan] = useState<PlanId | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -121,6 +131,7 @@ export function PreviewShell({
   const [editError, setEditError] = useState<string | null>(null);
   const [shufflingSlot, setShufflingSlot] = useState<string | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -160,23 +171,6 @@ export function PreviewShell({
   useEffect(() => {
     void loadEditStatus();
   }, [loadEditStatus]);
-
-  useEffect(() => {
-    const doc = iframeRef.current?.contentDocument;
-    if (!doc) return;
-
-    const existing = doc.getElementById("webme-highlight");
-    if (existing) {
-      existing.remove();
-    }
-
-    if (hoveredSlot) {
-      const style = doc.createElement("style");
-      style.id = "webme-highlight";
-      style.textContent = `[data-webme="${hoveredSlot}"] { outline: 3px solid #6366f1 !important; outline-offset: 2px !important; }`;
-      doc.head.appendChild(style);
-    }
-  }, [hoveredSlot]);
 
   const hasFieldChanges =
     savedFields !== null &&
@@ -369,7 +363,12 @@ export function PreviewShell({
       </header>
 
       {shuffleMode ? (
-        <div className="flex flex-wrap gap-2 border-b border-neutral-200 bg-white px-4 py-3 sm:px-6">
+        <div
+          className="flex flex-wrap gap-2 border-b border-neutral-200 bg-white px-4 py-3 sm:px-6"
+          onMouseMove={(event) => {
+            setTooltipPosition({ x: event.clientX, y: event.clientY });
+          }}
+        >
           {SHUFFLE_SLOTS.map(({ slot, label }) => (
             <button
               key={slot}
@@ -386,8 +385,19 @@ export function PreviewShell({
         </div>
       ) : null}
 
+      {hoveredSlot ? (
+        <div
+          className="pointer-events-none fixed z-[200] rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+          style={{
+            left: tooltipPosition.x + 12,
+            top: tooltipPosition.y + 12,
+          }}
+        >
+          📍 Will replace: {SLOT_LABELS[hoveredSlot] ?? hoveredSlot}
+        </div>
+      ) : null}
+
       <iframe
-        ref={iframeRef}
         title={`Website preview for ${lead.business_name}`}
         srcDoc={siteHtml}
         sandbox="allow-scripts allow-same-origin"
