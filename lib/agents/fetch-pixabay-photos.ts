@@ -1,5 +1,18 @@
 const PIXABAY_PHOTO_SEARCH = "https://pixabay.com/api/";
 
+const INDUSTRY_SEARCH_TERMS: Record<string, string[]> = {
+  "Pool Service": ["swimming pool", "pool cleaning", "pool maintenance", "backyard pool"],
+  "Plumbing": ["plumber pipe", "plumbing repair", "pipe fitting", "plumber work"],
+  "Roofing": ["roofing contractor", "roof repair", "roofer shingles", "roof installation"],
+  "Electrician": ["electrician wiring", "electrical repair", "electrical panel", "electrician work"],
+  "HVAC": ["hvac technician", "air conditioning repair", "hvac unit", "heating cooling"],
+  "Landscaping": ["lawn mowing", "landscaping work", "garden maintenance", "lawn care"],
+  "Cleaning Service": ["house cleaning", "cleaning service", "janitor cleaning", "maid service"],
+  "Pest Control": ["pest control", "exterminator", "pest inspection", "insect control"],
+  "Painting": ["house painting", "painter wall", "paint brush wall", "exterior painting"],
+  "General Contractor": ["construction worker", "building construction", "contractor work", "renovation"],
+};
+
 function getPixabayApiKey(): string | null {
   const key = process.env.PIXABAY_API_KEY?.trim();
   return key || null;
@@ -95,7 +108,7 @@ export async function fetchIndustryPhotos(industry: string): Promise<IndustryPho
   if (!query) return null;
 
   // Search for 9 unique photos — try specific queries first
-  const queries = [
+  const queries = INDUSTRY_SEARCH_TERMS[query] ?? [
     `${query} worker`,
     `${query} technician`,
     `${query} equipment`,
@@ -106,7 +119,7 @@ export async function fetchIndustryPhotos(industry: string): Promise<IndustryPho
 
   for (const q of queries) {
     if (allUrls.length >= 9) break;
-    const results = await searchPixabayPhotos(q, 9, "industry");
+    const results = await searchPixabayPhotos(q, 9);
     for (const url of results) {
       if (!allUrls.includes(url)) allUrls.push(url);
     }
