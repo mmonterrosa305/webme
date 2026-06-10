@@ -19,9 +19,11 @@ const STATS = [
   { label: "Meetings booked", value: "0", change: "No meetings yet" },
 ] as const;
 
-const SEQUENCES = [] as const;
+const SEQUENCES: { id: string; name: string; status: string; sent: number; steps: number; enrolled: number; openRate: string; replyRate: string }[] = [];
 
-const SCHEDULED = [] as const;
+const SCHEDULED: { id: string; company: string; contact: string; time: string; type: string }[] = [];
+
+const weeklyData: { label: string; sent: number; opens: number }[] = [];
 
 export default function OutreachPage() {
   return (
@@ -80,20 +82,20 @@ export default function OutreachPage() {
         <Panel title="Scheduled sends" subtitle="Upcoming outbound emails">
           <DataTable
             columns={["Lead", "Email", "Send time", "Status"]}
-            rows={SCHEDULED.map(([lead, email, time, status]) => [
+            rows={SCHEDULED.map((item) => [
               <span key="l" className="font-medium text-neutral-900">
-                {lead}
+                {item.company}
               </span>,
               <span key="e" className="text-neutral-600">
-                {email}
+                {item.contact}
               </span>,
               <span key="t" className="text-neutral-600">
-                {time}
+                {item.time}
               </span>,
               <StatusPill
                 key="s"
-                label={status}
-                variant={status === "Queued" ? "accent" : "default"}
+                label={item.type}
+                variant={item.type === "Queued" ? "accent" : "default"}
               />,
             ])}
           />
@@ -106,7 +108,7 @@ export default function OutreachPage() {
           subtitle="Aggregate stats across all sequences"
         >
           <div className="grid gap-4 p-5 sm:grid-cols-3">
-            {[].map((day) => (
+            {weeklyData.map((day) => (
               <div key={day.label} className="text-center">
                 <p className="text-xs text-neutral-500">{day.label}</p>
                 <div className="mt-2 flex h-24 items-end justify-center gap-1">

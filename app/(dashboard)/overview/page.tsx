@@ -18,9 +18,9 @@ const STATS = [
   { label: "MRR", value: "$0", change: "No revenue yet" },
 ] as const;
 
-const RECENT_ACTIVITY = [] as const;
+const RECENT_ACTIVITY: { id: string; title: string; detail: string; time: string }[] = [];
 
-const LEADS_NEEDING_ACTION = [] as const;
+const LEADS_NEEDING_ACTION: { id: string; company: string; contact: string; status: string; action: string; priority: "high" | "medium" | "low"; lastTouch: string }[] = [];
 
 export default function OverviewPage() {
   return (

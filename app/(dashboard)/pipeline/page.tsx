@@ -13,7 +13,7 @@ const STATS = [
   { label: "Pipeline value", value: "$0", change: "No forecast yet" },
 ] as const;
 
-const STAGES = [] as const;
+const STAGES: { name: string; count: number; deals: { id: string; company: string; value: string; contact: string; days: number }[] }[] = [];
 
 export default function PipelinePage() {
   return (
