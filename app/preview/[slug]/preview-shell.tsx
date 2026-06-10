@@ -60,28 +60,6 @@ const PACKAGES = [
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
 
-const SHUFFLE_SLOTS = [
-  { slot: "about-image", label: "About" },
-  { slot: "service-image-1", label: "Service 1" },
-  { slot: "service-image-2", label: "Service 2" },
-  { slot: "service-image-3", label: "Service 3" },
-  { slot: "service-image-4", label: "Service 4" },
-  { slot: "gallery-image-1", label: "Gallery 1" },
-  { slot: "gallery-image-2", label: "Gallery 2" },
-  { slot: "gallery-image-3", label: "Gallery 3" },
-] as const;
-
-const SLOT_LABELS: Record<string, string> = {
-  "about-image": "About Image",
-  "service-image-1": "Service Card 1",
-  "service-image-2": "Service Card 2",
-  "service-image-3": "Service Card 3",
-  "service-image-4": "Service Card 4",
-  "gallery-image-1": "Gallery Left",
-  "gallery-image-2": "Gallery Center",
-  "gallery-image-3": "Gallery Right",
-};
-
 function ModalBackdrop({
   children,
   onClose,
@@ -106,13 +84,7 @@ function ModalBackdrop({
   );
 }
 
-export function PreviewShell({
-  lead,
-  shuffleMode,
-}: {
-  lead: LeadPreview;
-  shuffleMode?: boolean;
-}) {
+export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const pricingRef = useRef<HTMLElement>(null);
   const [modal, setModal] = useState<Modal>(null);
   const [payingPlan, setPayingPlan] = useState<PlanId | null>(null);
@@ -129,9 +101,6 @@ export function PreviewShell({
   const [loadingEdits, setLoadingEdits] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [shufflingSlot, setShufflingSlot] = useState<string | null>(null);
-  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -270,45 +239,6 @@ export function PreviewShell({
     pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  async function handleShufflePhoto(slot: string) {
-    setShufflingSlot(slot);
-
-    try {
-      const response = await fetch("/api/leads/shuffle-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          siteSlug: lead.site_slug,
-          slot,
-          industry: lead.industry,
-        }),
-      });
-
-      const data = (await response.json()) as {
-        success?: boolean;
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Failed to shuffle photo.");
-      }
-
-      const htmlResponse = await fetch(`/api/preview/${lead.site_slug}/edits`);
-      const htmlData = (await htmlResponse.json()) as {
-        siteHtml?: string;
-        error?: string;
-      };
-
-      if (!htmlResponse.ok || !htmlData.siteHtml) {
-        throw new Error(htmlData.error ?? "Failed to refresh preview.");
-      }
-
-      setSiteHtml(htmlData.siteHtml);
-    } finally {
-      setShufflingSlot(null);
-    }
-  }
-
   return (
     <div className="flex min-h-dvh flex-col bg-neutral-100">
       <header className="sticky top-0 z-50 shrink-0 border-b border-neutral-800 bg-[#111111] px-4 py-3 shadow-lg sm:px-6">
@@ -322,34 +252,26 @@ export function PreviewShell({
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
-            {shuffleMode ? (
-              <span className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white">
-                Photo Edit Mode
-              </span>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModal("packages");
-                    pricingRef.current?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  }}
-                  className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
-                >
-                  Yes! I want this site
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModal("declined")}
-                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
-                >
-                  No thanks
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setModal("packages");
+                pricingRef.current?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+              }}
+              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
+            >
+              Yes! I want this site
+            </button>
+            <button
+              type="button"
+              onClick={() => setModal("declined")}
+              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+            >
+              No thanks
+            </button>
             <a
               href={`/site/${lead.site_slug}`}
               target="_blank"
@@ -361,29 +283,6 @@ export function PreviewShell({
           </div>
         </div>
       </header>
-
-      {shuffleMode ? (
-        <div
-          className="flex flex-wrap gap-2 border-b border-neutral-200 bg-white px-4 py-3 sm:px-6"
-          onMouseMove={(event) => {
-            setTooltipPosition({ x: event.clientX, y: event.clientY });
-          }}
-        >
-          {SHUFFLE_SLOTS.map(({ slot, label }) => (
-            <button
-              key={slot}
-              type="button"
-              onClick={() => void handleShufflePhoto(slot)}
-              onMouseEnter={() => setHoveredSlot(slot)}
-              onMouseLeave={() => setHoveredSlot(null)}
-              disabled={shufflingSlot !== null}
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
-            >
-              {shufflingSlot === slot ? "Shuffling..." : `${label} 🔀`}
-            </button>
-          ))}
-        </div>
-      ) : null}
 
       <iframe
         title={`Website preview for ${lead.business_name}`}
@@ -664,18 +563,6 @@ export function PreviewShell({
             </button>
           </div>
         </ModalBackdrop>
-      ) : null}
-
-      {hoveredSlot ? (
-        <div
-          className="pointer-events-none fixed z-[9999] rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg"
-          style={{
-            left: tooltipPosition.x + 12,
-            top: tooltipPosition.y + 12,
-          }}
-        >
-          📍 Will replace: {SLOT_LABELS[hoveredSlot] ?? hoveredSlot}
-        </div>
       ) : null}
     </div>
   );
