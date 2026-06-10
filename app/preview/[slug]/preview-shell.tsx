@@ -84,8 +84,20 @@ function ModalBackdrop({
   );
 }
 
+const PHOTO_EDIT_SLOTS = [
+  "about-image",
+  "service-image-1",
+  "service-image-2",
+  "service-image-3",
+  "service-image-4",
+  "gallery-image-1",
+  "gallery-image-2",
+  "gallery-image-3",
+] as const;
+
 export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const pricingRef = useRef<HTMLElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [modal, setModal] = useState<Modal>(null);
   const [payingPlan, setPayingPlan] = useState<PlanId | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -101,6 +113,8 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const [loadingEdits, setLoadingEdits] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [photoEditMode, setPhotoEditMode] = useState(false);
+  const [replacingSlot, setReplacingSlot] = useState<string | null>(null);
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -239,6 +253,143 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  const handleReplacePhoto = useCallback(
+    async (slot: string) => {
+      setReplacingSlot(slot);
+
+      try {
+        const response = await fetch("/api/leads/shuffle-photo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            siteSlug: lead.site_slug,
+            slot,
+            industry: lead.industry,
+          }),
+        });
+
+        const data = (await response.json()) as {
+          success?: boolean;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to replace photo.");
+        }
+
+        const htmlResponse = await fetch(`/api/preview/${lead.site_slug}/edits`);
+        const htmlData = (await htmlResponse.json()) as {
+          siteHtml?: string;
+          error?: string;
+        };
+
+        if (!htmlResponse.ok || !htmlData.siteHtml) {
+          throw new Error(htmlData.error ?? "Failed to refresh preview.");
+        }
+
+        setSiteHtml(htmlData.siteHtml);
+      } finally {
+        setReplacingSlot(null);
+      }
+    },
+    [lead.industry, lead.site_slug],
+  );
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const removeOverlays = (doc: Document) => {
+      doc.querySelectorAll(".webme-photo-replace-overlay").forEach((element) => {
+        element.remove();
+      });
+      doc.getElementById("webme-photo-edit-script")?.remove();
+    };
+
+    const injectOverlays = () => {
+      const doc = iframe.contentDocument;
+      if (!doc) return;
+
+      if (!photoEditMode) {
+        removeOverlays(doc);
+        return;
+      }
+
+      removeOverlays(doc);
+
+      const script = doc.createElement("script");
+      script.id = "webme-photo-edit-script";
+      script.textContent = `
+        (function () {
+          var slots = ${JSON.stringify([...PHOTO_EDIT_SLOTS])};
+
+          function removeOverlays() {
+            document.querySelectorAll(".webme-photo-replace-overlay").forEach(function (el) {
+              el.remove();
+            });
+          }
+
+          function addOverlays() {
+            removeOverlays();
+
+            slots.forEach(function (slot) {
+              var el = document.querySelector('[data-webme="' + slot + '"]');
+              if (!el) return;
+
+              var target = el;
+              if (getComputedStyle(target).position === "static") {
+                target.style.position = "relative";
+              }
+
+              var overlay = document.createElement("div");
+              overlay.className = "webme-photo-replace-overlay";
+              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+
+              var button = document.createElement("button");
+              button.type = "button";
+              button.textContent = "📷 Replace";
+              button.style.cssText = "border:0;border-radius:8px;background:#fff;color:#111;padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);";
+              button.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                window.parent.postMessage({ type: "replace-photo", slot: slot }, "*");
+              });
+
+              overlay.appendChild(button);
+              target.appendChild(overlay);
+            });
+          }
+
+          addOverlays();
+        })();
+      `;
+      doc.body.appendChild(script);
+    };
+
+    injectOverlays();
+    iframe.addEventListener("load", injectOverlays);
+
+    return () => {
+      iframe.removeEventListener("load", injectOverlays);
+      const doc = iframe.contentDocument;
+      if (doc) {
+        removeOverlays(doc);
+      }
+    };
+  }, [photoEditMode, siteHtml]);
+
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      const data = event.data as { type?: string; slot?: string };
+      if (data?.type === "replace-photo" && typeof data.slot === "string") {
+        void handleReplacePhoto(data.slot);
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [handleReplacePhoto]);
+
   return (
     <div className="flex min-h-dvh flex-col bg-neutral-100">
       <header className="sticky top-0 z-50 shrink-0 border-b border-neutral-800 bg-[#111111] px-4 py-3 shadow-lg sm:px-6">
@@ -280,11 +431,19 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
             >
               View full site
             </a>
+            <button
+              type="button"
+              onClick={() => setPhotoEditMode((current) => !current)}
+              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+            >
+              {photoEditMode ? "Done Editing" : "Replace Photos"}
+            </button>
           </div>
         </div>
       </header>
 
       <iframe
+        ref={iframeRef}
         title={`Website preview for ${lead.business_name}`}
         srcDoc={siteHtml}
         sandbox="allow-scripts allow-same-origin"
