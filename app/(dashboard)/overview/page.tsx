@@ -12,92 +12,15 @@ export const metadata: Metadata = {
 };
 
 const STATS = [
-  { label: "Total Leads", value: "247", change: "+18 this week" },
-  { label: "Sites Built", value: "89", change: "+6 this month" },
-  { label: "Active Clients", value: "34", change: "3 onboarding" },
-  { label: "MRR", value: "$12,400", change: "+8.2% vs last month" },
+  { label: "Total Leads", value: "0", change: "No leads yet" },
+  { label: "Sites Built", value: "0", change: "No sites built yet" },
+  { label: "Active Clients", value: "0", change: "No clients yet" },
+  { label: "MRR", value: "$0", change: "No revenue yet" },
 ] as const;
 
-const RECENT_ACTIVITY = [
-  {
-    id: "1",
-    title: "Site deployed for Riverside Dental",
-    detail: "Pipeline → Live",
-    time: "12 min ago",
-  },
-  {
-    id: "2",
-    title: "New lead: Harborview Property Group",
-    detail: "Inbound from outreach sequence",
-    time: "1 hr ago",
-  },
-  {
-    id: "3",
-    title: "Client signed — Summit Legal Partners",
-    detail: "Starter plan, $399/mo",
-    time: "3 hrs ago",
-  },
-  {
-    id: "4",
-    title: "Agent completed site draft",
-    detail: "Blue Oak Landscaping — review pending",
-    time: "5 hrs ago",
-  },
-  {
-    id: "5",
-    title: "Follow-up sent to Metro Fitness Co.",
-    detail: "Day 3 of nurture sequence",
-    time: "Yesterday",
-  },
-] as const;
+const RECENT_ACTIVITY = [] as const;
 
-const LEADS_NEEDING_ACTION = [
-  {
-    id: "1",
-    company: "Northline HVAC",
-    contact: "Jordan Ellis",
-    status: "Proposal sent",
-    action: "Schedule demo call",
-    priority: "high" as const,
-    lastTouch: "2 days ago",
-  },
-  {
-    id: "2",
-    company: "Cedar & Stone Realty",
-    contact: "Morgan Chen",
-    status: "Site draft ready",
-    action: "Send preview link",
-    priority: "high" as const,
-    lastTouch: "1 day ago",
-  },
-  {
-    id: "3",
-    company: "Pulse Wellness Studio",
-    contact: "Alex Rivera",
-    status: "Replied to outreach",
-    action: "Respond to email",
-    priority: "medium" as const,
-    lastTouch: "4 hrs ago",
-  },
-  {
-    id: "4",
-    company: "Ironclad Roofing",
-    contact: "Sam Okonkwo",
-    status: "No response",
-    action: "Send follow-up #2",
-    priority: "medium" as const,
-    lastTouch: "5 days ago",
-  },
-  {
-    id: "5",
-    company: "Bloom & Branch Florists",
-    contact: "Taylor Brooks",
-    status: "Contract unsigned",
-    action: "Nudge for signature",
-    priority: "low" as const,
-    lastTouch: "3 days ago",
-  },
-] as const;
+const LEADS_NEEDING_ACTION = [] as const;
 
 export default function OverviewPage() {
   return (
