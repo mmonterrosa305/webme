@@ -103,6 +103,7 @@ export function PreviewShell({
   shuffleMode?: boolean;
 }) {
   const pricingRef = useRef<HTMLElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [modal, setModal] = useState<Modal>(null);
   const [payingPlan, setPayingPlan] = useState<PlanId | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -119,6 +120,7 @@ export function PreviewShell({
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [shufflingSlot, setShufflingSlot] = useState<string | null>(null);
+  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -158,6 +160,23 @@ export function PreviewShell({
   useEffect(() => {
     void loadEditStatus();
   }, [loadEditStatus]);
+
+  useEffect(() => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+
+    const existing = doc.getElementById("webme-highlight");
+    if (existing) {
+      existing.remove();
+    }
+
+    if (hoveredSlot) {
+      const style = doc.createElement("style");
+      style.id = "webme-highlight";
+      style.textContent = `[data-webme="${hoveredSlot}"] { outline: 3px solid #6366f1 !important; outline-offset: 2px !important; }`;
+      doc.head.appendChild(style);
+    }
+  }, [hoveredSlot]);
 
   const hasFieldChanges =
     savedFields !== null &&
@@ -356,6 +375,8 @@ export function PreviewShell({
               key={slot}
               type="button"
               onClick={() => void handleShufflePhoto(slot)}
+              onMouseEnter={() => setHoveredSlot(slot)}
+              onMouseLeave={() => setHoveredSlot(null)}
               disabled={shufflingSlot !== null}
               className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
             >
@@ -366,6 +387,7 @@ export function PreviewShell({
       ) : null}
 
       <iframe
+        ref={iframeRef}
         title={`Website preview for ${lead.business_name}`}
         srcDoc={siteHtml}
         sandbox="allow-scripts allow-same-origin"
