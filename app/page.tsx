@@ -354,7 +354,7 @@ export default function LandingPage() {
               We&apos;ve already built a website for your business. Click below
               to see it.
             </p>
-            <PrimaryButton href="/preview" className="mt-8">
+            <PrimaryButton href="/build" className="mt-8">
               See your free preview
             </PrimaryButton>
           </div>
