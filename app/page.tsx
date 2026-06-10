@@ -348,11 +348,11 @@ export default function LandingPage() {
         <section className="border-t border-neutral-200 bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
             <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-              Ready to get your business online?
+              See your new website in 30 seconds
             </h2>
             <p className="mt-4 text-lg text-neutral-600">
-              We&apos;ve already built a website for your business. Click below
-              to see it.
+              Enter your business info and we&apos;ll build you a free
+              professional website — no credit card required.
             </p>
             <PrimaryButton href="/build" className="mt-8">
               See your free preview
