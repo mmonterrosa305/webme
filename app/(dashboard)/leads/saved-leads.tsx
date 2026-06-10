@@ -463,21 +463,31 @@ export function SavedLeads() {
               </span>
             ) : null}
             {showSiteActions && lead.site_slug ? (
-              <div className="flex items-center gap-2">
+              <>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/preview/${lead.site_slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-neutral-700 hover:text-neutral-900"
+                  >
+                    View Site
+                  </Link>
+                  {lead.regenerate_count != null && lead.regenerate_count > 1 ? (
+                    <span className="inline-flex rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+                      Version {lead.regenerate_count}
+                    </span>
+                  ) : null}
+                </div>
                 <Link
-                  href={`/preview/${lead.site_slug}`}
+                  href={`/preview/${lead.site_slug}?shuffle=true`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium text-neutral-700 hover:text-neutral-900"
+                  className="text-left text-sm font-medium text-violet-600 hover:text-violet-700"
                 >
-                  View Site
+                  Edit Photos
                 </Link>
-                {lead.regenerate_count != null && lead.regenerate_count > 1 ? (
-                  <span className="inline-flex rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
-                    Version {lead.regenerate_count}
-                  </span>
-                ) : null}
-              </div>
+              </>
             ) : null}
             {showReviewActions ? (
               <>

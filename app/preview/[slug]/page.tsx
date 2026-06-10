@@ -7,6 +7,7 @@ import { PreviewShell } from "./preview-shell";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ shuffle?: string }>;
 };
 
 export async function generateMetadata({
@@ -22,13 +23,16 @@ export async function generateMetadata({
   };
 }
 
-export default async function PreviewPage({ params }: PageProps) {
-  const { slug } = await params;
+export default async function PreviewPage(props: PageProps) {
+  const { slug } = await props.params;
   const lead = await getLeadBySlug(slug);
 
   if (!lead) {
     notFound();
   }
 
-  return <PreviewShell lead={lead} />;
+  const resolvedSearchParams = await props.searchParams;
+  const shuffleMode = resolvedSearchParams?.shuffle === "true";
+
+  return <PreviewShell lead={lead} shuffleMode={shuffleMode} />;
 }
