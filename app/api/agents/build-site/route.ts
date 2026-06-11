@@ -95,11 +95,11 @@ export async function POST(request: Request) {
         "https://challenges.cloudflare.com/turnstile/v0/siteverify",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
             secret: turnstileSecret,
             response: cfTurnstileToken,
-          }),
+          }).toString(),
         },
       );
       const verifyData = (await verifyResponse.json()) as { success: boolean };
