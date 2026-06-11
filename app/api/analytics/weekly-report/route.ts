@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildWeeklyReportEmail } from "@/lib/analytics/build-weekly-report-email";
+import { generateWeeklyIndustryContent } from "@/lib/analytics/generate-weekly-industry-content";
 import { createResendClient, getResendFromEmail } from "@/lib/email/resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
 
     const { data: clients, error: clientsError } = await supabase
       .from("clients")
-      .select("id, business_name, owner_email, site_slug, site_url")
+      .select("id, business_name, owner_email, site_slug, site_url, industry")
       .eq("plan", "elite");
 
     if (clientsError) {
@@ -107,11 +108,15 @@ export async function GET(request: Request) {
         sevenDaysAgo,
       );
 
+      const industry = client.industry?.trim() || "local business";
+      const content = await generateWeeklyIndustryContent(industry);
+
       const { subject, html, text } = buildWeeklyReportEmail({
         businessName: client.business_name,
+        industry,
         pageViews,
         formSubmits,
-        siteUrl: client.site_url,
+        content,
       });
 
       const sendResult = await resend.emails.send({
