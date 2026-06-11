@@ -110,12 +110,17 @@ export async function GET(request: Request) {
         sevenDaysAgo,
       );
 
-      const lead = client.leads as
-        | { industry: string | null }
-        | { industry: string | null }[]
-        | null;
-      const leadData = Array.isArray(lead) ? lead[0] : lead;
-      const industry = leadData?.industry?.trim() || "local business";
+      const industry =
+        (
+          client.leads as { industry: string | null } | null
+        )?.industry?.trim() || "local business";
+
+      console.log("[weekly-report] Client industry:", {
+        clientId: client.id,
+        businessName: client.business_name,
+        industry,
+      });
+
       const content = await generateWeeklyIndustryContent(industry);
 
       const { subject, html, text } = buildWeeklyReportEmail({
