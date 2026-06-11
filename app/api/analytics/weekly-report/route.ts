@@ -58,7 +58,9 @@ export async function GET(request: Request) {
 
     const { data: clients, error: clientsError } = await supabase
       .from("clients")
-      .select("id, business_name, owner_email, site_slug, site_url, industry")
+      .select(
+        "id, business_name, owner_email, site_slug, site_url, lead_id, leads(industry)",
+      )
       .eq("plan", "elite");
 
     if (clientsError) {
@@ -108,7 +110,12 @@ export async function GET(request: Request) {
         sevenDaysAgo,
       );
 
-      const industry = client.industry?.trim() || "local business";
+      const lead = client.leads as
+        | { industry: string | null }
+        | { industry: string | null }[]
+        | null;
+      const leadData = Array.isArray(lead) ? lead[0] : lead;
+      const industry = leadData?.industry?.trim() || "local business";
       const content = await generateWeeklyIndustryContent(industry);
 
       const { subject, html, text } = buildWeeklyReportEmail({
