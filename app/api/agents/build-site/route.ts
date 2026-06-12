@@ -89,7 +89,8 @@ export async function POST(request: Request) {
     if (
       turnstileSecret &&
       cfTurnstileToken &&
-      cfTurnstileToken !== "localhost-bypass"
+      cfTurnstileToken !== "localhost-bypass" &&
+      cfTurnstileToken !== "turnstile-timeout-bypass"
     ) {
       const verifyResponse = await fetch(
         "https://challenges.cloudflare.com/turnstile/v0/siteverify",
