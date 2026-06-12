@@ -100,10 +100,66 @@ export async function DELETE(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const { error } = await supabase.from("leads").delete().eq("id", id);
 
-    if (error) {
-      throw new Error(error.message);
+    const { data: lead, error: fetchError } = await supabase
+      .from("leads")
+      .select("id, site_slug")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    if (!lead) {
+      return NextResponse.json({ error: "Lead not found." }, { status: 404 });
+    }
+
+    const { error: clientsError } = await supabase
+      .from("clients")
+      .update({ lead_id: null })
+      .eq("lead_id", id);
+
+    if (clientsError) {
+      throw new Error(clientsError.message);
+    }
+
+    const { error: outreachError } = await supabase
+      .from("outreach")
+      .delete()
+      .eq("lead_id", id);
+
+    if (outreachError) {
+      throw new Error(outreachError.message);
+    }
+
+    const { error: queueError } = await supabase
+      .from("outreach_queue")
+      .delete()
+      .eq("lead_id", id);
+
+    if (queueError) {
+      throw new Error(queueError.message);
+    }
+
+    if (lead.site_slug) {
+      const { error: analyticsError } = await supabase
+        .from("site_analytics")
+        .delete()
+        .eq("site_slug", lead.site_slug);
+
+      if (analyticsError) {
+        throw new Error(analyticsError.message);
+      }
+    }
+
+    const { error: deleteError } = await supabase
+      .from("leads")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      throw new Error(deleteError.message);
     }
 
     return NextResponse.json({ success: true });
