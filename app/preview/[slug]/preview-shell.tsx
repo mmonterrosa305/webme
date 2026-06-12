@@ -115,6 +115,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const [editError, setEditError] = useState<string | null>(null);
   const [photoEditMode, setPhotoEditMode] = useState(false);
   const [replacingSlot, setReplacingSlot] = useState<string | null>(null);
+  const [shufflingVideo, setShufflingVideo] = useState(false);
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -305,6 +306,44 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     [lead.industry, lead.site_slug],
   );
 
+  const handleShuffleVideo = useCallback(async () => {
+    setShufflingVideo(true);
+
+    try {
+      const response = await fetch("/api/leads/shuffle-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteSlug: lead.site_slug,
+          industry: lead.industry,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to shuffle video.");
+      }
+
+      const htmlResponse = await fetch(`/api/preview/${lead.site_slug}/edits`);
+      const htmlData = (await htmlResponse.json()) as {
+        siteHtml?: string;
+        error?: string;
+      };
+
+      if (!htmlResponse.ok || !htmlData.siteHtml) {
+        throw new Error(htmlData.error ?? "Failed to refresh preview.");
+      }
+
+      setSiteHtml(htmlData.siteHtml);
+    } finally {
+      setShufflingVideo(false);
+    }
+  }, [lead.industry, lead.site_slug]);
+
   function injectPhotoOverlays() {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -463,6 +502,14 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
             >
               {photoEditMode ? "Done Editing" : "Replace Photos"}
+            </button>
+            <button
+              type="button"
+              disabled={shufflingVideo}
+              onClick={() => void handleShuffleVideo()}
+              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {shufflingVideo ? "Shuffling..." : "Shuffle Video"}
             </button>
           </div>
         </div>

@@ -103,17 +103,28 @@ async function searchPixabayPhotos(
   }
 }
 
+export function getIndustrySearchQueries(industry: string): string[] {
+  const query = industry.trim();
+  if (!query) {
+    return [];
+  }
+
+  return (
+    INDUSTRY_SEARCH_TERMS[query] ?? [
+      `${query} worker`,
+      `${query} technician`,
+      `${query} equipment`,
+      `${query} professional work`,
+    ]
+  );
+}
+
 export async function fetchIndustryPhotos(industry: string): Promise<IndustryPhotoSet | null> {
   const query = industry.trim();
   if (!query) return null;
 
   // Search for 9 unique photos — try specific queries first
-  const queries = INDUSTRY_SEARCH_TERMS[query] ?? [
-    `${query} worker`,
-    `${query} technician`,
-    `${query} equipment`,
-    `${query} professional work`,
-  ];
+  const queries = getIndustrySearchQueries(query);
 
   const allUrls: string[] = [];
 
