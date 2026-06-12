@@ -1,33 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HeroBackground } from "./hero-background";
 
 export const metadata: Metadata = {
   title: "MyWebMe — Professional websites for local businesses",
   description:
-    "We build you a professional website — fast, affordable, and stress-free. You focus on running your business. We handle everything else.",
+    "We build your business a real website in 24 hours. No tech skills needed. Preview free, then go live when you're ready.",
 };
-
-const CONTACT_EMAIL = "mailto:sites@mywebme.com";
 
 const STEPS = [
   {
-    step: "Step 1",
+    number: "1",
+    title: "We find your business",
+    description:
+      "We search for businesses like yours that need a website.",
+  },
+  {
+    number: "2",
     title: "We build your site",
     description:
-      "We create a professional website tailored to your business — no effort required from you.",
+      "A fully designed, professional website built for your industry in 24 hours.",
   },
   {
-    step: "Step 2",
-    title: "You preview it",
+    number: "3",
+    title: "You approve and go live",
     description:
-      "Click the link we send you. See your new site live. Love it or we'll make it right.",
-  },
-  {
-    step: "Step 3",
-    title: "You go live",
-    description:
-      "Pick a plan, claim your site, and start getting found by new customers online.",
+      "Review it, request changes, then publish with one click.",
   },
 ] as const;
 
@@ -83,84 +80,53 @@ const PLANS = [
   },
 ] as const;
 
+const SAMPLE_SITES = [
+  {
+    name: "Sunshine Pool Service",
+    industry: "Pool Service",
+    slug: "sunshine-pool-service-miami",
+  },
+  {
+    name: "Apex HVAC Solutions",
+    industry: "HVAC",
+    slug: "apex-hvac-solutions-tampa",
+  },
+  {
+    name: "Bright Smile Dental",
+    industry: "Dental",
+    slug: "bright-smile-dental-orlando",
+  },
+] as const;
+
 const TESTIMONIALS = [
   {
-    quote: "I had no idea how easy this could be...",
+    quote:
+      "Within two weeks of going live, my phone started ringing more. People tell me they found me online and the site made us look legit.",
     author: "Maria G.",
     business: "Miami Cleaning Services",
   },
   {
-    quote: "Best money I've ever spent on my business...",
+    quote:
+      "I was getting maybe one call a week from Google. Now it's three or four. Best investment I've made for my plumbing business.",
     author: "Carlos R.",
     business: "Tampa Plumbing Co.",
   },
   {
     quote:
-      "I didn't even know I needed a website until I saw what they built for me...",
+      "Clients book appointments straight from the website. I didn't think a site would matter for a salon, but the calls prove it does.",
     author: "Sandra L.",
     business: "Orlando Hair Studio",
   },
 ] as const;
 
-function NavLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
+function Logo({ className = "" }: { className?: string }) {
   return (
-    <a
-      href={href}
-      className="text-sm text-neutral-600 transition-colors hover:text-neutral-900"
+    <Link
+      href="/"
+      className={`text-2xl font-semibold lowercase tracking-tight ${className}`}
     >
-      {children}
-    </a>
-  );
-}
-
-function PrimaryButton({
-  href,
-  children,
-  className = "",
-}: {
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const classNames = `inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white transition-colors hover:bg-neutral-800 ${className || "px-5 py-2.5 text-sm font-medium"}`;
-
-  if (href.startsWith("mailto:")) {
-    return (
-      <a href={href} className={classNames}>
-        {children}
-      </a>
-    );
-  }
-
-  return (
-    <Link href={href} className={classNames}>
-      {children}
+      mywebme
     </Link>
-  );
-}
-
-function OutlineButton({
-  href,
-  children,
-  className = "",
-}: {
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <a
-      href={href}
-      className={`inline-flex items-center justify-center rounded-lg border border-neutral-900 bg-white px-5 py-2.5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 ${className}`}
-    >
-      {children}
-    </a>
   );
 }
 
@@ -168,74 +134,73 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-neutral-900">
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
+      <header className="sticky top-0 z-50 border-b border-neutral-200/80 bg-white/95 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center">
-            <img
-              src="/logo.png"
-              alt="MyWebMe"
-              height="100"
-              style={{ height: "100px", width: "auto" }}
-            />
+          <Logo className="text-neutral-900" />
+          <Link
+            href="/build"
+            className="inline-flex items-center justify-center rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
+          >
+            Get started
           </Link>
-          <div className="flex items-center gap-4 sm:gap-8">
-            <div className="flex items-center gap-4 sm:gap-8">
-              <NavLink href="#how-it-works">How it works</NavLink>
-              <NavLink href="#pricing">Pricing</NavLink>
-            </div>
-            <PrimaryButton href="/build" className="px-6 py-3 text-lg font-bold">
-              Get your website
-            </PrimaryButton>
-          </div>
         </nav>
       </header>
 
       <main>
         {/* Hero */}
-        <HeroBackground>
-          <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex rounded-full border border-white/40 bg-white/10 px-3 py-1 text-xs font-medium text-white">
-              Built for local businesses
-            </span>
-            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Your business deserves a website that works for you
+        <section
+          className="px-4 py-20 sm:px-6 sm:py-28 lg:px-8 lg:py-32"
+          style={{ backgroundColor: "#0f172a" }}
+        >
+          <div className="mx-auto max-w-4xl text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+              Your business deserves a real website.
             </h1>
-            <p className="mt-6 text-lg leading-relaxed text-white">
-              We build you a professional website — fast, affordable, and
-              stress-free. You focus on running your business. We handle
-              everything else.
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-400 sm:text-xl">
+              We build it for you in 24 hours. No tech skills needed. No
+              templates to figure out.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <PrimaryButton href="/build">See your free preview</PrimaryButton>
-              <OutlineButton href="#how-it-works">How it works</OutlineButton>
+              <a
+                href="#live-preview"
+                className="inline-flex w-full items-center justify-center rounded-full border-2 border-white/80 bg-transparent px-8 py-3.5 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto"
+              >
+                See a live example
+              </a>
+              <Link
+                href="/build"
+                className="inline-flex w-full items-center justify-center rounded-full bg-white px-8 py-3.5 text-base font-semibold text-neutral-900 transition-colors hover:bg-slate-100 sm:w-auto"
+              >
+                Get your free preview
+              </Link>
             </div>
+            <p className="mt-8 text-sm text-slate-400 sm:text-base">
+              ⭐ Trusted by local businesses across the US
+            </p>
           </div>
-        </HeroBackground>
+        </section>
 
         {/* How it works */}
         <section
           id="how-it-works"
-          className="border-t border-neutral-100 bg-white py-16 sm:py-24"
+          className="bg-white py-20 sm:py-28"
         >
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-                Up and running in 3 simple steps
+              <h2 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
+                How it works
               </h2>
-              <p className="mt-4 text-lg text-neutral-600">
-                No tech skills needed. No back and forth. Just results.
-              </p>
             </div>
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-14 grid gap-8 md:grid-cols-3">
               {STEPS.map((item) => (
                 <article
-                  key={item.step}
-                  className="rounded-2xl border border-neutral-200 bg-white p-6 sm:p-8"
+                  key={item.number}
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-8 text-center"
                 >
-                  <p className="text-sm font-medium text-neutral-500">
-                    {item.step}
-                  </p>
-                  <h3 className="mt-3 text-xl font-semibold text-neutral-900">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-lg font-bold text-white">
+                    {item.number}
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold text-neutral-900">
                     {item.title}
                   </h3>
                   <p className="mt-3 leading-relaxed text-neutral-600">
@@ -247,42 +212,84 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing */}
+        {/* Live preview */}
         <section
-          id="pricing"
-          className="border-t border-neutral-100 bg-white py-16 sm:py-24"
+          id="live-preview"
+          className="py-20 sm:py-28"
+          style={{ backgroundColor: "#0f172a" }}
         >
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-                Select your plan
+              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                See what we build
+              </h2>
+              <p className="mt-4 text-lg text-slate-400">
+                Real websites we&apos;ve built for real businesses.
+              </p>
+            </div>
+            <div className="mt-14 grid gap-6 md:grid-cols-3">
+              {SAMPLE_SITES.map((site) => (
+                <article
+                  key={site.slug}
+                  className="flex flex-col rounded-2xl border border-slate-700 bg-slate-800/50 p-8"
+                >
+                  <h3 className="text-xl font-semibold text-white">
+                    {site.name}
+                  </h3>
+                  <span className="mt-3 inline-flex w-fit rounded-full bg-slate-700 px-3 py-1 text-xs font-medium text-slate-200">
+                    {site.industry}
+                  </span>
+                  <div className="mt-8 flex-1" />
+                  <Link
+                    href={`/site/${site.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-full border border-white/30 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                  >
+                    View site
+                  </Link>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section
+          id="pricing"
+          className="bg-neutral-50 py-20 sm:py-28"
+        >
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
+                Simple, honest pricing
               </h2>
               <p className="mt-4 text-lg text-neutral-600">
                 No hidden fees. Cancel anytime.
               </p>
             </div>
-            <div className="mt-12 flex flex-col gap-6 md:flex-row md:items-start">
+            <div className="mt-14 flex flex-col gap-8 lg:flex-row lg:items-stretch">
               {PLANS.map((plan) => (
                 <article
                   key={plan.name}
-                  className={`flex min-w-0 flex-1 flex-col rounded-2xl border bg-white p-6 sm:p-8 ${
+                  className={`flex min-w-0 flex-1 flex-col rounded-3xl border bg-white p-8 shadow-sm sm:p-10 ${
                     plan.featured
-                      ? "border-2 border-neutral-900"
-                      : "border border-neutral-200"
+                      ? "border-2 border-neutral-900 shadow-md ring-1 ring-neutral-900/5 lg:scale-[1.02]"
+                      : "border-neutral-200"
                   }`}
                 >
-                  <div className="mb-4 min-h-7">
+                  <div className="mb-5 min-h-8">
                     {"badge" in plan && plan.badge ? (
-                      <span className="inline-flex rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white">
+                      <span className="inline-flex rounded-full bg-neutral-900 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
                         {plan.badge}
                       </span>
                     ) : null}
                   </div>
-                  <h3 className="text-xl font-semibold text-neutral-900">
+                  <h3 className="text-2xl font-bold text-neutral-900">
                     {plan.name}
                   </h3>
                   {"priceIntro" in plan ? (
-                    <div className="mt-3">
+                    <div className="mt-5">
                       <p className="text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
                         {plan.priceIntro}
                       </p>
@@ -300,40 +307,38 @@ export default function LandingPage() {
                           {plan.pricePromo}
                         </span>
                       </p>
-                      <p className="mt-2 text-xs text-orange-600">
+                      <p className="mt-2 text-xs font-medium text-orange-600">
                         {plan.offerExpires}
                       </p>
                     </div>
                   ) : (
-                    <p className="mt-3 text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
+                    <p className="mt-5 text-2xl font-bold leading-snug text-neutral-900 sm:text-3xl">
                       {plan.price}
                     </p>
                   )}
                   {plan.priceNote ? (
-                    <p className="mt-1 text-sm text-neutral-500">
+                    <p className="mt-2 text-sm text-neutral-500">
                       {plan.priceNote}
                     </p>
                   ) : null}
-                  <ul className="mt-6 flex-1 space-y-3 text-sm text-neutral-700">
+                  <ul className="mt-8 flex-1 space-y-4 text-base text-neutral-700">
                     {plan.features.map((feature) => (
-                      <li key={feature} className="flex gap-2">
-                        <span className="text-neutral-400">•</span>
+                      <li key={feature} className="flex gap-3">
+                        <span className="mt-0.5 text-emerald-600">✓</span>
                         <span>{feature}</span>
                       </li>
                     ))}
                   </ul>
-                  {plan.featured ? (
-                    <PrimaryButton href={CONTACT_EMAIL} className="mt-8 w-full">
-                      Get started
-                    </PrimaryButton>
-                  ) : (
-                    <a
-                      href={CONTACT_EMAIL}
-                      className="mt-8 inline-flex w-full items-center justify-center rounded-lg border border-neutral-900 bg-white px-5 py-2.5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
-                    >
-                      Get started
-                    </a>
-                  )}
+                  <Link
+                    href="/build"
+                    className={`mt-10 inline-flex w-full items-center justify-center rounded-full px-6 py-3.5 text-base font-semibold transition-colors ${
+                      plan.featured
+                        ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                        : "border-2 border-neutral-900 bg-white text-neutral-900 hover:bg-neutral-50"
+                    }`}
+                  >
+                    Get started
+                  </Link>
                 </article>
               ))}
             </div>
@@ -341,27 +346,26 @@ export default function LandingPage() {
         </section>
 
         {/* Testimonials */}
-        <section className="border-t border-neutral-100 bg-white py-16 sm:py-24">
+        <section className="bg-white py-20 sm:py-28">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+              <h2 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
                 What business owners say
               </h2>
-              <p className="mt-4 text-lg text-neutral-600">
-                Real results for real local businesses
-              </p>
             </div>
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-14 grid gap-8 md:grid-cols-3">
               {TESTIMONIALS.map((item) => (
                 <blockquote
                   key={item.author}
-                  className="rounded-2xl border border-neutral-200 bg-white p-6 sm:p-8"
+                  className="flex flex-col rounded-2xl border border-neutral-200 bg-neutral-50/80 p-8"
                 >
-                  <p className="text-lg leading-relaxed text-neutral-900">
+                  <p className="flex-1 text-base leading-relaxed text-neutral-700">
                     &ldquo;{item.quote}&rdquo;
                   </p>
-                  <footer className="mt-6">
-                    <p className="font-medium text-neutral-900">{item.author}</p>
+                  <footer className="mt-6 border-t border-neutral-200 pt-6">
+                    <p className="font-semibold text-neutral-900">
+                      {item.author}
+                    </p>
                     <p className="mt-1 text-sm text-neutral-500">
                       {item.business}
                     </p>
@@ -371,48 +375,70 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-
-        {/* CTA band */}
-        <section className="border-t border-neutral-200 bg-white py-16 sm:py-20">
-          <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-              See your new website in 30 seconds
-            </h2>
-            <p className="mt-4 text-lg text-neutral-600">
-              Enter your business info and we&apos;ll build you a free
-              professional website — no credit card required.
-            </p>
-            <PrimaryButton href="/build" className="mt-8">
-              See your free preview
-            </PrimaryButton>
-          </div>
-        </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-neutral-200 bg-white py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6 lg:px-8">
-          <p className="text-sm text-neutral-500">© 2026 MyWebMe</p>
-          <div className="flex gap-6">
-            <Link
-              href="/privacy"
-              className="text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-            >
-              Privacy
-            </Link>
-            <Link
-              href="/contact"
-              className="text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-            >
-              Contact
-            </Link>
-            <Link
-              href="/terms"
-              className="text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-            >
-              Terms
-            </Link>
+      <footer
+        className="border-t border-slate-800 py-12"
+        style={{ backgroundColor: "#0f172a" }}
+      >
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-10 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <Logo className="text-white" />
+              <p className="mt-3 max-w-xs text-sm leading-relaxed text-slate-400">
+                Professional websites for local businesses. Built fast, priced
+                fairly.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-10 gap-y-4 text-sm">
+              <a
+                href="#how-it-works"
+                className="text-slate-300 transition-colors hover:text-white"
+              >
+                How it works
+              </a>
+              <a
+                href="#live-preview"
+                className="text-slate-300 transition-colors hover:text-white"
+              >
+                Examples
+              </a>
+              <a
+                href="#pricing"
+                className="text-slate-300 transition-colors hover:text-white"
+              >
+                Pricing
+              </a>
+              <Link
+                href="/build"
+                className="text-slate-300 transition-colors hover:text-white"
+              >
+                Get started
+              </Link>
+              <Link
+                href="/contact"
+                className="text-slate-300 transition-colors hover:text-white"
+              >
+                Contact
+              </Link>
+              <Link
+                href="/privacy"
+                className="text-slate-300 transition-colors hover:text-white"
+              >
+                Privacy
+              </Link>
+              <Link
+                href="/terms"
+                className="text-slate-300 transition-colors hover:text-white"
+              >
+                Terms
+              </Link>
+            </div>
           </div>
+          <p className="mt-10 border-t border-slate-800 pt-8 text-sm text-slate-500">
+            © {new Date().getFullYear()} MyWebMe. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
