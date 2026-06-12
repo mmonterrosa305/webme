@@ -50,17 +50,23 @@ export async function POST(request: Request) {
     }
 
     // Replace the photo URL in the HTML for the given slot
-    const parser = /data-webme="([^"]+)"[^>]*(?:src="([^"]+)"|style="[^"]*url\(([^)]+)\)[^"]*")/g;
     let updatedHtml = lead.site_html;
-    
-    // Replace src or background-image URL for the matching slot
+
     updatedHtml = updatedHtml.replace(
-      new RegExp(`(data-webme="${slot}"[^>]*(?:src="))[^"]+(")`,"g"),
-      `$1${newPhotoUrl}$2`
-    );
-    updatedHtml = updatedHtml.replace(
-      new RegExp(`(data-webme="${slot}"[^>]*style="[^"]*url\\()[^)]+(\\.)[^)]*?(\\)[^"]*")`,"g"),
-      `$1${newPhotoUrl}$3`
+      new RegExp(`(<[^>]*data-webme="${slot}"[^>]*>)`, "gi"),
+      (tag: string) => {
+        let updatedTag = tag;
+
+        if (/src="[^"]+"/.test(updatedTag)) {
+          updatedTag = updatedTag.replace(/src="[^"]+"/, `src="${newPhotoUrl}"`);
+        }
+
+        if (/url\([^)]+\)/i.test(updatedTag)) {
+          updatedTag = updatedTag.replace(/url\([^)]+\)/i, `url(${newPhotoUrl})`);
+        }
+
+        return updatedTag;
+      },
     );
 
     const { error: updateError } = await supabase

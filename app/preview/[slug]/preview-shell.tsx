@@ -156,16 +156,6 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     void loadEditStatus();
   }, [loadEditStatus]);
 
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-    doc.open();
-    doc.write(siteHtml);
-    doc.close();
-  }, [siteHtml]);
-
   const hasFieldChanges =
     savedFields !== null &&
     (fields.businessName !== savedFields.businessName ||
@@ -299,12 +289,86 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         }
 
         setSiteHtml(htmlData.siteHtml);
+      } catch (error) {
+        setEditError(
+          error instanceof Error ? error.message : "Failed to replace photo.",
+        );
       } finally {
         setReplacingSlot(null);
       }
     },
     [lead.industry, lead.site_slug],
   );
+
+  const injectPhotoOverlays = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) {
+      return;
+    }
+
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      return;
+    }
+
+    doc.querySelectorAll(".webme-photo-replace-overlay").forEach((element) => {
+      element.remove();
+    });
+
+    if (!photoEditMode) {
+      return;
+    }
+
+    const view = doc.defaultView;
+
+    for (const slot of PHOTO_EDIT_SLOTS) {
+      const el = doc.querySelector(`[data-webme="${slot}"]`);
+      if (!el || !(el instanceof HTMLElement)) {
+        continue;
+      }
+
+      let target: HTMLElement = el;
+
+      if (el.tagName === "IMG") {
+        const wrapper = doc.createElement("div");
+        wrapper.style.cssText =
+          "position:relative;display:inline-block;width:100%;height:100%;";
+        el.parentElement?.insertBefore(wrapper, el);
+        wrapper.appendChild(el);
+        target = wrapper;
+      } else {
+        const computed = view?.getComputedStyle(el);
+        if (computed?.position === "absolute" && el.parentElement instanceof HTMLElement) {
+          target = el.parentElement;
+        }
+
+        if (view?.getComputedStyle(target).position === "static") {
+          target.style.position = "relative";
+        }
+      }
+
+      const overlay = doc.createElement("div");
+      overlay.className = "webme-photo-replace-overlay";
+      overlay.style.cssText =
+        "position:absolute;inset:0;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+
+      const button = doc.createElement("button");
+      button.type = "button";
+      button.textContent =
+        replacingSlot === slot ? "Replacing..." : "📷 Replace";
+      button.disabled = replacingSlot !== null;
+      button.style.cssText =
+        "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void handleReplacePhoto(slot);
+      });
+
+      overlay.appendChild(button);
+      target.appendChild(overlay);
+    }
+  }, [handleReplacePhoto, photoEditMode, replacingSlot]);
 
   const handleShuffleVideo = useCallback(async () => {
     setShufflingVideo(true);
@@ -344,116 +408,27 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     }
   }, [lead.industry, lead.site_slug]);
 
-  function injectPhotoOverlays() {
+  useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
-
-    const removeOverlays = (doc: Document) => {
-      doc.querySelectorAll(".webme-photo-replace-overlay").forEach((element) => {
-        element.remove();
-      });
-      doc.getElementById("webme-photo-edit-script")?.remove();
-    };
-
     const doc = iframe.contentDocument;
     if (!doc) return;
+    doc.open();
+    doc.write(siteHtml);
+    doc.close();
 
-    if (!photoEditMode) {
-      removeOverlays(doc);
-      return;
-    }
-
-    removeOverlays(doc);
-
-    const script = doc.createElement("script");
-    script.id = "webme-photo-edit-script";
-    script.textContent = `
-      (function () {
-        var slots = ${JSON.stringify([...PHOTO_EDIT_SLOTS])};
-
-        function removeOverlays() {
-          document.querySelectorAll(".webme-photo-replace-overlay").forEach(function (el) {
-            el.remove();
-          });
-        }
-
-        function addOverlays() {
-          removeOverlays();
-
-          slots.forEach(function (slot) {
-            var el = document.querySelector('[data-webme="' + slot + '"]');
-            if (!el) return;
-
-            // Wrap in a relative container if needed
-            var wrapper = el.parentElement;
-            if (getComputedStyle(el).position === 'static') {
-              el.style.position = 'relative';
-            }
-
-            var overlay = document.createElement("div");
-            overlay.className = "webme-photo-replace-overlay";
-
-            // For img tags, wrap them
-            if (el.tagName === 'IMG') {
-              var wrapper = document.createElement('div');
-              wrapper.style.cssText = 'position:relative;display:inline-block;width:100%;height:100%;';
-              el.parentElement.insertBefore(wrapper, el);
-              wrapper.appendChild(el);
-              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
-              wrapper.appendChild(overlay);
-            } else {
-              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
-              el.appendChild(overlay);
-            }
-
-            var button = document.createElement("button");
-            button.type = "button";
-            button.textContent = "📷 Replace";
-            button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;";
-            button.onclick = function() {
-              window.parent.postMessage({ type: 'replace-photo', slot: slot }, '*');
-            };
-            overlay.appendChild(button);
-          });
-        }
-
-        addOverlays();
-      })();
-    `;
-    doc.body.appendChild(script);
-  }
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const timeout = setTimeout(() => {
+    const frame = window.requestAnimationFrame(() => {
       injectPhotoOverlays();
-    }, 500);
+    });
 
     return () => {
-      clearTimeout(timeout);
-      const doc = iframe.contentDocument;
-      if (doc) {
-        doc.querySelectorAll(".webme-photo-replace-overlay").forEach((element) => {
-          element.remove();
-        });
-        doc.getElementById("webme-photo-edit-script")?.remove();
-      }
+      window.cancelAnimationFrame(frame);
     };
-  }, [photoEditMode]);
+  }, [siteHtml, injectPhotoOverlays]);
 
   useEffect(() => {
-    function onMessage(event: MessageEvent) {
-      const data = event.data as { type?: string; slot?: string };
-      if (data?.type === "replace-photo" && typeof data.slot === "string") {
-        void handleReplacePhoto(data.slot);
-      }
-    }
-
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [handleReplacePhoto]);
+    injectPhotoOverlays();
+  }, [injectPhotoOverlays]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-neutral-100">
