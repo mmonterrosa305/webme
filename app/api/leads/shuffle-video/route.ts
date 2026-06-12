@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { fetchHeroVideo } from "@/lib/agents/fetch-pexels-video";
 import { getIndustrySearchQueries } from "@/lib/agents/fetch-pixabay-photos";
+import { normalizeHeroVideoAttributes } from "@/lib/agents/normalize-hero-video";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function replaceHeroVideoUrl(html: string, newVideoUrl: string): string | null {
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
 
     const { error: updateError } = await supabase
       .from("leads")
-      .update({ site_html: updatedHtml })
+      .update({ site_html: normalizeHeroVideoAttributes(updatedHtml) })
       .eq("site_slug", siteSlug);
 
     if (updateError) {

@@ -8,6 +8,7 @@ import {
   fetchIndustryPhotos,
   type IndustryPhotoSet,
 } from "./fetch-pixabay-photos";
+import { normalizeHeroVideoAttributes } from "./normalize-hero-video";
 import {
   buildIndustryHeroListForPrompt,
   formatIndustryImagePromptBlock,
@@ -45,7 +46,7 @@ Each site has 9 labeled image slots — use the exact URL for each slot. The Her
 Use each labeled URL in its designated section only. The user prompt lists all 9 URLs.
 Hero reference list (for category matching only — use exact URLs from user prompt):
 ${buildIndustryHeroListForPrompt()}
-- Hero (video): when user prompt includes Hero video URL — min-height 100vh section with absolutely positioned <video> (autoplay loop muted playsinline, no controls, object-fit:cover, width/height 100%), poster set to Hero URL, dark overlay rgba(0,0,0,0.5), white headline content above video.
+- Hero (video): when user prompt includes Hero video URL — min-height 100vh section with absolutely positioned <video> tag MUST be exactly: <video autoplay muted loop playsinline data-webme="hero-image" ...> — NEVER add the controls attribute. Style: object-fit:cover, width/height 100%. Poster set to Hero URL, dark overlay rgba(0,0,0,0.5), white headline content above video.
 - Hero (image fallback): when no Hero video URL — full-screen cinematic background-image (min-height 100vh, background-size: cover, background-position: center).
 - Hero overlay: rgba(0,0,0,0.5) for text readability.
 - Hero text spacing (required): the hero headline/content wrapper must have generous top padding — at least padding-top: 120px (or equivalent, e.g. pt-30) — so the headline never sits too close to the top edge or nav.
@@ -55,7 +56,7 @@ ${buildIndustryHeroListForPrompt()}
 - Do NOT use scraped business photo URLs, Pexels, or random image URLs.
 
 ## Sections (include ONLY these eight — in this order)
-1. Hero — full-screen (100vh). If user prompt includes Hero video URL: use that MP4 as background video (autoplay, loop, muted, playsinline, no controls, object-fit cover) with Hero URL as poster/fallback. Otherwise use Hero URL as background-image. Dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Hero text wrapper: padding-top at least 120px. Fade-in on load.
+1. Hero — full-screen (100vh). If user prompt includes Hero video URL: use that MP4 as background video with <video autoplay muted loop playsinline> (never controls), object-fit cover, poster from Hero URL. Otherwise use Hero URL as background-image. Dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Hero text wrapper: padding-top at least 120px. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
 3. Services — 4 service cards in a responsive grid. Card backgrounds: Service1, Service2, Service3, Service4 (each a different photo). Min-height 250px, dark overlay, white title + short description.
 4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using About URL only.
@@ -302,7 +303,7 @@ Use this exact MP4 as the full-screen hero background (not a static image):
 - Hero video URL: ${heroVideoUrl}
 - Hero poster / fallback image: ${heroUrl} (set as video poster attribute)
 - Place data-webme="hero-image" on the <video> element
-- Video attributes: autoplay loop muted playsinline, no controls
+- Video opening tag MUST include: autoplay muted loop playsinline — NEVER include the controls attribute
 - Style video: position absolute, inset 0, width 100%, height 100%, object-fit cover, z-index 0
 - Section: position relative, min-height 100vh, overflow hidden
 - Overlay div above video: rgba(0,0,0,0.5)
@@ -460,7 +461,7 @@ export async function buildSite(
     throw new Error("No text response from Claude.");
   }
 
-  const html = extractHtml(textBlock.text);
+  const html = normalizeHeroVideoAttributes(extractHtml(textBlock.text));
 
   if (!html.includes("<html") && !html.includes("<!DOCTYPE")) {
     throw new Error("Model response did not contain valid HTML.");
