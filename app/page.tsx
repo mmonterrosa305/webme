@@ -64,7 +64,10 @@ const PLANS = [
   },
   {
     name: "Elite",
-    price: "$599 one-time + first month free, then $59/mo",
+    priceIntro: "$599 one-time + first month free, then",
+    priceStrikethrough: "$59/mo",
+    pricePromo: "$9.99/mo",
+    offerExpires: "Offer expires 7/1",
     priceNote: null,
     features: [
       "Everything in Pro",
@@ -278,9 +281,34 @@ export default function LandingPage() {
                   <h3 className="text-xl font-semibold text-neutral-900">
                     {plan.name}
                   </h3>
-                  <p className="mt-3 text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
-                    {plan.price}
-                  </p>
+                  {"priceIntro" in plan ? (
+                    <div className="mt-3">
+                      <p className="text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
+                        {plan.priceIntro}
+                      </p>
+                      <p className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">
+                        <span
+                          className="text-neutral-400"
+                          style={{ textDecoration: "line-through" }}
+                        >
+                          {plan.priceStrikethrough}
+                        </span>{" "}
+                        <span
+                          className="font-bold"
+                          style={{ color: "#16a34a" }}
+                        >
+                          {plan.pricePromo}
+                        </span>
+                      </p>
+                      <p className="mt-2 text-xs text-orange-600">
+                        {plan.offerExpires}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
+                      {plan.price}
+                    </p>
+                  )}
                   {plan.priceNote ? (
                     <p className="mt-1 text-sm text-neutral-500">
                       {plan.priceNote}
