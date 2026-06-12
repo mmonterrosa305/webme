@@ -228,7 +228,7 @@ export function OutreachQueue() {
     </div>,
     <span key="phone" className="text-sm text-neutral-600">{item.phone ?? "—"}</span>,
     item.site_slug ? (
-      <a key="site" href={`/preview/${item.site_slug}`} target="_blank" rel="noopener noreferrer"
+      <a key="site" href={`/site/${item.site_slug}`} target="_blank" rel="noopener noreferrer"
         className="text-sm font-medium text-neutral-700 hover:text-neutral-900">
         View Site
       </a>
