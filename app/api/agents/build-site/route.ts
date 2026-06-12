@@ -153,6 +153,10 @@ export async function POST(request: Request) {
 
     const address =
       typeof body.address === "string" ? body.address.trim() : undefined;
+    const phone =
+      typeof body.phone === "string" && body.phone.trim()
+        ? body.phone.trim()
+        : null;
     const existingWebsiteUrl =
       typeof body.existingWebsiteUrl === "string"
         ? body.existingWebsiteUrl.trim()
@@ -191,6 +195,10 @@ export async function POST(request: Request) {
 
     const businessProfile = await scrapeBusinessData({ businessName, city });
 
+    if (phone) {
+      businessProfile.phone = phone;
+    }
+
     const buildInput: BuildSiteInput = {
       city,
       industry,
@@ -216,7 +224,7 @@ export async function POST(request: Request) {
       city,
       industry,
       address: address ?? businessProfile.address,
-      phone: businessProfile.phone,
+      phone: phone ?? businessProfile.phone,
       has_website: hasWebsite ?? Boolean(businessProfile.website),
       existing_website_url:
         existingWebsiteUrl ?? businessProfile.website,

@@ -147,7 +147,7 @@ export default function BuildPage() {
           businessName: businessName.trim(),
           city: city.trim(),
           industry: industry.trim(),
-          phone: phone.trim() || undefined,
+          phone: phone.trim() === "" ? undefined : phone,
           tagline: tagline.trim() || undefined,
           paletteId: "midnight",
           styleId: "modern-minimal",
