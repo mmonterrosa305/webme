@@ -351,10 +351,10 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               wrapper.style.cssText = "position:relative;display:inline-block;width:100%;height:100%;";
               el.parentElement.insertBefore(wrapper, el);
               wrapper.appendChild(el);
-              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
               wrapper.appendChild(overlay);
             } else {
-              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
               el.appendChild(overlay);
             }
 
