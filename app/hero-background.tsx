@@ -19,10 +19,11 @@ export function HeroBackground({ children }: { children: ReactNode }) {
       ) : (
         <video
           autoPlay
-          loop
           muted
+          loop
           playsInline
-          className="absolute inset-0 h-full w-full object-cover"
+          controls={false}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           onError={() => setVideoFailed(true)}
         >
           <source src="/hero.mp4" type="video/mp4" />
