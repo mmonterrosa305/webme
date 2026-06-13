@@ -47,6 +47,9 @@ const PACKAGES = [
     name: "Elite",
     setup: "$599",
     monthly: "$59/mo",
+    monthlyStrikethrough: "$59/mo",
+    monthlyPromo: "$9.99/mo",
+    offerExpires: "Offer expires 7/1",
     features: [
       "Everything in Pro",
       "Up to 6 pages",
@@ -56,6 +59,33 @@ const PACKAGES = [
     ],
   },
 ];
+
+function PackagePrice({ pkg }: { pkg: (typeof PACKAGES)[number] }) {
+  if ("monthlyPromo" in pkg && pkg.monthlyPromo) {
+    return (
+      <div className="mt-1">
+        <p className="text-2xl font-bold text-neutral-900">{pkg.setup}</p>
+        <p className="mt-1 text-base">
+          <span className="text-neutral-400 line-through">
+            {pkg.monthlyStrikethrough}
+          </span>{" "}
+          <span className="font-bold text-green-600">{pkg.monthlyPromo}</span>
+        </p>
+        <p className="mt-1 text-xs text-orange-600">{pkg.offerExpires}</p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="mt-1 text-2xl font-bold text-neutral-900">
+      {pkg.setup}
+      <span className="text-base font-normal text-neutral-500">
+        {" "}
+        + {pkg.monthly}
+      </span>
+    </p>
+  );
+}
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -643,13 +673,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
                   ) : null}
                 </div>
                 <h3 className="font-semibold text-neutral-900">{pkg.name}</h3>
-                <p className="mt-1 text-2xl font-bold text-neutral-900">
-                  {pkg.setup}
-                  <span className="text-base font-normal text-neutral-500">
-                    {" "}
-                    + {pkg.monthly}
-                  </span>
-                </p>
+                <PackagePrice pkg={pkg} />
                 <ul className="mt-3 space-y-1 text-sm text-neutral-600">
                   {pkg.features.map((feature) => (
                     <li key={feature}>• {feature}</li>
@@ -703,13 +727,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
                     ) : null}
                   </div>
                   <h3 className="font-semibold text-neutral-900">{pkg.name}</h3>
-                  <p className="mt-1 text-2xl font-bold text-neutral-900">
-                    {pkg.setup}
-                    <span className="text-base font-normal text-neutral-500">
-                      {" "}
-                      + {pkg.monthly}
-                    </span>
-                  </p>
+                  <PackagePrice pkg={pkg} />
                   <ul className="mt-3 space-y-1 text-sm text-neutral-600">
                     {pkg.features.map((feature) => (
                       <li key={feature}>• {feature}</li>
