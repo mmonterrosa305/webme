@@ -185,6 +185,15 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     doc.close();
   }, [siteHtml]);
 
+  useEffect(() => {
+    function resetPaymentState() {
+      setPayingPlan(null);
+    }
+
+    window.addEventListener("focus", resetPaymentState);
+    return () => window.removeEventListener("focus", resetPaymentState);
+  }, []);
+
   const hasFieldChanges =
     savedFields !== null &&
     (fields.businessName !== savedFields.businessName ||
