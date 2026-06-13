@@ -48,7 +48,7 @@ const PACKAGES = [
     setup: "$599",
     monthly: "$59/mo",
     monthlyStrikethrough: "$59/mo",
-    monthlyPromo: "$9.99/mo",
+    monthlyPromo: "$10/mo",
     offerExpires: "Offer expires 7/1",
     features: [
       "Everything in Pro",
