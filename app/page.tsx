@@ -66,7 +66,7 @@ const PLANS = [
     name: "Elite",
     priceIntro: "$599 one-time + first month free, then",
     priceStrikethrough: "$59/mo",
-    pricePromo: "$9.99/mo",
+    pricePromo: "$10/mo",
     offerExpires: "Offer expires 7/1",
     priceNote: null,
     features: [
