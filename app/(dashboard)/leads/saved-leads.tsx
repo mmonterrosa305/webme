@@ -260,6 +260,14 @@ export function SavedLeads() {
     setPending(lead.id, true);
 
     try {
+      const siteSlug = lead.site_slug?.trim() || null;
+
+      console.log("[saved-leads] Add to Queue", {
+        leadId: lead.id,
+        businessName: lead.business_name,
+        siteSlug,
+      });
+
       const response = await fetch("/api/outreach-queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -271,7 +279,8 @@ export function SavedLeads() {
               industry: lead.industry,
               address: null,
               phone: null,
-              siteSlug: lead.site_slug,
+              siteSlug,
+              leadId: lead.id,
             },
           ],
         }),
