@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { label: "Pipeline", href: "/pipeline" },
   { label: "Agents", href: "/agents" },
   { label: "Leads", href: "/leads" },
+  { label: "Import Site", href: "/import-site" },
   { label: "Outreach Queue", href: "/outreach-queue" },
   { label: "Outreach", href: "/outreach" },
   { label: "Clients", href: "/clients" },

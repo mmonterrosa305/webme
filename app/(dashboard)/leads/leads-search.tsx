@@ -13,6 +13,7 @@ import {
   DEFAULT_SECTIONS,
   INDUSTRIES,
 } from "@/lib/agents/site-options";
+import { useLeadsSearch } from "../leads-search-context";
 import type { LeadSearchResult } from "@/lib/leads/types";
 
 const inputClassName =
@@ -58,19 +59,35 @@ function openHtmlPreview(html: string): string | null {
 }
 
 export function LeadsSearch() {
-  const [city, setCity] = useState("");
-  const [industry, setIndustry] = useState<string>(INDUSTRIES[0]);
-  const [showExistingSites, setShowExistingSites] = useState(false);
+  const {
+    city,
+    industry,
+    results,
+    hasSearched,
+    showExistingSites,
+    setCity,
+    setIndustry,
+    setResults,
+    setHasSearched,
+    setShowExistingSites,
+    persistSearchState,
+    clearSearch,
+  } = useLeadsSearch();
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [results, setResults] = useState<LeadSearchResult[]>([]);
   const [buildStates, setBuildStates] = useState<Record<string, BuildState>>({});
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [queueSuccessMessage, setQueueSuccessMessage] = useState<string | null>(
     null,
   );
   const [addingToQueue, setAddingToQueue] = useState(false);
+
+  function handleClearSearch() {
+    clearSearch();
+    setSearchError(null);
+    setBuildStates({});
+    setSelectedLeads(new Set());
+  }
 
   async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -96,7 +113,9 @@ export function LeadsSearch() {
         throw new Error(data.error ?? "Failed to search leads.");
       }
 
-      setResults(data.leads ?? []);
+      const leads = data.leads ?? [];
+      setResults(leads);
+      persistSearchState(city, industry, leads, showExistingSites);
     } catch (error) {
       setSearchError(
         error instanceof Error ? error.message : "Failed to search leads.",
@@ -380,7 +399,7 @@ export function LeadsSearch() {
               ))}
             </select>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <button
               type="submit"
               disabled={searching}
@@ -388,6 +407,16 @@ export function LeadsSearch() {
             >
               {searching ? "Searching..." : "Search Leads"}
             </button>
+            {hasSearched ? (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                disabled={searching}
+                className="shrink-0 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Clear
+              </button>
+            ) : null}
           </div>
         </form>
         {searchError ? (
@@ -411,7 +440,13 @@ export function LeadsSearch() {
               <input
                 type="checkbox"
                 checked={showExistingSites}
-                onChange={(event) => setShowExistingSites(event.target.checked)}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setShowExistingSites(checked);
+                  if (hasSearched) {
+                    persistSearchState(city, industry, results, checked);
+                  }
+                }}
                 className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
               />
               <span>

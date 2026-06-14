@@ -2,6 +2,7 @@ import { Raleway } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { DashboardSidebar } from "./dashboard-sidebar";
+import { DashboardProviders } from "./dashboard-providers";
 import { createClient } from "@/lib/supabase/server";
 
 const raleway = Raleway({
@@ -26,7 +27,7 @@ export default async function DashboardLayout({
         brandClassName={raleway.className}
       />
       <div className="min-w-0 flex-1 bg-white font-sans text-neutral-900">
-        {children}
+        <DashboardProviders>{children}</DashboardProviders>
       </div>
     </div>
   );

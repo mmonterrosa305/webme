@@ -377,6 +377,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
           document.querySelectorAll("[data-webme]").forEach(function (el) {
             var slot = el.getAttribute("data-webme");
             if (!slot || !imageSlotPattern.test(slot)) return;
+            if (slot === "hero-image" && el.tagName === "VIDEO") return;
 
             if (getComputedStyle(el).position === "static") {
               el.style.position = "relative";
@@ -409,6 +410,67 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         }
 
         addOverlays();
+      })();
+    `;
+    doc.body.appendChild(script);
+  }
+
+  function injectHeroVideoOverlay() {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const removeOverlay = (doc: Document) => {
+      doc.querySelectorAll(".webme-hero-shuffle-overlay").forEach((element) => {
+        element.remove();
+      });
+      doc.getElementById("webme-hero-shuffle-script")?.remove();
+    };
+
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+
+    removeOverlay(doc);
+
+    const heroVideo = doc.querySelector('video[data-webme="hero-image"]');
+    if (!heroVideo) {
+      return;
+    }
+
+    const script = doc.createElement("script");
+    script.id = "webme-hero-shuffle-script";
+    script.textContent = `
+      (function () {
+        var hero = document.querySelector('video[data-webme="hero-image"]');
+        if (!hero) return;
+
+        var target = hero.parentElement;
+        if (!target) return;
+
+        if (getComputedStyle(target).position === "static") {
+          target.style.position = "relative";
+        }
+
+        document.querySelectorAll(".webme-hero-shuffle-overlay").forEach(function (el) {
+          el.remove();
+        });
+
+        var overlay = document.createElement("div");
+        overlay.className = "webme-hero-shuffle-overlay";
+        overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:flex-end;justify-content:flex-end;padding:16px;z-index:99999;pointer-events:none;";
+
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = ${shufflingVideo ? '"Shuffling..."' : '"🎬 Shuffle Video"'};
+        button.disabled = ${shufflingVideo};
+        button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;pointer-events:auto;${
+          shufflingVideo ? "opacity:0.6;cursor:not-allowed;" : ""
+        }";
+        button.onclick = function () {
+          if (button.disabled) return;
+          window.parent.postMessage({ type: "shuffle-video" }, "*");
+        };
+        overlay.appendChild(button);
+        target.appendChild(overlay);
       })();
     `;
     doc.body.appendChild(script);
@@ -473,16 +535,39 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   }, [photoEditMode, siteHtml]);
 
   useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const timeout = window.setTimeout(() => {
+      injectHeroVideoOverlay();
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeout);
+      const doc = iframe.contentDocument;
+      if (doc) {
+        doc.querySelectorAll(".webme-hero-shuffle-overlay").forEach((element) => {
+          element.remove();
+        });
+        doc.getElementById("webme-hero-shuffle-script")?.remove();
+      }
+    };
+  }, [siteHtml, shufflingVideo]);
+
+  useEffect(() => {
     function onMessage(event: MessageEvent) {
       const data = event.data as { type?: string; slot?: string };
       if (data?.type === "replace-photo" && typeof data.slot === "string") {
         void handleReplacePhoto(data.slot);
       }
+      if (data?.type === "shuffle-video") {
+        void handleShuffleVideo();
+      }
     }
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [handleReplacePhoto]);
+  }, [handleReplacePhoto, handleShuffleVideo]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-neutral-100">
@@ -550,6 +635,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         sandbox="allow-scripts allow-same-origin"
         className="min-h-[55vh] w-full flex-1 border-0 bg-white"
         onLoad={() => {
+          injectHeroVideoOverlay();
           if (photoEditMode) {
             injectPhotoOverlays();
           }
