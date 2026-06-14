@@ -94,7 +94,6 @@ export async function removeLogoBackgroundLocally(
     const pngBuffer = await sharp(data, {
       raw: { width: info.width, height: info.height, channels: 4 },
     })
-      .trim()
       .png()
       .toBuffer();
 

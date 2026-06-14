@@ -1,3 +1,4 @@
+import { autocropTransparentLogo } from "@/lib/agents/autocrop-logo";
 import { removeLogoBackgroundLocally } from "@/lib/agents/remove-logo-background-local";
 
 export type BackgroundRemovalResult = {
@@ -65,6 +66,29 @@ async function removeBackgroundWithRemoveBg(
   };
 }
 
+async function autocropLogoResult(
+  result: BackgroundRemovalResult,
+): Promise<BackgroundRemovalResult> {
+  try {
+    const trimmedBase64 = await autocropTransparentLogo(result.base64);
+    console.log(
+      "[remove-bg] Autocrop succeeded, base64 length:",
+      trimmedBase64.length,
+    );
+    return {
+      ...result,
+      base64: trimmedBase64,
+      mediaType: "image/png",
+    };
+  } catch (error) {
+    console.error(
+      "[remove-bg] Autocrop failed, using untrimmed logo:",
+      error instanceof Error ? error.message : error,
+    );
+    return result;
+  }
+}
+
 export async function removeBackground(
   base64Image: string,
   mediaType: string,
@@ -82,7 +106,7 @@ export async function removeBackground(
     try {
       const apiResult = await removeBackgroundWithRemoveBg(base64Image, apiKey);
       if (apiResult) {
-        return apiResult;
+        return autocropLogoResult(apiResult);
       }
 
       console.log(
@@ -109,10 +133,10 @@ export async function removeBackground(
       "[remove-bg] Local sharp fallback succeeded, result base64 length:",
       localResult.base64.length,
     );
-    return {
+    return autocropLogoResult({
       ...localResult,
       source: "sharp",
-    };
+    });
   }
 
   console.log("[remove-bg] Failed, all background removal methods exhausted");
