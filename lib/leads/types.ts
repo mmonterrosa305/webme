@@ -26,6 +26,7 @@ export type LeadStatus =
   | "new"
   | "pending_review"
   | "site_built"
+  | "ready_for_outreach"
   | "approved"
   | "outreach_sent"
   | "won"

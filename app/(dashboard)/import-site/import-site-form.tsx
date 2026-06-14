@@ -20,11 +20,18 @@ export function ImportSiteForm() {
   const [phase, setPhase] = useState<ImportPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [sendingToQueue, setSendingToQueue] = useState(false);
+  const [queueSuccessMessage, setQueueSuccessMessage] = useState<string | null>(
+    null,
+  );
+  const [queueError, setQueueError] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setResult(null);
+    setQueueSuccessMessage(null);
+    setQueueError(null);
     setPhase("extracting");
 
     const buildingTimer = window.setTimeout(() => {
@@ -72,6 +79,40 @@ export function ImportSiteForm() {
       : phase === "building"
         ? "Building your site..."
         : null;
+
+  async function handleSendToOutreachQueue() {
+    if (!result?.siteSlug) {
+      return;
+    }
+
+    setSendingToQueue(true);
+    setQueueSuccessMessage(null);
+    setQueueError(null);
+
+    try {
+      const response = await fetch("/api/import-site/send-to-outreach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteSlug: result.siteSlug }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to add to Outreach Queue.");
+      }
+
+      setQueueSuccessMessage("Added to Outreach Queue!");
+    } catch (sendError) {
+      setQueueError(
+        sendError instanceof Error
+          ? sendError.message
+          : "Failed to add to Outreach Queue.",
+      );
+    } finally {
+      setSendingToQueue(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -137,14 +178,34 @@ export function ImportSiteForm() {
               </span>
               .
             </p>
-            <Link
-              href={`/preview/${result.siteSlug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800"
-            >
-              See Site
-            </Link>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Link
+                href={`/preview/${result.siteSlug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800"
+              >
+                See Site
+              </Link>
+              <button
+                type="button"
+                disabled={sendingToQueue}
+                onClick={() => void handleSendToOutreachQueue()}
+                className="inline-flex rounded-lg border border-neutral-900 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {sendingToQueue ? "Saving..." : "Save & Send to Outreach Queue"}
+              </button>
+            </div>
+            {queueSuccessMessage ? (
+              <p className="mt-3 text-sm font-medium text-emerald-700" role="status">
+                {queueSuccessMessage}
+              </p>
+            ) : null}
+            {queueError ? (
+              <p className="mt-3 text-sm font-medium text-red-700" role="alert">
+                {queueError}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </Panel>

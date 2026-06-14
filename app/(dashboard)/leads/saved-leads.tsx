@@ -23,6 +23,10 @@ const STATUS_STYLES: Record<
     label: "Pending Review",
     className: "bg-amber-50 text-amber-800 border-amber-200",
   },
+  ready_for_outreach: {
+    label: "Ready for Outreach",
+    className: "bg-violet-50 text-violet-700 border-violet-200",
+  },
   approved: {
     label: "Approved",
     className: "bg-emerald-50 text-emerald-700 border-emerald-200",
