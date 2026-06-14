@@ -51,10 +51,15 @@ export async function POST(request: Request) {
       mediaType,
     });
 
+    console.log(
+      `[upload-logo] siteSlug=${siteSlug} backgroundRemoval=${result.backgroundRemovalSource} logoUrl=${result.logoUrl}`,
+    );
+
     return NextResponse.json({
       success: true,
       logoUrl: result.logoUrl,
       siteHtml: result.html,
+      backgroundRemovalSource: result.backgroundRemovalSource,
     });
   } catch (error) {
     const message =

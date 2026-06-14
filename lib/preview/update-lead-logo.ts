@@ -57,7 +57,11 @@ export async function updateLeadLogoFromUpload({
   siteSlug: string;
   base64: string;
   mediaType: string;
-}): Promise<{ html: string; logoUrl: string }> {
+}): Promise<{
+  html: string;
+  logoUrl: string;
+  backgroundRemovalSource: "remove.bg" | "sharp" | "none";
+}> {
   if (!VALID_LOGO_MEDIA_TYPES.has(mediaType)) {
     throw new Error("Only PNG, JPG, WebP, or GIF logos are supported.");
   }
@@ -70,11 +74,20 @@ export async function updateLeadLogoFromUpload({
 
   let processedBase64 = base64;
   let processedMediaType = mediaType;
+  let backgroundRemovalSource: "remove.bg" | "sharp" | "none" = "none";
 
   const noBg = await removeBackground(processedBase64, processedMediaType);
   if (noBg) {
     processedBase64 = noBg.base64;
     processedMediaType = noBg.mediaType;
+    backgroundRemovalSource = noBg.source;
+    console.log(
+      `[upload-logo] Background removal succeeded via ${noBg.source} for ${siteSlug}`,
+    );
+  } else {
+    console.log(
+      `[upload-logo] Background removal failed for ${siteSlug}, uploading original image`,
+    );
   }
 
   const logoUrl = await uploadLogo(
@@ -123,5 +136,6 @@ export async function updateLeadLogoFromUpload({
   return {
     html: updatedHtml,
     logoUrl,
+    backgroundRemovalSource,
   };
 }
