@@ -27,6 +27,12 @@ type BuildState = {
   previewError?: string;
 };
 
+function googleSearchUrl(businessName: string): string {
+  return `https://www.google.com/search?${new URLSearchParams({
+    q: businessName,
+  }).toString()}`;
+}
+
 function downloadHtmlFile(name: string, html: string) {
   const filename = `${slugify(name || "website", {
     lower: true,
@@ -220,9 +226,14 @@ export function LeadsSearch() {
             className="h-4 w-4 rounded border-neutral-300"
           />,
           <div key="business" className="space-y-1">
-            <span className="block font-medium text-neutral-900">
+            <a
+              href={googleSearchUrl(lead.businessName)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block font-medium text-neutral-900 hover:text-neutral-700 hover:underline"
+            >
               {lead.businessName}
-            </span>
+            </a>
             <span className="block text-xs text-neutral-500">
               {lead.industry}
             </span>
