@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import slugify from "slugify";
-import { useMemo, useState } from "react";
+import { useMemo, useId, useState } from "react";
 
 import {
   DataTable,
@@ -31,6 +31,90 @@ function googleSearchUrl(businessName: string): string {
   return `https://www.google.com/search?${new URLSearchParams({
     q: businessName,
   }).toString()}`;
+}
+
+function FacebookIcon() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <circle cx="12" cy="12" r="12" fill="#1877F2" />
+      <path
+        d="M15.5 8.5h-2.1c-.4 0-.7.3-.7.7v1.6H15l-.3 2.4h-1.9v7.3h-2.8v-7.3H8.5V11h1.5V9.1c0-2 1.2-3.1 3-3.1h2v2.5z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  const gradientId = useId();
+
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#F58529" />
+          <stop offset="50%" stopColor="#DD2A7B" />
+          <stop offset="100%" stopColor="#8134AF" />
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" rx="6" fill={`url(#${gradientId})`} />
+      <circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" strokeWidth="1.8" />
+      <circle cx="17.2" cy="6.8" r="1.2" fill="#fff" />
+    </svg>
+  );
+}
+
+function SocialMediaIcons({
+  facebookUrl,
+  instagramUrl,
+}: {
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
+}) {
+  if (!facebookUrl && !instagramUrl) {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {facebookUrl ? (
+        <a
+          href={facebookUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Facebook"
+          aria-label="Facebook page"
+          className="inline-flex transition hover:opacity-80"
+        >
+          <FacebookIcon />
+        </a>
+      ) : null}
+      {instagramUrl ? (
+        <a
+          href={instagramUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Instagram"
+          aria-label="Instagram page"
+          className="inline-flex transition hover:opacity-80"
+        >
+          <InstagramIcon />
+        </a>
+      ) : null}
+    </span>
+  );
 }
 
 function downloadHtmlFile(name: string, html: string) {
@@ -226,14 +310,20 @@ export function LeadsSearch() {
             className="h-4 w-4 rounded border-neutral-300"
           />,
           <div key="business" className="space-y-1">
-            <a
-              href={googleSearchUrl(lead.businessName)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block font-medium text-neutral-900 hover:text-neutral-700 hover:underline"
-            >
-              {lead.businessName}
-            </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={googleSearchUrl(lead.businessName)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-neutral-900 hover:text-neutral-700 hover:underline"
+              >
+                {lead.businessName}
+              </a>
+              <SocialMediaIcons
+                facebookUrl={lead.facebookUrl}
+                instagramUrl={lead.instagramUrl}
+              />
+            </div>
             <span className="block text-xs text-neutral-500">
               {lead.industry}
             </span>

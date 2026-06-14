@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { findSocialPagesForBusiness } from "@/lib/leads/find-social-pages";
 import type { LeadSearchResult } from "@/lib/leads/types";
 
 const PLACES_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText";
@@ -283,6 +284,31 @@ async function searchGooglePlaces(
   return allResults;
 }
 
+async function attachSocialPages(
+  lead: LeadSearchResult,
+): Promise<LeadSearchResult> {
+  try {
+    const socialPages = await findSocialPagesForBusiness(lead.businessName);
+    return {
+      ...lead,
+      facebookUrl: socialPages.facebookUrl,
+      instagramUrl: socialPages.instagramUrl,
+    };
+  } catch (socialError) {
+    console.error("[leads/search] Social page lookup failed:", {
+      businessName: lead.businessName,
+      error:
+        socialError instanceof Error ? socialError.message : socialError,
+    });
+
+    return {
+      ...lead,
+      facebookUrl: null,
+      instagramUrl: null,
+    };
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -348,7 +374,7 @@ export async function POST(request: Request) {
               },
             );
 
-            return {
+            return attachSocialPages({
               placeId: place.id ?? crypto.randomUUID(),
               businessName,
               city: location,
@@ -359,10 +385,10 @@ export async function POST(request: Request) {
               reviewCount: place.userRatingCount ?? null,
               website: customSearchMatch,
               websiteStatus: "has_site_review",
-            };
+            });
           }
 
-          return {
+          return attachSocialPages({
             placeId: place.id ?? crypto.randomUUID(),
             businessName,
             city: location,
@@ -373,7 +399,7 @@ export async function POST(request: Request) {
             reviewCount: place.userRatingCount ?? null,
             website: null,
             websiteStatus: "no_website",
-          };
+          });
         }
 
         let verificationResult: string | false | null = null;
@@ -387,7 +413,7 @@ export async function POST(request: Request) {
           verificationResult = null;
         }
 
-        return {
+        return attachSocialPages({
           placeId: place.id ?? crypto.randomUUID(),
           businessName,
           city: location,
@@ -404,7 +430,7 @@ export async function POST(request: Request) {
             typeof verificationResult === "string"
               ? "has_site_review"
               : "has_site",
-        };
+        });
       }),
     );
 

@@ -20,6 +20,8 @@ export type LeadSearchResult = {
   reviewCount: number | null;
   website: string | null;
   websiteStatus: "no_website" | "has_site_review" | "has_site";
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
 };
 
 export type LeadStatus =
