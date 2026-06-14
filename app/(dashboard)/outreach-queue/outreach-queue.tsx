@@ -163,6 +163,41 @@ export function OutreachQueue() {
     }
   }
 
+  async function handleSaveEmail(item: QueueItem) {
+    const email = emails[item.id]?.trim() ?? "";
+    const savedEmail = item.owner_email?.trim() ?? "";
+
+    if (email === savedEmail) {
+      return;
+    }
+
+    setActionError(null);
+
+    try {
+      const response = await fetch("/api/outreach-queue", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, owner_email: email }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save email.");
+      }
+
+      setQueue((current) =>
+        current.map((q) =>
+          q.id === item.id ? { ...q, owner_email: email || null } : q,
+        ),
+      );
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to save email.",
+      );
+    }
+  }
+
   async function sendOutreach(item: QueueItem) {
     const email = emails[item.id]?.trim();
     if (!email) {
@@ -245,6 +280,7 @@ export function OutreachQueue() {
       <input
         value={emails[item.id] ?? ""}
         onChange={e => setEmails(current => ({ ...current, [item.id]: e.target.value }))}
+        onBlur={() => void handleSaveEmail(item)}
         placeholder="owner@business.com"
         className={inputClassName}
       />
