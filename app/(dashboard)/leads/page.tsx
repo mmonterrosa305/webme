@@ -5,7 +5,7 @@ import { LeadsSearch } from "./leads-search";
 import { SavedLeads } from "./saved-leads";
 
 export const metadata: Metadata = {
-  title: "Leads — WebMe",
+  title: "Search Leads — WebMe",
 };
 
 export default function LeadsPage() {
@@ -13,7 +13,7 @@ export default function LeadsPage() {
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <PageHeader
         eyebrow="Prospects"
-        title="Leads"
+        title="Search Leads"
         description="All inbound and outbound prospects — filter, score, and push to pipeline."
       />
       <div className="space-y-8">
