@@ -90,18 +90,38 @@ function extractTagline($: cheerio.CheerioAPI): string {
   return heroSection.find("h2").first().text().trim();
 }
 
+export function normalizeLogoUrl(url: string | undefined | null): string {
+  const trimmed = url?.trim() ?? "";
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed === "data:," || /^data:;base64,?$/i.test(trimmed)) {
+    return "";
+  }
+
+  if (trimmed.startsWith("data:") && trimmed.length < 32) {
+    return "";
+  }
+
+  return trimmed;
+}
+
 function extractLogoUrl($: cheerio.CheerioAPI): string {
-  const tagged = $('[data-webme="logo"]').first().attr("src")?.trim();
+  const tagged = normalizeLogoUrl(
+    $('[data-webme="logo"]').first().attr("src"),
+  );
   if (tagged) {
     return tagged;
   }
 
-  const headerLogo = $("header img").first().attr("src")?.trim();
+  const headerLogo = normalizeLogoUrl($("header img").first().attr("src"));
   if (headerLogo) {
     return headerLogo;
   }
 
-  return $("nav img").first().attr("src")?.trim() ?? "";
+  return normalizeLogoUrl($("nav img").first().attr("src"));
 }
 
 function extractHours($: cheerio.CheerioAPI): string {

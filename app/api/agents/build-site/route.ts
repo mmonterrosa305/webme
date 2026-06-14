@@ -6,6 +6,10 @@ import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import { uploadLogo } from "@/lib/agents/upload-logo";
 import {
+  contentToMetadata,
+  extractSiteContent,
+} from "@/lib/site-editor/extract-content";
+import {
   COLOR_PALETTES,
   DESIGN_STYLES,
   SITE_SECTIONS,
@@ -219,6 +223,12 @@ export async function POST(request: Request) {
     const siteBuiltAt = new Date().toISOString();
 
     const supabase = createAdminClient();
+    const siteContent = extractSiteContent(html, {
+      businessName,
+      phone: phone ?? businessProfile.phone ?? "",
+      address: address ?? businessProfile.address ?? "",
+    });
+
     const leadRow = {
       business_name: businessName,
       city,
@@ -235,6 +245,8 @@ export async function POST(request: Request) {
       site_built_at: siteBuiltAt,
       status: "pending_review",
       site_version: "A",
+      site_metadata: contentToMetadata(siteContent),
+      preview_edits_used: 0,
     };
 
     const { error: deleteError } = await supabase

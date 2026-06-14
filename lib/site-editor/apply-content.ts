@@ -145,6 +145,54 @@ function setImageSrc($: cheerio.CheerioAPI, selector: string, url: string) {
   }
 }
 
+const LOGO_IMG_STYLE =
+  "filter: brightness(0) invert(1); height: 60px; width: auto;";
+
+function applyLogo($: cheerio.CheerioAPI, logoUrl: string) {
+  if (!logoUrl) {
+    return;
+  }
+
+  const taggedLogo = $('[data-webme="logo"]').first();
+  if (taggedLogo.length) {
+    taggedLogo.attr("src", logoUrl);
+    return;
+  }
+
+  const headerLogo = $("header img").first();
+  if (headerLogo.length) {
+    headerLogo.attr("src", logoUrl);
+    headerLogo.attr("data-webme", "logo");
+    return;
+  }
+
+  const navLogo = $("nav img").first();
+  if (navLogo.length) {
+    navLogo.attr("src", logoUrl);
+    navLogo.attr("data-webme", "logo");
+    return;
+  }
+
+  const logoImg = `<img src="${logoUrl}" style="${LOGO_IMG_STYLE}" data-webme="logo" alt="logo" />`;
+  const logoText = $(".logo-text").first();
+
+  if (logoText.length) {
+    logoText.replaceWith(logoImg);
+    return;
+  }
+
+  const headerLink = $("header a").first();
+  if (headerLink.length) {
+    headerLink.html(logoImg);
+    return;
+  }
+
+  const nav = $("nav").first();
+  if (nav.length) {
+    nav.prepend(logoImg);
+  }
+}
+
 function applyHours($: cheerio.CheerioAPI, hours: string) {
   const lines = hours
     .split("\n")
@@ -207,16 +255,7 @@ export function applySiteContent(
   applyHours($, nextContent.hours);
 
   if (nextContent.logoUrl) {
-    setImageSrc($, '[data-webme="logo"]', nextContent.logoUrl);
-    const headerLogo = $("header img").first();
-    if (headerLogo.length) {
-      headerLogo.attr("src", nextContent.logoUrl);
-    } else {
-      const navLogo = $("nav img").first();
-      if (navLogo.length) {
-        navLogo.attr("src", nextContent.logoUrl);
-      }
-    }
+    applyLogo($, nextContent.logoUrl);
   }
 
   for (const slot of IMAGE_SLOTS) {

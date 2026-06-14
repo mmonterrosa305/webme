@@ -6,10 +6,48 @@ import {
   scrapeImportSite,
   validateImportedSiteData,
 } from "@/lib/agents/scrape-import-site";
+import { uploadLogo } from "@/lib/agents/upload-logo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_SECTIONS,
 } from "@/lib/agents/site-options";
+import {
+  contentToMetadata,
+  extractSiteContent,
+} from "@/lib/site-editor/extract-content";
+
+const SUPPORTED_LOGO_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+
+async function persistImportedLogo(
+  logoUrl: string,
+  businessName: string,
+): Promise<string | null> {
+  try {
+    const response = await fetch(logoUrl);
+    if (!response.ok) {
+      return null;
+    }
+
+    const mediaType = response.headers.get("content-type")?.split(";")[0];
+    if (!mediaType || !SUPPORTED_LOGO_TYPES.has(mediaType)) {
+      return null;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength === 0 || buffer.byteLength > 5 * 1024 * 1024) {
+      return null;
+    }
+
+    return uploadLogo(buffer.toString("base64"), mediaType, businessName);
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +68,15 @@ export async function POST(request: Request) {
     const businessProfile = importedSiteToBusinessProfile(imported);
     const tagline = imported.headline ?? imported.tagline ?? undefined;
 
+    let logoUrl: string | undefined;
+    if (imported.logoUrl) {
+      const storedLogoUrl = await persistImportedLogo(
+        imported.logoUrl,
+        imported.businessName,
+      );
+      logoUrl = storedLogoUrl ?? imported.logoUrl;
+    }
+
     const { html, siteSlug } = await buildSite({
       city: imported.city,
       industry: imported.industry,
@@ -37,12 +84,18 @@ export async function POST(request: Request) {
       paletteId: "midnight",
       styleId: "modern-minimal",
       sections: DEFAULT_SECTIONS,
-      createLogoForMe: true,
+      createLogoForMe: !logoUrl,
       businessProfile,
+      logoUrl,
     });
 
     const siteBuiltAt = new Date().toISOString();
     const supabase = createAdminClient();
+    const siteContent = extractSiteContent(html, {
+      businessName: imported.businessName,
+      phone: imported.phone ?? "",
+      address: imported.address ?? "",
+    });
 
     const leadRow = {
       business_name: imported.businessName,
@@ -59,6 +112,8 @@ export async function POST(request: Request) {
       site_built_at: siteBuiltAt,
       status: "pending_review",
       site_version: "A",
+      site_metadata: contentToMetadata(siteContent),
+      preview_edits_used: 0,
     };
 
     const { error: deleteError } = await supabase
@@ -77,11 +132,24 @@ export async function POST(request: Request) {
     );
 
     if (leadSaveError) {
-      console.error("[import-site] Failed to save lead:", leadSaveError.message);
-      return NextResponse.json(
-        { error: "Site was generated but could not be saved. Please try again." },
-        { status: 500 },
+      const {
+        site_metadata: _siteMetadata,
+        preview_edits_used: _previewEditsUsed,
+        ...fallbackRow
+      } = leadRow;
+
+      const { error: fallbackError } = await supabase.from("leads").upsert(
+        fallbackRow,
+        { onConflict: "site_slug" },
       );
+
+      if (fallbackError) {
+        console.error("[import-site] Failed to save lead:", fallbackError.message);
+        return NextResponse.json(
+          { error: "Site was generated but could not be saved. Please try again." },
+          { status: 500 },
+        );
+      }
     }
 
     return NextResponse.json({

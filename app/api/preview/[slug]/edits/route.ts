@@ -75,11 +75,14 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    const existingFields = extractPreviewFields(lead);
+
     const { applyPreviewEdit } = await import("@/lib/preview/preview-edits");
     const result = await applyPreviewEdit(lead, {
       businessName,
       phone,
       tagline,
+      logoUrl: existingFields.logoUrl,
     });
 
     const editsUsed = (lead.preview_edits_used ?? 0) + 1;

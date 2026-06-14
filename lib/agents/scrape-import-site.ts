@@ -20,6 +20,7 @@ export type ImportedSiteData = {
   adCopy: string[];
   industry: string;
   city: string;
+  logoUrl: string | null;
 };
 
 function uniqueStrings(values: string[]): string[] {
@@ -56,6 +57,39 @@ function normalizeUrl(rawUrl: string): string {
   }
 
   return parsed.toString();
+}
+
+function resolveAssetUrl(rawUrl: string | undefined, baseUrl: string): string | null {
+  if (!rawUrl?.trim()) {
+    return null;
+  }
+
+  try {
+    return new URL(rawUrl.trim(), baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function extractLogoImageUrl($: cheerio.CheerioAPI, sourceUrl: string): string | null {
+  const candidates = [
+    $("header img").first().attr("src"),
+    $("nav img").first().attr("src"),
+    $(".logo img").first().attr("src"),
+    $('[class*="logo"] img').first().attr("src"),
+    $('meta[property="og:image"]').attr("content"),
+    $('link[rel="apple-touch-icon"]').attr("href"),
+    $('link[rel="icon"]').attr("href"),
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = resolveAssetUrl(candidate, sourceUrl);
+    if (resolved && !resolved.endsWith(".ico")) {
+      return resolved;
+    }
+  }
+
+  return null;
 }
 
 function extractBusinessName($: cheerio.CheerioAPI): string {
@@ -383,6 +417,7 @@ export async function scrapeImportSite(rawUrl: string): Promise<ImportedSiteData
     [description, headline, tagline].filter(Boolean).join(" "),
     services,
   );
+  const logoUrl = extractLogoImageUrl($, sourceUrl);
 
   return {
     sourceUrl,
@@ -396,6 +431,7 @@ export async function scrapeImportSite(rawUrl: string): Promise<ImportedSiteData
     adCopy,
     industry,
     city,
+    logoUrl,
   };
 }
 

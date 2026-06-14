@@ -2,6 +2,7 @@ import { applySiteContent } from "@/lib/site-editor/apply-content";
 import {
   contentToMetadata,
   extractSiteContent,
+  normalizeLogoUrl,
 } from "@/lib/site-editor/extract-content";
 import type { SiteContent, SiteMetadata } from "@/lib/site-editor/types";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,6 +11,7 @@ export type PreviewEditableFields = {
   businessName: string;
   phone: string;
   tagline: string;
+  logoUrl: string;
 };
 
 export type LeadEditRecord = {
@@ -27,7 +29,10 @@ export async function getLeadForPreviewEdit(
 ): Promise<LeadEditRecord | null> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
+  let data: LeadEditRecord | null = null;
+  let errorMessage: string | null = null;
+
+  const fullSelect = await supabase
     .from("leads")
     .select(
       "id, business_name, phone, site_slug, site_html, site_metadata, preview_edits_used",
@@ -35,15 +40,31 @@ export async function getLeadForPreviewEdit(
     .eq("site_slug", slug)
     .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
+  if (fullSelect.error) {
+    errorMessage = fullSelect.error.message;
+    const fallbackSelect = await supabase
+      .from("leads")
+      .select("id, business_name, phone, site_slug, site_html, site_metadata")
+      .eq("site_slug", slug)
+      .maybeSingle();
+
+    if (fallbackSelect.error) {
+      throw new Error(fallbackSelect.error.message);
+    }
+
+    if (fallbackSelect.data?.site_html) {
+      data = {
+        ...(fallbackSelect.data as Omit<LeadEditRecord, "preview_edits_used">),
+        preview_edits_used: 0,
+      };
+    }
+  } else if (fullSelect.data?.site_html) {
+    data = fullSelect.data as LeadEditRecord;
+  } else if (errorMessage) {
+    throw new Error(errorMessage);
   }
 
-  if (!data?.site_html) {
-    return null;
-  }
-
-  return data as LeadEditRecord;
+  return data;
 }
 
 export function extractPreviewFields(
@@ -60,6 +81,7 @@ export function extractPreviewFields(
     businessName: content.businessName,
     phone: content.phone,
     tagline: content.tagline,
+    logoUrl: normalizeLogoUrl(content.logoUrl),
   };
 }
 
@@ -111,6 +133,7 @@ export async function applyPreviewEdit(
       businessName: nextContent.businessName,
       phone: nextContent.phone,
       tagline: nextContent.tagline,
+      logoUrl: nextContent.logoUrl,
     },
   };
 }

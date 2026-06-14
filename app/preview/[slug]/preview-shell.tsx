@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { LeadPreview } from "@/lib/leads/types";
+import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
 
 type Modal = "packages" | "declined" | "edits-exhausted" | null;
@@ -13,6 +14,7 @@ type PreviewFields = {
   businessName: string;
   phone: string;
   tagline: string;
+  logoUrl: string;
 };
 
 const PACKAGES = [
@@ -90,6 +92,18 @@ function PackagePrice({ pkg }: { pkg: (typeof PACKAGES)[number] }) {
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
 
+function toPreviewFields(
+  fields: Partial<PreviewFields> | undefined,
+  fallbackBusinessName: string,
+): PreviewFields {
+  return {
+    businessName: fields?.businessName?.trim() || fallbackBusinessName,
+    phone: fields?.phone?.trim() ?? "",
+    tagline: fields?.tagline?.trim() ?? "",
+    logoUrl: normalizeLogoUrl(fields?.logoUrl),
+  };
+}
+
 function ModalBackdrop({
   children,
   onClose,
@@ -125,6 +139,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     businessName: lead.business_name,
     phone: "",
     tagline: "",
+    logoUrl: "",
   });
   const [savedFields, setSavedFields] = useState<PreviewFields | null>(null);
   const [editsRemaining, setEditsRemaining] = useState(PREVIEW_FREE_EDITS);
@@ -135,6 +150,8 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const [photoEditMode, setPhotoEditMode] = useState(false);
   const [replacingSlot, setReplacingSlot] = useState<string | null>(null);
   const [shufflingVideo, setShufflingVideo] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -152,8 +169,9 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
       }
 
       if (data.fields) {
-        setFields(data.fields);
-        setSavedFields(data.fields);
+        const nextFields = toPreviewFields(data.fields, lead.business_name);
+        setFields(nextFields);
+        setSavedFields(nextFields);
       }
 
       if (data.siteHtml) {
@@ -268,8 +286,9 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
       }
 
       if (data.fields) {
-        setFields(data.fields);
-        setSavedFields(data.fields);
+        const nextFields = toPreviewFields(data.fields, lead.business_name);
+        setFields(nextFields);
+        setSavedFields(nextFields);
       }
 
       const remaining = data.editsRemaining ?? 0;
@@ -291,6 +310,65 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     setModal(null);
     pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+
+  const handleLogoUpload = useCallback(
+    async (file: File | null) => {
+      if (!file) {
+        return;
+      }
+
+      setUploadingLogo(true);
+      setEditError(null);
+
+      try {
+        const formData = new FormData();
+        formData.append("siteSlug", lead.site_slug);
+        formData.append("file", file);
+
+        const response = await fetch("/api/leads/upload-logo", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = (await response.json()) as {
+          logoUrl?: string;
+          siteHtml?: string;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to upload logo.");
+        }
+
+        if (data.siteHtml) {
+          setSiteHtml(data.siteHtml);
+        }
+
+        if (data.logoUrl) {
+          const normalizedLogoUrl = normalizeLogoUrl(data.logoUrl);
+          setFields((current) => ({
+            ...current,
+            logoUrl: normalizedLogoUrl,
+          }));
+          setSavedFields((current) =>
+            current
+              ? {
+                  ...current,
+                  logoUrl: normalizedLogoUrl,
+                }
+              : current,
+          );
+        }
+      } catch (error) {
+        setEditError(
+          error instanceof Error ? error.message : "Failed to upload logo.",
+        );
+      } finally {
+        setUploadingLogo(false);
+      }
+    },
+    [lead.site_slug],
+  );
 
   const handleReplacePhoto = useCallback(
     async (slot: string) => {
@@ -363,12 +441,46 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     script.id = "webme-photo-edit-script";
     script.textContent = `
       (function () {
-        var imageSlotPattern = /^(hero-image|about-image|service-image-\\d|gallery-image-\\d)$/;
+        var imageSlotPattern = /^(hero-image|about-image|service-image-\\d|gallery-image-\\d|logo)$/;
 
         function removeOverlays() {
           document.querySelectorAll(".webme-photo-replace-overlay").forEach(function (el) {
             el.remove();
           });
+        }
+
+        function attachOverlay(el, slot, label) {
+          if (getComputedStyle(el).position === "static") {
+            el.style.position = "relative";
+          }
+
+          var overlay = document.createElement("div");
+          overlay.className = "webme-photo-replace-overlay";
+
+          if (el.tagName === "IMG") {
+            var wrapper = document.createElement("div");
+            wrapper.style.cssText = "position:relative;display:inline-block;width:100%;height:100%;";
+            el.parentElement.insertBefore(wrapper, el);
+            wrapper.appendChild(el);
+            overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+            wrapper.appendChild(overlay);
+          } else {
+            overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+            el.appendChild(overlay);
+          }
+
+          var button = document.createElement("button");
+          button.type = "button";
+          button.textContent = label;
+          button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;";
+          button.onclick = function () {
+            if (slot === "logo") {
+              window.parent.postMessage({ type: "upload-logo" }, "*");
+            } else {
+              window.parent.postMessage({ type: "replace-photo", slot: slot }, "*");
+            }
+          };
+          overlay.appendChild(button);
         }
 
         function addOverlays() {
@@ -379,34 +491,16 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
             if (!slot || !imageSlotPattern.test(slot)) return;
             if (slot === "hero-image" && el.tagName === "VIDEO") return;
 
-            if (getComputedStyle(el).position === "static") {
-              el.style.position = "relative";
-            }
-
-            var overlay = document.createElement("div");
-            overlay.className = "webme-photo-replace-overlay";
-
-            if (el.tagName === "IMG") {
-              var wrapper = document.createElement("div");
-              wrapper.style.cssText = "position:relative;display:inline-block;width:100%;height:100%;";
-              el.parentElement.insertBefore(wrapper, el);
-              wrapper.appendChild(el);
-              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
-              wrapper.appendChild(overlay);
-            } else {
-              overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
-              el.appendChild(overlay);
-            }
-
-            var button = document.createElement("button");
-            button.type = "button";
-            button.textContent = "📷 Replace";
-            button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;";
-            button.onclick = function () {
-              window.parent.postMessage({ type: "replace-photo", slot: slot }, "*");
-            };
-            overlay.appendChild(button);
+            attachOverlay(el, slot, slot === "logo" ? "📷 Replace Logo" : "📷 Replace");
           });
+
+          if (!document.querySelector('[data-webme="logo"]')) {
+            var logoTargets = document.querySelectorAll("header a, .logo-text, header .logo");
+            logoTargets.forEach(function (el) {
+              if (el.querySelector("img")) return;
+              attachOverlay(el, "logo", "📷 Upload Logo");
+            });
+          }
         }
 
         addOverlays();
@@ -560,6 +654,9 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
       if (data?.type === "replace-photo" && typeof data.slot === "string") {
         void handleReplacePhoto(data.slot);
       }
+      if (data?.type === "upload-logo") {
+        logoInputRef.current?.click();
+      }
       if (data?.type === "shuffle-video") {
         void handleShuffleVideo();
       }
@@ -569,53 +666,82 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     return () => window.removeEventListener("message", onMessage);
   }, [handleReplacePhoto, handleShuffleVideo]);
 
+  const hasLogo = Boolean(normalizeLogoUrl(fields.logoUrl));
+
   return (
     <div className="flex min-h-dvh flex-col bg-neutral-100">
-      <header className="sticky top-0 z-50 shrink-0 border-b border-neutral-800 bg-[#111111] px-4 py-3 shadow-lg sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">
-              Preview for
-            </p>
-            <h1 className="truncate text-lg font-semibold text-white sm:text-xl">
-              {fields.businessName || lead.business_name}
-            </h1>
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={(event) => {
+          void handleLogoUpload(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
+
+      <header className="sticky top-0 z-50 shrink-0 border-b border-neutral-800 bg-[#111111] shadow-lg">
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">
+                Preview for
+              </p>
+              <h1 className="truncate text-lg font-semibold text-white sm:text-xl">
+                {fields.businessName || lead.business_name}
+              </h1>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setModal("packages");
+                  pricingRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }}
+                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
+              >
+                Yes! I want this site
+              </button>
+              <button
+                type="button"
+                onClick={() => setModal("declined")}
+                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+              >
+                No thanks
+              </button>
+              <a
+                href={`/site/${lead.site_slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+              >
+                View full site
+              </a>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setModal("packages");
-                pricingRef.current?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                });
-              }}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
-            >
-              Yes! I want this site
-            </button>
-            <button
-              type="button"
-              onClick={() => setModal("declined")}
-              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
-            >
-              No thanks
-            </button>
-            <a
-              href={`/site/${lead.site_slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
-            >
-              View full site
-            </a>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-800 pt-3">
+            <span className="mr-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Edit site
+            </span>
             <button
               type="button"
               onClick={() => setPhotoEditMode((current) => !current)}
               className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
             >
               {photoEditMode ? "Done Editing" : "Replace Photos"}
+            </button>
+            <button
+              type="button"
+              disabled={uploadingLogo}
+              onClick={() => logoInputRef.current?.click()}
+              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {uploadingLogo ? "Uploading..." : hasLogo ? "Change Logo" : "Upload Logo"}
             </button>
             <button
               type="button"
@@ -628,6 +754,44 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
           </div>
         </div>
       </header>
+
+      <div className="shrink-0 border-b border-neutral-200 bg-white px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              Logo
+            </p>
+            <p className="mt-0.5 text-sm text-neutral-600">
+              {hasLogo
+                ? "Upload a new image to replace your logo."
+                : "No logo yet — upload one to brand your site header."}
+            </p>
+          </div>
+          {hasLogo ? (
+            <img
+              src={fields.logoUrl}
+              alt="Current logo"
+              className="h-14 w-auto max-w-[180px] rounded border border-neutral-200 bg-neutral-50 object-contain p-2"
+            />
+          ) : (
+            <div className="flex h-14 min-w-[120px] items-center justify-center rounded border border-dashed border-neutral-300 bg-neutral-50 px-4 text-xs text-neutral-500">
+              No logo uploaded
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={uploadingLogo}
+            onClick={() => logoInputRef.current?.click()}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploadingLogo
+              ? "Uploading..."
+              : hasLogo
+                ? "Replace Logo"
+                : "Upload Logo"}
+          </button>
+        </div>
+      </div>
 
       <iframe
         ref={iframeRef}
