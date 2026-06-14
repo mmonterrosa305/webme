@@ -27,6 +27,8 @@ export function OutreachQueue() {
   const [sendingAll, setSendingAll] = useState(false);
   const [buildingIds, setBuildingIds] = useState<Set<string>>(new Set());
   const [findingEmailIds, setFindingEmailIds] = useState<Set<string>>(new Set());
+  const [editingEmailIds, setEditingEmailIds] = useState<Set<string>>(new Set());
+  const [savingEmailIds, setSavingEmailIds] = useState<Set<string>>(new Set());
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -172,6 +174,7 @@ export function OutreachQueue() {
     }
 
     setActionError(null);
+    setSavingEmailIds((current) => new Set(current).add(item.id));
 
     try {
       const response = await fetch("/api/outreach-queue", {
@@ -191,11 +194,26 @@ export function OutreachQueue() {
           q.id === item.id ? { ...q, owner_email: email || null } : q,
         ),
       );
+      setEditingEmailIds((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
     } catch (err) {
       setActionError(
         err instanceof Error ? err.message : "Failed to save email.",
       );
+    } finally {
+      setSavingEmailIds((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
     }
+  }
+
+  function handleEditEmail(itemId: string) {
+    setEditingEmailIds((current) => new Set(current).add(itemId));
   }
 
   async function sendOutreach(item: QueueItem) {
@@ -264,7 +282,16 @@ export function OutreachQueue() {
     }
   }
 
-  const rows = queue.map(item => [
+  const rows = queue.map((item) => {
+    const savedEmail = item.owner_email?.trim() ?? "";
+    const draftEmail = emails[item.id] ?? "";
+    const isEditing = editingEmailIds.has(item.id);
+    const hasSavedEmail = savedEmail.length > 0;
+    const isDirty = draftEmail.trim() !== savedEmail;
+    const isReadOnly = hasSavedEmail && !isEditing;
+    const isSavingEmail = savingEmailIds.has(item.id);
+
+    return [
     <div key="business" className="space-y-1">
       <span className="block font-medium text-neutral-900">{item.business_name}</span>
       <span className="block text-xs text-neutral-500">{item.city} · {item.industry ?? "—"}</span>
@@ -278,13 +305,51 @@ export function OutreachQueue() {
     ) : <span key="site" className="text-sm text-neutral-400">No site</span>,
     <div key="email" className="space-y-2">
       <input
-        value={emails[item.id] ?? ""}
-        onChange={e => setEmails(current => ({ ...current, [item.id]: e.target.value }))}
-        onBlur={() => void handleSaveEmail(item)}
+        type="email"
+        value={draftEmail}
+        readOnly={isReadOnly}
+        onChange={(e) =>
+          setEmails((current) => ({ ...current, [item.id]: e.target.value }))
+        }
         placeholder="owner@business.com"
-        className={inputClassName}
+        disabled={isSavingEmail}
+        className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60${
+          isReadOnly ? " bg-neutral-50 text-neutral-700" : ""
+        }`}
       />
-      {!emails[item.id]?.trim() ? (
+      {isDirty ? (
+        <button
+          type="button"
+          onClick={() => void handleSaveEmail(item)}
+          disabled={
+            isSavingEmail ||
+            findingEmailIds.has(item.id) ||
+            buildingIds.has(item.id) ||
+            sending.has(item.id) ||
+            sendingAll
+          }
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-60"
+        >
+          {isSavingEmail ? "Saving..." : "Save Email"}
+        </button>
+      ) : null}
+      {hasSavedEmail && !isEditing ? (
+        <button
+          type="button"
+          onClick={() => handleEditEmail(item.id)}
+          disabled={
+            isSavingEmail ||
+            findingEmailIds.has(item.id) ||
+            buildingIds.has(item.id) ||
+            sending.has(item.id) ||
+            sendingAll
+          }
+          className="text-left text-sm font-medium text-neutral-700 hover:text-neutral-900 disabled:opacity-60"
+        >
+          Edit
+        </button>
+      ) : null}
+      {!hasSavedEmail && !draftEmail.trim() ? (
         <button
           type="button"
           onClick={() => void handleFindEmail(item)}
@@ -292,7 +357,8 @@ export function OutreachQueue() {
             findingEmailIds.has(item.id) ||
             buildingIds.has(item.id) ||
             sending.has(item.id) ||
-            sendingAll
+            sendingAll ||
+            isSavingEmail
           }
           className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-60"
         >
@@ -323,7 +389,8 @@ export function OutreachQueue() {
         Remove
       </button>
     </div>,
-  ]);
+  ];
+  });
 
   return (
     <div className="space-y-6">
