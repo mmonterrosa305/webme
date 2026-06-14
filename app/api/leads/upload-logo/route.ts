@@ -5,6 +5,11 @@ import { updateLeadLogoFromUpload } from "@/lib/preview/update-lead-logo";
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 
 export async function POST(request: Request) {
+  console.log(
+    "[env check] REMOVE_BG_API_KEY present:",
+    !!process.env.REMOVE_BG_API_KEY,
+  );
+
   try {
     const formData = await request.formData();
     const siteSlug =
