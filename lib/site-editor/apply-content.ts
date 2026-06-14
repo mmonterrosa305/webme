@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { AnyNode, Element } from "domhandler";
 
 import type { SiteContent, SiteImageSlot } from "./types";
 import { IMAGE_SLOTS } from "./types";
@@ -145,51 +146,199 @@ function setImageSrc($: cheerio.CheerioAPI, selector: string, url: string) {
   }
 }
 
-const LOGO_IMG_STYLE =
-  "filter: brightness(0) invert(1); height: 60px; width: auto;";
+export const LOGO_IMG_INLINE_STYLE =
+  "height: auto; min-height: 48px; max-height: 80px; width: auto;";
+
+const LOGO_CONTAINER_SELECTORS = [
+  "header .logo",
+  "nav .logo",
+  ".logo",
+  "header .brand",
+  "header .nav-brand",
+  "header .site-logo",
+  "header a.logo",
+];
+
+function buildLogoImgMarkup(logoUrl: string): string {
+  return `<img src="${logoUrl}" style="${LOGO_IMG_INLINE_STYLE}" data-webme="logo" alt="logo" />`;
+}
+
+function setLogoImgAttributes(
+  $img: cheerio.Cheerio<AnyNode>,
+  logoUrl: string,
+) {
+  $img.attr("src", logoUrl);
+  $img.attr("style", LOGO_IMG_INLINE_STYLE);
+  $img.attr("data-webme", "logo");
+  $img.attr("alt", "logo");
+}
+
+function isLogoPlaceholderElement(
+  $: cheerio.CheerioAPI,
+  element: Element,
+  keep?: cheerio.Cheerio<AnyNode>,
+): boolean {
+  const $el = $(element);
+  if (keep?.length && $el.is(keep)) {
+    return false;
+  }
+
+  const tag = element.tagName?.toLowerCase();
+  if (tag === "nav" || tag === "ul" || tag === "ol" || tag === "form") {
+    return false;
+  }
+
+  if ($el.attr("data-webme") === "logo") {
+    return !(keep?.length && $el.is(keep));
+  }
+
+  if (tag === "svg" || tag === "span") {
+    return true;
+  }
+
+  if (tag === "img") {
+    return !(keep?.length && $el.is(keep));
+  }
+
+  if (tag === "div" || tag === "a") {
+    const cls = $el.attr("class") ?? "";
+    if (/logo|brand-mark|brand-icon/i.test(cls)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function stripLogoPlaceholdersInContainer(
+  $: cheerio.CheerioAPI,
+  container: cheerio.Cheerio<AnyNode>,
+  keep?: cheerio.Cheerio<AnyNode>,
+) {
+  container.children().each((_, child) => {
+    if (isLogoPlaceholderElement($, child, keep)) {
+      $(child).remove();
+    }
+  });
+}
+
+function removeGlobalHeaderLogoPlaceholders($: cheerio.CheerioAPI) {
+  $("header .logo-text, nav .logo-text").remove();
+  $(
+    "header .logo-icon, nav .logo-icon, .logo-circle, .logo-mark, .brand-icon, .brand-mark",
+  ).remove();
+  $(".logo svg, .brand svg, header .logo svg, header a.logo svg").remove();
+  $("header > div > svg").remove();
+
+  $('[data-webme="logo"]').slice(1).remove();
+}
+
+function findLogoContainer($: cheerio.CheerioAPI) {
+  for (const selector of LOGO_CONTAINER_SELECTORS) {
+    const element = $(selector).first();
+    if (element.length) {
+      return element;
+    }
+  }
+
+  return null;
+}
 
 function applyLogo($: cheerio.CheerioAPI, logoUrl: string) {
   if (!logoUrl) {
     return;
   }
 
-  const taggedLogo = $('[data-webme="logo"]').first();
-  if (taggedLogo.length) {
-    taggedLogo.attr("src", logoUrl);
+  removeGlobalHeaderLogoPlaceholders($);
+
+  let taggedLogo = $('[data-webme="logo"]').first();
+  const taggedTag = taggedLogo.prop("tagName")?.toLowerCase();
+
+  if (taggedLogo.length && taggedTag === "svg") {
+    taggedLogo.replaceWith(buildLogoImgMarkup(logoUrl));
+    taggedLogo = $('[data-webme="logo"]').first();
+  }
+
+  if (taggedLogo.length && taggedLogo.is("img")) {
+    const parent = taggedLogo.parent();
+    stripLogoPlaceholdersInContainer($, parent, taggedLogo);
+
+    const logoAncestor = taggedLogo.closest(".logo, .brand, header > a");
+    if (logoAncestor.length) {
+      stripLogoPlaceholdersInContainer($, logoAncestor, taggedLogo);
+    }
+
+    setLogoImgAttributes(taggedLogo, logoUrl);
     return;
   }
 
-  const headerLogo = $("header img").first();
+  const container = findLogoContainer($);
+  if (container) {
+    if (container.is("nav")) {
+      container.find(".logo-text, svg, img[data-webme='logo']").remove();
+      container.prepend(buildLogoImgMarkup(logoUrl));
+      return;
+    }
+
+    container.empty();
+    container.append(buildLogoImgMarkup(logoUrl));
+    return;
+  }
+
+  const headerLogo = $("header img")
+    .filter((_, img) => $(img).closest("nav").length === 0)
+    .first();
+
   if (headerLogo.length) {
-    headerLogo.attr("src", logoUrl);
-    headerLogo.attr("data-webme", "logo");
+    stripLogoPlaceholdersInContainer($, headerLogo.parent(), headerLogo);
+    setLogoImgAttributes(headerLogo, logoUrl);
     return;
   }
 
-  const navLogo = $("nav img").first();
-  if (navLogo.length) {
-    navLogo.attr("src", logoUrl);
-    navLogo.attr("data-webme", "logo");
-    return;
-  }
-
-  const logoImg = `<img src="${logoUrl}" style="${LOGO_IMG_STYLE}" data-webme="logo" alt="logo" />`;
-  const logoText = $(".logo-text").first();
-
+  const logoText = $("header .logo-text, nav .logo-text, .logo-text").first();
   if (logoText.length) {
-    logoText.replaceWith(logoImg);
+    const parent = logoText.parent();
+    parent.children().each((_, child) => {
+      if (!$(child).is(logoText)) {
+        $(child).remove();
+      }
+    });
+    logoText.replaceWith(buildLogoImgMarkup(logoUrl));
     return;
   }
 
-  const headerLink = $("header a").first();
-  if (headerLink.length) {
-    headerLink.html(logoImg);
+  const navWrapper = $("header .nav-wrapper, header > div").first();
+  if (navWrapper.length) {
+    stripLogoPlaceholdersInContainer($, navWrapper);
+    navWrapper.prepend(buildLogoImgMarkup(logoUrl));
     return;
   }
 
-  const nav = $("nav").first();
-  if (nav.length) {
-    nav.prepend(logoImg);
+  const headerBrandLink = $("header a")
+    .filter((_, anchor) => {
+      const $anchor = $(anchor);
+      if ($anchor.closest("nav").length) {
+        return false;
+      }
+
+      const href = $anchor.attr("href") ?? "";
+      if (/^#(services|about|contact|home)/i.test(href)) {
+        return false;
+      }
+
+      const cls = $anchor.attr("class") ?? "";
+      return /logo|brand/i.test(cls) || href === "/" || href === "#";
+    })
+    .first();
+
+  if (headerBrandLink.length) {
+    headerBrandLink.html(buildLogoImgMarkup(logoUrl));
+    return;
+  }
+
+  const header = $("header").first();
+  if (header.length) {
+    header.prepend(buildLogoImgMarkup(logoUrl));
   }
 }
 
