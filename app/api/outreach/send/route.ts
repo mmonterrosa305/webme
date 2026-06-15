@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { scrapeContactInfo } from "@/lib/agents/scrapeContactInfo";
-import { createResendClient, getResendFromEmail } from "@/lib/email/resend";
 import type { SavedLead } from "@/lib/leads/types";
-import {
-  buildColdOutreachEmail,
-  getOutreachPreviewBaseUrl,
-} from "@/lib/outreach/build-cold-email";
+import { getOutreachPreviewBaseUrl } from "@/lib/outreach/build-cold-email";
+import { sendOutreachEmail } from "@/lib/outreach/send-outreach-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type LeadForOutreach = {
@@ -107,27 +104,16 @@ export async function POST(request: Request) {
     }
 
     const previewUrl = `${getOutreachPreviewBaseUrl()}/${typedLead.site_slug}`;
-    const { subject, html, text } = buildColdOutreachEmail({
+
+    const { resendMessageId } = await sendOutreachEmail({
       businessName: typedLead.business_name,
+      ownerEmail,
       ownerName,
-      previewUrl,
+      siteSlug: typedLead.site_slug,
+      leadId,
     });
-
-    const resend = createResendClient();
-    const sendResult = await resend.emails.send({
-      from: getResendFromEmail(),
-      to: ownerEmail,
-      subject,
-      html,
-      text,
-    });
-
-    if (sendResult.error) {
-      throw new Error(sendResult.error.message);
-    }
 
     const sentAt = new Date().toISOString();
-    const resendMessageId = sendResult.data?.id ?? null;
 
     const { data: updatedLead, error: leadUpdateError } = await supabase
       .from("leads")
@@ -143,39 +129,6 @@ export async function POST(request: Request) {
 
     if (leadUpdateError) {
       throw new Error(leadUpdateError.message);
-    }
-
-    const outreachRow: Record<string, string | null> = {
-      lead_id: leadId,
-      email_to: ownerEmail,
-      subject,
-      resend_message_id: resendMessageId,
-      sent_at: sentAt,
-      status: "sent",
-    };
-
-    const { error: outreachInsertError } = await supabase
-      .from("outreach")
-      .insert(outreachRow);
-
-    if (outreachInsertError) {
-      const fallback = await supabase.from("outreach").insert({
-        lead_id: leadId,
-        email_to: ownerEmail,
-        subject,
-        resend_message_id: resendMessageId,
-      });
-
-      if (fallback.error) {
-        console.error(
-          "[outreach/send] Email sent but failed to insert outreach record:",
-          outreachInsertError.message,
-          fallback.error.message,
-        );
-        throw new Error(
-          `Email was sent but failed to save outreach record: ${fallback.error.message}`,
-        );
-      }
     }
 
     return NextResponse.json({

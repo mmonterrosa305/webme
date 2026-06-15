@@ -26,17 +26,22 @@ export function buildColdOutreachEmail({
   ownerName,
   previewUrl,
   senderName = getOutreachSenderName(),
+  trackingPixelUrl,
 }: {
   businessName: string;
   ownerName: string | null;
   previewUrl: string;
   senderName?: string;
+  trackingPixelUrl?: string;
 }): { subject: string; html: string; text: string } {
   const greeting = ownerName?.trim() ? `Hi ${ownerName.trim()},` : "Hi there,";
   const subject = "I built your business a website — take a look";
   const safeBusiness = escapeHtml(businessName);
   const safePreviewUrl = escapeHtml(previewUrl);
   const safeSender = escapeHtml(senderName);
+  const trackingPixel = trackingPixelUrl
+    ? `<img src="${escapeHtml(trackingPixelUrl)}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;" />`
+    : "";
 
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 640px; margin: 0 auto; color: #171717; line-height: 1.6;">
@@ -60,6 +65,7 @@ export function buildColdOutreachEmail({
         ${safeSender}
       </p>
     </div>
+    ${trackingPixel}
   `.trim();
 
   const text = `${greeting}

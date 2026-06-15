@@ -7,46 +7,57 @@ import {
   StatCard,
   StatusPill,
 } from "../_components/dashboard-ui";
+import { getOutreachDashboardStats } from "@/lib/outreach/get-outreach-stats";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const metadata: Metadata = {
   title: "Outreach — WebMe",
 };
 
+function formatOpenRate(
+  openRatePercent: number | null,
+  trackableCount: number,
+): { value: string; change: string } {
+  if (trackableCount === 0) {
+    return {
+      value: "—",
+      change: "Opens tracked on new sends",
+    };
+  }
+
+  return {
+    value: `${openRatePercent ?? 0}%`,
+    change: "Based on tracking pixel loads",
+  };
+}
+
 export default async function OutreachPage() {
   const supabase = createAdminClient();
+  const stats = await getOutreachDashboardStats(supabase);
+  const openRate = formatOpenRate(stats.openRatePercent, stats.trackableCount);
 
-  const { data: outreachRecords } = await supabase
-    .from("outreach")
-    .select(
-      "id, lead_id, email_to, subject, resend_message_id, sent_at, status, leads(business_name, city)",
-    )
-    .order("sent_at", { ascending: false })
-    .limit(50);
-
-  const sevenDaysAgo = new Date(
-    Date.now() - 7 * 24 * 60 * 60 * 1000,
-  ).toISOString();
-  const emailsSent7d = (outreachRecords ?? []).filter(
-    (r) => r.sent_at && r.sent_at > sevenDaysAgo,
-  ).length;
-
-  const totalSent = outreachRecords?.length ?? 0;
-
-  const STATS = [
+  const dashboardStats = [
     {
       label: "Emails sent (7d)",
-      value: String(emailsSent7d),
+      value: String(stats.emailsSent7d),
       change:
-        emailsSent7d > 0 ? "Last 7 days" : "No emails sent yet",
+        stats.emailsSent7d > 0 ? "Last 7 days" : "No emails sent yet",
     },
     {
       label: "Total sent",
-      value: String(totalSent),
-      change: totalSent > 0 ? "All time" : "No emails sent yet",
+      value: String(stats.totalSent),
+      change: stats.totalSent > 0 ? "All time" : "No emails sent yet",
     },
-    { label: "Open rate", value: "—", change: "Tracking not set up" },
-    { label: "Reply rate", value: "—", change: "Tracking not set up" },
+    {
+      label: "Open rate",
+      value: openRate.value,
+      change: openRate.change,
+    },
+    {
+      label: "Reply rate",
+      value: "—",
+      change: "Reply tracking not set up",
+    },
   ];
 
   return (
@@ -61,47 +72,55 @@ export default async function OutreachPage() {
         aria-label="Outreach metrics"
         className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
       >
-        {STATS.map((stat) => (
+        {dashboardStats.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
       </section>
 
       <div className="grid gap-8 lg:grid-cols-2">
         <Panel title="Outreach History" subtitle="Sent outreach emails">
-          <DataTable
-            columns={["Business", "Email", "Subject", "Sent At", "Status"]}
-            rows={(outreachRecords ?? []).map((record) => {
-              const lead = record.leads as
-                | { business_name: string; city: string }
-                | { business_name: string; city: string }[]
-                | null;
-              const leadData = Array.isArray(lead) ? lead[0] : lead;
-              const businessName =
-                leadData?.business_name ?? record.email_to;
-
-              return [
+          {stats.history.length === 0 ? (
+            <div className="px-5 py-10 text-sm text-neutral-500">
+              No outreach emails sent yet.
+            </div>
+          ) : (
+            <DataTable
+              columns={[
+                "Business",
+                "Email",
+                "Subject",
+                "Sent At",
+                "Status",
+                "Opened",
+              ]}
+              rows={stats.history.map((record) => [
                 <span key="b" className="font-medium text-neutral-900">
-                  {businessName}
+                  {record.businessName}
                 </span>,
                 <span key="e" className="text-neutral-600">
-                  {record.email_to}
+                  {record.email}
                 </span>,
                 <span key="s" className="text-neutral-600">
                   {record.subject}
                 </span>,
                 <span key="t" className="text-neutral-600">
-                  {record.sent_at
-                    ? new Date(record.sent_at).toLocaleString()
+                  {record.sentAt
+                    ? new Date(record.sentAt).toLocaleString()
                     : "—"}
                 </span>,
                 <StatusPill
                   key="st"
-                  label={record.status ?? "unknown"}
+                  label={record.status}
                   variant={record.status === "sent" ? "success" : "default"}
                 />,
-              ];
-            })}
-          />
+                <StatusPill
+                  key="op"
+                  label={record.opened ? "Opened" : "Not opened"}
+                  variant={record.opened ? "accent" : "default"}
+                />,
+              ])}
+            />
+          )}
         </Panel>
       </div>
     </main>
