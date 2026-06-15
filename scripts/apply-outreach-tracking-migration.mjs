@@ -23,11 +23,11 @@ function getDatabaseUrl() {
     return direct;
   }
 
-  const password = process.env.SUPABASE_DB_PASSWORD?.trim();
+  const dbPassword = process.env.SUPABASE_DB_PASSWORD?.trim();
   const ref = getProjectRef();
 
-  if (password && ref) {
-    return `postgresql://postgres:${encodeURIComponent(password)}@db.${ref}.supabase.co:5432/postgres`;
+  if (dbPassword && ref) {
+    return `postgresql://postgres:${encodeURIComponent(dbPassword)}@db.${ref}.supabase.co:5432/postgres`;
   }
 
   return null;

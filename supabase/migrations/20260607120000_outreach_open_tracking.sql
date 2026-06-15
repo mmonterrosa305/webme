@@ -1,6 +1,7 @@
 ALTER TABLE public.outreach
   ADD COLUMN IF NOT EXISTS tracking_token TEXT,
-  ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS outreach_tracking_token_idx
   ON public.outreach (tracking_token)
