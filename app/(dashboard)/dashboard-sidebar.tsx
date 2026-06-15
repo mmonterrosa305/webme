@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: "Create Site", href: "/agents" },
   { label: "Search Leads", href: "/leads" },
   { label: "Import Site", href: "/import-site" },
+  { label: "Business Search", href: "/business-search" },
   { label: "Outreach Queue", href: "/outreach-queue" },
   { label: "Outreach", href: "/outreach" },
   { label: "Clients", href: "/clients" },
