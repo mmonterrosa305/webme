@@ -13,7 +13,12 @@ import {
   DEFAULT_SECTIONS,
   INDUSTRIES,
 } from "@/lib/agents/site-options";
-import { useLeadsSearch } from "../leads-search-context";
+import {
+  clearLeadsSearchState,
+  getLeadsSearchState,
+  persistLeadsSearchState,
+  persistLeadsSearchStateFull,
+} from "@/lib/leads/search-state";
 import type { LeadSearchResult } from "@/lib/leads/types";
 
 const inputClassName =
@@ -149,20 +154,19 @@ function openHtmlPreview(html: string): string | null {
 }
 
 export function LeadsSearch() {
-  const {
-    city,
-    industry,
-    results,
-    hasSearched,
-    showExistingSites,
-    setCity,
-    setIndustry,
-    setResults,
-    setHasSearched,
-    setShowExistingSites,
-    persistSearchState,
-    clearSearch,
-  } = useLeadsSearch();
+  const [city, setCity] = useState(() => getLeadsSearchState().city);
+  const [industry, setIndustry] = useState(
+    () => getLeadsSearchState().industry,
+  );
+  const [results, setResults] = useState<LeadSearchResult[]>(
+    () => getLeadsSearchState().results,
+  );
+  const [hasSearched, setHasSearched] = useState(
+    () => getLeadsSearchState().hasSearched,
+  );
+  const [showExistingSites, setShowExistingSites] = useState(
+    () => getLeadsSearchState().showExistingSites,
+  );
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [buildStates, setBuildStates] = useState<Record<string, BuildState>>({});
@@ -173,7 +177,12 @@ export function LeadsSearch() {
   const [addingToQueue, setAddingToQueue] = useState(false);
 
   function handleClearSearch() {
-    clearSearch();
+    clearLeadsSearchState();
+    setCity("");
+    setIndustry(INDUSTRIES[0]);
+    setResults([]);
+    setHasSearched(false);
+    setShowExistingSites(false);
     setSearchError(null);
     setBuildStates({});
     setSelectedLeads(new Set());
@@ -186,6 +195,7 @@ export function LeadsSearch() {
     setHasSearched(true);
     setResults([]);
     setBuildStates({});
+    persistLeadsSearchState({ hasSearched: true, results: [] });
 
     try {
       const response = await fetch("/api/leads/search", {
@@ -205,7 +215,7 @@ export function LeadsSearch() {
 
       const leads = data.leads ?? [];
       setResults(leads);
-      persistSearchState(city, industry, leads, showExistingSites);
+      persistLeadsSearchStateFull(city, industry, leads, showExistingSites);
     } catch (error) {
       setSearchError(
         error instanceof Error ? error.message : "Failed to search leads.",
@@ -473,7 +483,11 @@ export function LeadsSearch() {
               type="text"
               required
               value={city}
-              onChange={(event) => setCity(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setCity(value);
+                persistLeadsSearchState({ city: value });
+              }}
               placeholder="Miami or 33165"
               className={inputClassName}
               disabled={searching}
@@ -489,7 +503,11 @@ export function LeadsSearch() {
             <select
               id="industry"
               value={industry}
-              onChange={(event) => setIndustry(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setIndustry(value);
+                persistLeadsSearchState({ industry: value });
+              }}
               className={inputClassName}
               disabled={searching}
             >
@@ -544,8 +562,14 @@ export function LeadsSearch() {
                 onChange={(event) => {
                   const checked = event.target.checked;
                   setShowExistingSites(checked);
+                  persistLeadsSearchState({ showExistingSites: checked });
                   if (hasSearched) {
-                    persistSearchState(city, industry, results, checked);
+                    persistLeadsSearchStateFull(
+                      city,
+                      industry,
+                      results,
+                      checked,
+                    );
                   }
                 }}
                 className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
