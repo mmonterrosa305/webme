@@ -7,7 +7,6 @@ type OutreachRow = {
   subject: string;
   resend_message_id: string | null;
   sent_at: string | null;
-  status: string | null;
   opened_at: string | null;
   tracking_token: string | null;
   leads:
@@ -63,9 +62,9 @@ export async function getOutreachDashboardStats(
   const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
   const outreachSelectWithTracking =
-    "id, lead_id, email_to, subject, resend_message_id, sent_at, status, opened_at, tracking_token, leads(business_name, city, site_slug)";
+    "id, lead_id, email_to, subject, resend_message_id, sent_at, opened_at, tracking_token, leads(business_name, city, site_slug)";
   const outreachSelectBasic =
-    "id, lead_id, email_to, subject, resend_message_id, sent_at, status, leads(business_name, city, site_slug)";
+    "id, lead_id, email_to, subject, resend_message_id, sent_at, leads(business_name, city, site_slug)";
 
   let outreachResult = await supabase
     .from("outreach")
@@ -76,7 +75,8 @@ export async function getOutreachDashboardStats(
   if (
     outreachResult.error &&
     (outreachResult.error.message.includes("opened_at") ||
-      outreachResult.error.message.includes("tracking_token"))
+      outreachResult.error.message.includes("tracking_token") ||
+      outreachResult.error.message.includes("sent_at"))
   ) {
     outreachResult = (await supabase
       .from("outreach")
@@ -143,7 +143,7 @@ export async function getOutreachDashboardStats(
       email: record.email_to,
       subject: record.subject,
       sentAt: record.sent_at,
-      status: record.status ?? "sent",
+      status: "sent",
       opened: Boolean(record.opened_at),
     });
   }

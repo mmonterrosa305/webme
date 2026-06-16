@@ -28,20 +28,41 @@ async function insertOutreachRecord(row: OutreachInsertRow): Promise<void> {
     return;
   }
 
+  const { lead_id, email_to, subject, resend_message_id, sent_at, tracking_token } =
+    row;
+
+  if (error.message.includes("status")) {
+    const withoutStatus = {
+      lead_id,
+      email_to,
+      subject,
+      resend_message_id,
+      sent_at,
+      ...(tracking_token ? { tracking_token } : {}),
+    };
+    const { error: statusFallbackError } = await supabase
+      .from("outreach")
+      .insert(withoutStatus);
+
+    if (!statusFallbackError) {
+      console.warn(
+        "[outreach/send] Saved outreach without status column — run outreach status migration.",
+      );
+      return;
+    }
+  }
+
   if (
-    row.tracking_token &&
+    tracking_token &&
     (error.message.includes("tracking_token") ||
       error.message.includes("opened_at"))
   ) {
-    const { lead_id, email_to, subject, resend_message_id, sent_at, status } =
-      row;
     const { error: fallbackError } = await supabase.from("outreach").insert({
       lead_id,
       email_to,
       subject,
       resend_message_id,
       sent_at,
-      status,
     });
 
     if (fallbackError) {
