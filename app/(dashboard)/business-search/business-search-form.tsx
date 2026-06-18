@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
+import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
 
 import { Panel } from "../_components/dashboard-ui";
+import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -57,12 +59,16 @@ function BusinessResultCard({
   building,
   scrollAnimationEffect,
   onScrollAnimationEffectChange,
+  scrollHeroVideoFile,
+  onScrollHeroVideoFileChange,
 }: {
   business: BusinessSearchResult;
   onBuild: () => void;
   building: boolean;
   scrollAnimationEffect: boolean;
   onScrollAnimationEffectChange: (checked: boolean) => void;
+  scrollHeroVideoFile: File | null;
+  onScrollHeroVideoFileChange: (file: File | null) => void;
 }) {
   const website = business.websiteData;
 
@@ -161,19 +167,14 @@ function BusinessResultCard({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-          <input
-            type="checkbox"
-            checked={scrollAnimationEffect}
-            onChange={(event) =>
-              onScrollAnimationEffectChange(event.target.checked)
-            }
-            disabled={building}
-            className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-          />
-          ✨ Add scroll animation effect
-        </label>
+      <div className="flex flex-wrap items-end gap-4">
+        <ScrollAnimationBuildOptions
+          checked={scrollAnimationEffect}
+          onCheckedChange={onScrollAnimationEffectChange}
+          disabled={building}
+          videoFile={scrollHeroVideoFile}
+          onVideoFileChange={onScrollHeroVideoFileChange}
+        />
 
         <button
           type="button"
@@ -201,6 +202,9 @@ export function BusinessSearchForm() {
   );
   const [queueError, setQueueError] = useState<string | null>(null);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
+  const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
+    null,
+  );
 
   const isSearching = phase === "searching";
   const isBuilding = phase === "building";
@@ -254,11 +258,27 @@ export function BusinessSearchForm() {
     setQueueError(null);
 
     try {
-      const response = await fetch("/api/business-search/build-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ business, scrollAnimationEffect }),
-      });
+      let response: Response;
+
+      if (scrollHeroVideoFile) {
+        const formData = new FormData();
+        formData.append("business", JSON.stringify(business));
+        formData.append(
+          "scrollAnimationEffect",
+          scrollAnimationEffect ? "true" : "false",
+        );
+        formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
+        response = await fetch("/api/business-search/build-site", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        response = await fetch("/api/business-search/build-site", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ business, scrollAnimationEffect }),
+        });
+      }
 
       const data = (await response.json()) as {
         siteSlug?: string;
@@ -403,6 +423,8 @@ export function BusinessSearchForm() {
             building={isBuilding}
             scrollAnimationEffect={scrollAnimationEffect}
             onScrollAnimationEffectChange={setScrollAnimationEffect}
+            scrollHeroVideoFile={scrollHeroVideoFile}
+            onScrollHeroVideoFileChange={setScrollHeroVideoFile}
           />
         ) : null}
 

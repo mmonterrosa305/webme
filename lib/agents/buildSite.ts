@@ -106,6 +106,7 @@ export type BuildSiteInput = {
   logoUrl?: string;
   logoSvg?: string;
   scrollAnimationEffect?: boolean;
+  scrollHeroVideoUrl?: string | null;
 };
 
 type SupportedImageMediaType =
@@ -438,7 +439,8 @@ export async function buildSite(
 
   const heroUrl = getRandomHero(input.industry);
   const heroVideoUrl = input.scrollAnimationEffect
-    ? (await fetchScrollHeroVideoFromPexels(industry)) ??
+    ? input.scrollHeroVideoUrl ??
+      (await fetchScrollHeroVideoFromPexels(industry)) ??
       (await fetchHeroVideo(industry))
     : await fetchHeroVideo(industry);
   const pixabayPhotos = await fetchIndustryPhotos(industry);

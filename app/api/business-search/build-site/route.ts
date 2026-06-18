@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildBusinessSearchSite } from "@/lib/leads/build-business-search-site";
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
+import { resolveScrollHeroVideoUrlFromFormData } from "@/lib/agents/upload-scroll-hero-video";
 
 function isBusinessSearchResult(value: unknown): value is BusinessSearchResult {
   if (!value || typeof value !== "object") {
@@ -20,19 +21,47 @@ function isBusinessSearchResult(value: unknown): value is BusinessSearchResult {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const contentType = request.headers.get("content-type") ?? "";
+    let business: BusinessSearchResult;
+    let scrollAnimationEffect = false;
+    let scrollHeroVideoUrl: string | null = null;
 
-    if (!isBusinessSearchResult(body.business)) {
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const businessRaw = formData.get("business");
+
+      if (typeof businessRaw !== "string") {
+        return NextResponse.json(
+          { error: "Valid business search result is required." },
+          { status: 400 },
+        );
+      }
+
+      business = JSON.parse(businessRaw) as BusinessSearchResult;
+      scrollAnimationEffect = formData.get("scrollAnimationEffect") === "true";
+
+      if (scrollAnimationEffect) {
+        scrollHeroVideoUrl = await resolveScrollHeroVideoUrlFromFormData(
+          formData,
+          business.businessName,
+        );
+      }
+    } else {
+      const body = await request.json();
+      business = body.business as BusinessSearchResult;
+      scrollAnimationEffect = body.scrollAnimationEffect === true;
+    }
+
+    if (!isBusinessSearchResult(business)) {
       return NextResponse.json(
         { error: "Valid business search result is required." },
         { status: 400 },
       );
     }
 
-    const scrollAnimationEffect = body.scrollAnimationEffect === true;
-
-    const result = await buildBusinessSearchSite(body.business, {
+    const result = await buildBusinessSearchSite(business, {
       scrollAnimationEffect,
+      scrollHeroVideoUrl,
     });
 
     return NextResponse.json({

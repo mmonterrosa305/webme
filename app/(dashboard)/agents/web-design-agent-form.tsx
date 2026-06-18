@@ -13,6 +13,9 @@ import {
   type SectionId,
   type StyleId,
 } from "@/lib/agents/site-options";
+import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
+
+import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -63,6 +66,9 @@ export function WebDesignAgentForm() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [createLogoForMe, setCreateLogoForMe] = useState(false);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
+  const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -117,22 +123,36 @@ export function WebDesignAgentForm() {
         logoPayload = await readLogoFile(logoFile);
       }
 
-      const response = await fetch("/api/agents/build-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessName,
-          city,
-          industry,
-          tagline: tagline.trim() || undefined,
-          paletteId,
-          styleId,
-          sections,
-          createLogoForMe,
-          scrollAnimationEffect,
-          ...logoPayload,
-        }),
-      });
+      const payload = {
+        businessName,
+        city,
+        industry,
+        tagline: tagline.trim() || undefined,
+        paletteId,
+        styleId,
+        sections,
+        createLogoForMe,
+        scrollAnimationEffect,
+        ...logoPayload,
+      };
+
+      let response: Response;
+
+      if (scrollHeroVideoFile) {
+        const formData = new FormData();
+        formData.append("buildPayload", JSON.stringify(payload));
+        formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
+        response = await fetch("/api/agents/build-site", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        response = await fetch("/api/agents/build-site", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
 
       const data = (await response.json()) as { html?: string; error?: string };
 
@@ -434,19 +454,14 @@ export function WebDesignAgentForm() {
             </p>
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-              <input
-                type="checkbox"
-                checked={scrollAnimationEffect}
-                onChange={(event) =>
-                  setScrollAnimationEffect(event.target.checked)
-                }
-                disabled={loading}
-                className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-              />
-              ✨ Add scroll animation effect
-            </label>
+          <div className="flex flex-wrap items-end gap-4">
+            <ScrollAnimationBuildOptions
+              checked={scrollAnimationEffect}
+              onCheckedChange={setScrollAnimationEffect}
+              disabled={loading}
+              videoFile={scrollHeroVideoFile}
+              onVideoFileChange={setScrollHeroVideoFile}
+            />
 
             <button
               type="submit"

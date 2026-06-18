@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import { uploadLogo } from "@/lib/agents/upload-logo";
+import { resolveScrollHeroVideoUrlFromFormData } from "@/lib/agents/upload-scroll-hero-video";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -82,7 +83,31 @@ export async function POST(request: Request) {
 
     entry.count++;
 
-    const body = await request.json();
+    const contentType = request.headers.get("content-type") ?? "";
+    let body: Record<string, unknown>;
+    let scrollHeroVideoUrl: string | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const payloadRaw = formData.get("buildPayload");
+
+      if (typeof payloadRaw !== "string") {
+        return NextResponse.json(
+          { error: "Invalid build payload." },
+          { status: 400 },
+        );
+      }
+
+      body = JSON.parse(payloadRaw) as Record<string, unknown>;
+      const payloadBusinessName =
+        typeof body.businessName === "string" ? body.businessName.trim() : "site";
+      scrollHeroVideoUrl = await resolveScrollHeroVideoUrlFromFormData(
+        formData,
+        payloadBusinessName,
+      );
+    } else {
+      body = (await request.json()) as Record<string, unknown>;
+    }
 
     const cfTurnstileToken =
       typeof body.cfTurnstileToken === "string"
@@ -218,6 +243,7 @@ export async function POST(request: Request) {
       logoUrl,
       logoSvg,
       scrollAnimationEffect,
+      scrollHeroVideoUrl,
     };
 
     const { html, siteSlug } = await buildSite(buildInput);

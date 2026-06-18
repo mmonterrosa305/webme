@@ -7,6 +7,7 @@ import {
   validateImportedSiteData,
 } from "@/lib/agents/scrape-import-site";
 import { uploadLogo } from "@/lib/agents/upload-logo";
+import { resolveScrollHeroVideoUrlFromFormData } from "@/lib/agents/upload-scroll-hero-video";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_SECTIONS,
@@ -51,9 +52,24 @@ async function persistImportedLogo(
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const url = typeof body.url === "string" ? body.url.trim() : "";
-    const scrollAnimationEffect = body.scrollAnimationEffect === true;
+    const contentType = request.headers.get("content-type") ?? "";
+    let url = "";
+    let scrollAnimationEffect = false;
+    let pendingFormData: FormData | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      pendingFormData = await request.formData();
+      url =
+        typeof pendingFormData.get("url") === "string"
+          ? pendingFormData.get("url")!.toString().trim()
+          : "";
+      scrollAnimationEffect =
+        pendingFormData.get("scrollAnimationEffect") === "true";
+    } else {
+      const body = await request.json();
+      url = typeof body.url === "string" ? body.url.trim() : "";
+      scrollAnimationEffect = body.scrollAnimationEffect === true;
+    }
 
     if (!url) {
       return NextResponse.json({ error: "URL is required." }, { status: 400 });
@@ -78,6 +94,14 @@ export async function POST(request: Request) {
       logoUrl = storedLogoUrl ?? imported.logoUrl;
     }
 
+    let scrollHeroVideoUrl: string | null = null;
+    if (scrollAnimationEffect && pendingFormData) {
+      scrollHeroVideoUrl = await resolveScrollHeroVideoUrlFromFormData(
+        pendingFormData,
+        imported.businessName,
+      );
+    }
+
     const { html, siteSlug } = await buildSite({
       city: imported.city,
       industry: imported.industry,
@@ -89,6 +113,7 @@ export async function POST(request: Request) {
       businessProfile,
       logoUrl,
       scrollAnimationEffect,
+      scrollHeroVideoUrl,
     });
 
     const siteBuiltAt = new Date().toISOString();
