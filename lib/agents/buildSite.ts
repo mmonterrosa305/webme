@@ -10,6 +10,10 @@ import {
 } from "./fetch-pixabay-photos";
 import { normalizeHeroVideoAttributes } from "./normalize-hero-video";
 import {
+  applyScrollHeroVideo,
+  fetchScrollHeroVideoFromPexels,
+} from "./scroll-hero-video";
+import {
   buildIndustryHeroListForPrompt,
   formatIndustryImagePromptBlock,
   getRandomHero,
@@ -101,6 +105,7 @@ export type BuildSiteInput = {
   logoMediaType?: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
   logoUrl?: string;
   logoSvg?: string;
+  scrollAnimationEffect?: boolean;
 };
 
 type SupportedImageMediaType =
@@ -432,7 +437,10 @@ export async function buildSite(
   const client = new Anthropic({ apiKey: getAnthropicApiKey() });
 
   const heroUrl = getRandomHero(input.industry);
-  const heroVideoUrl = await fetchHeroVideo(industry);
+  const heroVideoUrl = input.scrollAnimationEffect
+    ? (await fetchScrollHeroVideoFromPexels(industry)) ??
+      (await fetchHeroVideo(industry))
+    : await fetchHeroVideo(industry);
   const pixabayPhotos = await fetchIndustryPhotos(industry);
   const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
   const messageOptions = { heroUrl, heroVideoUrl, siteSlug, pixabayPhotos };
@@ -461,7 +469,11 @@ export async function buildSite(
     throw new Error("No text response from Claude.");
   }
 
-  const html = normalizeHeroVideoAttributes(extractHtml(textBlock.text));
+  let html = normalizeHeroVideoAttributes(extractHtml(textBlock.text));
+
+  if (input.scrollAnimationEffect && heroVideoUrl) {
+    html = applyScrollHeroVideo(html, heroVideoUrl, heroUrl);
+  }
 
   if (!html.includes("<html") && !html.includes("<!DOCTYPE")) {
     throw new Error("Model response did not contain valid HTML.");

@@ -62,6 +62,7 @@ export function WebDesignAgentForm() {
   const [sections, setSections] = useState<SectionId[]>(DEFAULT_SECTIONS);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [createLogoForMe, setCreateLogoForMe] = useState(false);
+  const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -128,6 +129,7 @@ export function WebDesignAgentForm() {
           styleId,
           sections,
           createLogoForMe,
+          scrollAnimationEffect,
           ...logoPayload,
         }),
       });
@@ -432,13 +434,28 @@ export function WebDesignAgentForm() {
             </p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Generating website…" : "Build Website"}
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={scrollAnimationEffect}
+                onChange={(event) =>
+                  setScrollAnimationEffect(event.target.checked)
+                }
+                disabled={loading}
+                className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+              />
+              ✨ Add scroll animation effect
+            </label>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Generating website…" : "Build Website"}
+            </button>
+          </div>
         </form>
 
         {loading ? (

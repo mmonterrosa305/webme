@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { LeadPreview } from "@/lib/leads/types";
+import { hasScrollHeroVideo } from "@/lib/agents/scroll-hero-video";
 import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
 
@@ -150,8 +151,15 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const [photoEditMode, setPhotoEditMode] = useState(false);
   const [replacingSlot, setReplacingSlot] = useState<string | null>(null);
   const [shufflingVideo, setShufflingVideo] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const hasHeroVideo =
+    siteHtml.includes('data-webme="hero-image"') &&
+    siteHtml.includes("<video");
+  const hasScrollHero = hasScrollHeroVideo(siteHtml);
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -570,6 +578,50 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     doc.body.appendChild(script);
   }
 
+  const handleUploadHeroVideo = useCallback(
+    async (file: File | null) => {
+      if (!file) {
+        return;
+      }
+
+      setUploadingVideo(true);
+      setEditError(null);
+
+      try {
+        const formData = new FormData();
+        formData.append("siteSlug", lead.site_slug);
+        formData.append("file", file);
+
+        const response = await fetch("/api/leads/upload-hero-video", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = (await response.json()) as {
+          siteHtml?: string;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to upload hero video.");
+        }
+
+        if (data.siteHtml) {
+          setSiteHtml(data.siteHtml);
+        }
+      } catch (error) {
+        setEditError(
+          error instanceof Error
+            ? error.message
+            : "Failed to upload hero video.",
+        );
+      } finally {
+        setUploadingVideo(false);
+      }
+    },
+    [lead.site_slug],
+  );
+
   const handleShuffleVideo = useCallback(async () => {
     setShufflingVideo(true);
 
@@ -680,6 +732,16 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
           event.target.value = "";
         }}
       />
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime"
+        className="hidden"
+        onChange={(event) => {
+          void handleUploadHeroVideo(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
 
       <header className="sticky top-0 z-50 shrink-0 border-b border-neutral-800 bg-[#111111] shadow-lg">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
@@ -751,6 +813,16 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
             >
               {shufflingVideo ? "Shuffling..." : "Shuffle Video"}
             </button>
+            {hasScrollHero || hasHeroVideo ? (
+              <button
+                type="button"
+                disabled={uploadingVideo}
+                onClick={() => videoInputRef.current?.click()}
+                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {uploadingVideo ? "Uploading..." : "Upload Custom Video"}
+              </button>
+            ) : null}
           </div>
         </div>
       </header>

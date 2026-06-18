@@ -1,39 +1,14 @@
 import { NextResponse } from "next/server";
 
+import { fetchScrollHeroVideoFromPexels } from "@/lib/agents/scroll-hero-video";
 import { fetchHeroVideo } from "@/lib/agents/fetch-pexels-video";
 import { getIndustrySearchQueries } from "@/lib/agents/fetch-pixabay-photos";
 import { normalizeHeroVideoAttributes } from "@/lib/agents/normalize-hero-video";
+import {
+  hasScrollHeroVideo,
+  replaceScrollHeroVideoUrl,
+} from "@/lib/agents/scroll-hero-video";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function replaceHeroVideoUrl(html: string, newVideoUrl: string): string | null {
-  const videoMatch = html.match(
-    /<video[^>]*data-webme="hero-image"[^>]*>[\s\S]*?<\/video>/i,
-  );
-
-  if (!videoMatch) {
-    return null;
-  }
-
-  const block = videoMatch[0];
-  let updatedBlock = block.replace(
-    /(<video[^>]*\ssrc=")[^"]+(")/i,
-    `$1${newVideoUrl}$2`,
-  );
-
-  if (updatedBlock === block && /<video[^>]*data-webme="hero-image"[^>]*>/i.test(block)) {
-    updatedBlock = block.replace(
-      /(<video[^>]*data-webme="hero-image")/i,
-      `$1 src="${newVideoUrl}"`,
-    );
-  }
-
-  updatedBlock = updatedBlock.replace(
-    /(<source[^>]*\ssrc=")[^"]+(")/gi,
-    `$1${newVideoUrl}$2`,
-  );
-
-  return html.replace(block, updatedBlock);
-}
 
 export async function POST(request: Request) {
   try {
@@ -50,18 +25,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const queries = getIndustrySearchQueries(industry);
-    const searchQuery =
-      queries[Math.floor(Math.random() * queries.length)] ?? industry;
-    const newVideoUrl = await fetchHeroVideo(searchQuery);
-
-    if (!newVideoUrl) {
-      return NextResponse.json(
-        { error: "Could not fetch replacement video." },
-        { status: 500 },
-      );
-    }
-
     const supabase = createAdminClient();
     const { data: lead, error: fetchError } = await supabase
       .from("leads")
@@ -73,7 +36,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Lead not found." }, { status: 404 });
     }
 
-    const updatedHtml = replaceHeroVideoUrl(lead.site_html, newVideoUrl);
+    const isScrollHero = hasScrollHeroVideo(lead.site_html);
+    let newVideoUrl: string | null = null;
+
+    if (isScrollHero) {
+      newVideoUrl = await fetchScrollHeroVideoFromPexels(industry);
+    } else {
+      const queries = getIndustrySearchQueries(industry);
+      const searchQuery =
+        queries[Math.floor(Math.random() * queries.length)] ?? industry;
+      newVideoUrl = await fetchHeroVideo(searchQuery);
+    }
+
+    if (!newVideoUrl) {
+      return NextResponse.json(
+        { error: "Could not fetch replacement video." },
+        { status: 500 },
+      );
+    }
+
+    const updatedHtml = replaceScrollHeroVideoUrl(lead.site_html, newVideoUrl);
 
     if (!updatedHtml) {
       return NextResponse.json(
@@ -82,9 +64,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const normalizedHtml = hasScrollHeroVideo(updatedHtml)
+      ? updatedHtml
+      : normalizeHeroVideoAttributes(updatedHtml);
+
     const { error: updateError } = await supabase
       .from("leads")
-      .update({ site_html: normalizeHeroVideoAttributes(updatedHtml) })
+      .update({ site_html: normalizedHtml })
       .eq("site_slug", siteSlug);
 
     if (updateError) {

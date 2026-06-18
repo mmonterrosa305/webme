@@ -128,6 +128,7 @@ export async function POST(request: Request) {
     const styleId = typeof body.styleId === "string" ? body.styleId : "";
     const sections = parseSections(body.sections);
     const createLogoForMe = body.createLogoForMe === true;
+    const scrollAnimationEffect = body.scrollAnimationEffect === true;
     let logoBase64 =
       typeof body.logoBase64 === "string" ? body.logoBase64 : undefined;
     let logoMediaType =
@@ -216,6 +217,7 @@ export async function POST(request: Request) {
       logoMediaType: logoMediaType as BuildSiteInput["logoMediaType"],
       logoUrl,
       logoSvg,
+      scrollAnimationEffect,
     };
 
     const { html, siteSlug } = await buildSite(buildInput);

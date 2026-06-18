@@ -53,6 +53,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const url = typeof body.url === "string" ? body.url.trim() : "";
+    const scrollAnimationEffect = body.scrollAnimationEffect === true;
 
     if (!url) {
       return NextResponse.json({ error: "URL is required." }, { status: 400 });
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
       createLogoForMe: !logoUrl,
       businessProfile,
       logoUrl,
+      scrollAnimationEffect,
     });
 
     const siteBuiltAt = new Date().toISOString();

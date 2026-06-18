@@ -29,7 +29,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await buildBusinessSearchSite(body.business);
+    const scrollAnimationEffect = body.scrollAnimationEffect === true;
+
+    const result = await buildBusinessSearchSite(body.business, {
+      scrollAnimationEffect,
+    });
 
     return NextResponse.json({
       success: true,

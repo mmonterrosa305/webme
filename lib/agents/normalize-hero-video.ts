@@ -20,6 +20,13 @@ function ensureRequiredVideoAttrs(attrs: string): string {
 
 /** Ensures hero background videos autoplay without visible controls. */
 export function normalizeHeroVideoAttributes(html: string): string {
+  if (
+    html.includes('data-webme-scroll-hero="true"') ||
+    html.includes('id="webme-scroll-hero"')
+  ) {
+    return html;
+  }
+
   return html.replace(
     /<video([^>]*data-webme="hero-image"[^>]*)>/gi,
     (_match, attrs: string) => {

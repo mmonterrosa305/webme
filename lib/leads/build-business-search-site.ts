@@ -81,7 +81,10 @@ function toBusinessProfile(result: BusinessSearchResult): BusinessProfile {
   };
 }
 
-export async function buildBusinessSearchSite(result: BusinessSearchResult) {
+export async function buildBusinessSearchSite(
+  result: BusinessSearchResult,
+  options?: { scrollAnimationEffect?: boolean },
+) {
   const businessProfile = toBusinessProfile(result);
   const tagline =
     result.websiteData?.headline ??
@@ -107,6 +110,7 @@ export async function buildBusinessSearchSite(result: BusinessSearchResult) {
     createLogoForMe: !logoUrl,
     businessProfile,
     logoUrl,
+    scrollAnimationEffect: options?.scrollAnimationEffect ?? false,
   });
 
   const siteBuiltAt = new Date().toISOString();

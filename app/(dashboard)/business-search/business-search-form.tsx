@@ -55,10 +55,14 @@ function BusinessResultCard({
   business,
   onBuild,
   building,
+  scrollAnimationEffect,
+  onScrollAnimationEffectChange,
 }: {
   business: BusinessSearchResult;
   onBuild: () => void;
   building: boolean;
+  scrollAnimationEffect: boolean;
+  onScrollAnimationEffectChange: (checked: boolean) => void;
 }) {
   const website = business.websiteData;
 
@@ -157,14 +161,29 @@ function BusinessResultCard({
         </p>
       )}
 
-      <button
-        type="button"
-        disabled={building}
-        onClick={onBuild}
-        className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {building ? "Building site..." : "Build Site"}
-      </button>
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+          <input
+            type="checkbox"
+            checked={scrollAnimationEffect}
+            onChange={(event) =>
+              onScrollAnimationEffectChange(event.target.checked)
+            }
+            disabled={building}
+            className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+          />
+          ✨ Add scroll animation effect
+        </label>
+
+        <button
+          type="button"
+          disabled={building}
+          onClick={onBuild}
+          className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {building ? "Building site..." : "Build Site"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -181,6 +200,7 @@ export function BusinessSearchForm() {
     null,
   );
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
 
   const isSearching = phase === "searching";
   const isBuilding = phase === "building";
@@ -237,7 +257,7 @@ export function BusinessSearchForm() {
       const response = await fetch("/api/business-search/build-site", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ business }),
+        body: JSON.stringify({ business, scrollAnimationEffect }),
       });
 
       const data = (await response.json()) as {
@@ -381,6 +401,8 @@ export function BusinessSearchForm() {
             business={business}
             onBuild={() => void handleBuildSite()}
             building={isBuilding}
+            scrollAnimationEffect={scrollAnimationEffect}
+            onScrollAnimationEffectChange={setScrollAnimationEffect}
           />
         ) : null}
 

@@ -25,6 +25,7 @@ export function ImportSiteForm() {
     null,
   );
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,7 +43,7 @@ export function ImportSiteForm() {
       const response = await fetch("/api/import-site", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, scrollAnimationEffect }),
       });
 
       const data = (await response.json()) as {
@@ -140,13 +141,28 @@ export function ImportSiteForm() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading || !url.trim()}
-            className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isLoading ? "Working..." : "Extract & Build"}
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={scrollAnimationEffect}
+                onChange={(event) =>
+                  setScrollAnimationEffect(event.target.checked)
+                }
+                disabled={isLoading}
+                className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+              />
+              ✨ Add scroll animation effect
+            </label>
+
+            <button
+              type="submit"
+              disabled={isLoading || !url.trim()}
+              className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoading ? "Working..." : "Extract & Build"}
+            </button>
+          </div>
         </form>
 
         {loadingMessage ? (
