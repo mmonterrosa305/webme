@@ -14,7 +14,6 @@ import {
   type StyleId,
 } from "@/lib/agents/site-options";
 import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
-
 import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
 
 const inputClassName =
@@ -67,6 +66,9 @@ export function WebDesignAgentForm() {
   const [createLogoForMe, setCreateLogoForMe] = useState(false);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
+    null,
+  );
+  const [scrollHeroPresetId, setScrollHeroPresetId] = useState<string | null>(
     null,
   );
   const [loading, setLoading] = useState(false);
@@ -133,6 +135,7 @@ export function WebDesignAgentForm() {
         sections,
         createLogoForMe,
         scrollAnimationEffect,
+        scrollHeroPresetId: scrollHeroPresetId ?? undefined,
         ...logoPayload,
       };
 
@@ -459,8 +462,11 @@ export function WebDesignAgentForm() {
               checked={scrollAnimationEffect}
               onCheckedChange={setScrollAnimationEffect}
               disabled={loading}
+              industry={industry}
               videoFile={scrollHeroVideoFile}
               onVideoFileChange={setScrollHeroVideoFile}
+              selectedPresetId={scrollHeroPresetId}
+              onSelectedPresetIdChange={setScrollHeroPresetId}
             />
 
             <button

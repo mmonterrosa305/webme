@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildBusinessSearchSite } from "@/lib/leads/build-business-search-site";
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
-import { resolveScrollHeroVideoUrlFromFormData } from "@/lib/agents/upload-scroll-hero-video";
+import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scroll-hero-video";
 
 function isBusinessSearchResult(value: unknown): value is BusinessSearchResult {
   if (!value || typeof value !== "object") {
@@ -24,11 +24,12 @@ export async function POST(request: Request) {
     const contentType = request.headers.get("content-type") ?? "";
     let business: BusinessSearchResult;
     let scrollAnimationEffect = false;
-    let scrollHeroVideoUrl: string | null = null;
+    let scrollHeroPresetId: string | null = null;
+    let pendingFormData: FormData | null = null;
 
     if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      const businessRaw = formData.get("business");
+      pendingFormData = await request.formData();
+      const businessRaw = pendingFormData.get("business");
 
       if (typeof businessRaw !== "string") {
         return NextResponse.json(
@@ -38,18 +39,20 @@ export async function POST(request: Request) {
       }
 
       business = JSON.parse(businessRaw) as BusinessSearchResult;
-      scrollAnimationEffect = formData.get("scrollAnimationEffect") === "true";
-
-      if (scrollAnimationEffect) {
-        scrollHeroVideoUrl = await resolveScrollHeroVideoUrlFromFormData(
-          formData,
-          business.businessName,
-        );
-      }
+      scrollAnimationEffect = pendingFormData.get("scrollAnimationEffect") === "true";
+      const presetRaw = pendingFormData.get("scrollHeroPresetId");
+      scrollHeroPresetId =
+        typeof presetRaw === "string" && presetRaw.trim()
+          ? presetRaw.trim()
+          : null;
     } else {
       const body = await request.json();
       business = body.business as BusinessSearchResult;
       scrollAnimationEffect = body.scrollAnimationEffect === true;
+      scrollHeroPresetId =
+        typeof body.scrollHeroPresetId === "string"
+          ? body.scrollHeroPresetId.trim()
+          : null;
     }
 
     if (!isBusinessSearchResult(business)) {
@@ -57,6 +60,15 @@ export async function POST(request: Request) {
         { error: "Valid business search result is required." },
         { status: 400 },
       );
+    }
+
+    let scrollHeroVideoUrl: string | null = null;
+    if (scrollAnimationEffect) {
+      scrollHeroVideoUrl = await resolveScrollHeroVideoForBuild({
+        formData: pendingFormData,
+        businessName: business.businessName,
+        presetId: scrollHeroPresetId,
+      });
     }
 
     const result = await buildBusinessSearchSite(business, {

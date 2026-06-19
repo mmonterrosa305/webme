@@ -61,6 +61,8 @@ function BusinessResultCard({
   onScrollAnimationEffectChange,
   scrollHeroVideoFile,
   onScrollHeroVideoFileChange,
+  scrollHeroPresetId,
+  onScrollHeroPresetIdChange,
 }: {
   business: BusinessSearchResult;
   onBuild: () => void;
@@ -69,6 +71,8 @@ function BusinessResultCard({
   onScrollAnimationEffectChange: (checked: boolean) => void;
   scrollHeroVideoFile: File | null;
   onScrollHeroVideoFileChange: (file: File | null) => void;
+  scrollHeroPresetId: string | null;
+  onScrollHeroPresetIdChange: (presetId: string | null) => void;
 }) {
   const website = business.websiteData;
 
@@ -172,8 +176,11 @@ function BusinessResultCard({
           checked={scrollAnimationEffect}
           onCheckedChange={onScrollAnimationEffectChange}
           disabled={building}
+          industry={business.industry}
           videoFile={scrollHeroVideoFile}
           onVideoFileChange={onScrollHeroVideoFileChange}
+          selectedPresetId={scrollHeroPresetId}
+          onSelectedPresetIdChange={onScrollHeroPresetIdChange}
         />
 
         <button
@@ -203,6 +210,9 @@ export function BusinessSearchForm() {
   const [queueError, setQueueError] = useState<string | null>(null);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
+    null,
+  );
+  const [scrollHeroPresetId, setScrollHeroPresetId] = useState<string | null>(
     null,
   );
 
@@ -267,6 +277,9 @@ export function BusinessSearchForm() {
           "scrollAnimationEffect",
           scrollAnimationEffect ? "true" : "false",
         );
+        if (scrollHeroPresetId) {
+          formData.append("scrollHeroPresetId", scrollHeroPresetId);
+        }
         formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
         response = await fetch("/api/business-search/build-site", {
           method: "POST",
@@ -276,7 +289,11 @@ export function BusinessSearchForm() {
         response = await fetch("/api/business-search/build-site", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ business, scrollAnimationEffect }),
+          body: JSON.stringify({
+            business,
+            scrollAnimationEffect,
+            scrollHeroPresetId: scrollHeroPresetId ?? undefined,
+          }),
         });
       }
 
@@ -425,6 +442,8 @@ export function BusinessSearchForm() {
             onScrollAnimationEffectChange={setScrollAnimationEffect}
             scrollHeroVideoFile={scrollHeroVideoFile}
             onScrollHeroVideoFileChange={setScrollHeroVideoFile}
+            scrollHeroPresetId={scrollHeroPresetId}
+            onScrollHeroPresetIdChange={setScrollHeroPresetId}
           />
         ) : null}
 

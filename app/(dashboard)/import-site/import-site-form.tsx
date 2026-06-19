@@ -31,6 +31,9 @@ export function ImportSiteForm() {
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
     null,
   );
+  const [scrollHeroPresetId, setScrollHeroPresetId] = useState<string | null>(
+    null,
+  );
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,6 +57,9 @@ export function ImportSiteForm() {
           "scrollAnimationEffect",
           scrollAnimationEffect ? "true" : "false",
         );
+        if (scrollHeroPresetId) {
+          formData.append("scrollHeroPresetId", scrollHeroPresetId);
+        }
         formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
         response = await fetch("/api/import-site", {
           method: "POST",
@@ -63,7 +69,11 @@ export function ImportSiteForm() {
         response = await fetch("/api/import-site", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, scrollAnimationEffect }),
+          body: JSON.stringify({
+            url,
+            scrollAnimationEffect,
+            scrollHeroPresetId: scrollHeroPresetId ?? undefined,
+          }),
         });
       }
 
@@ -169,6 +179,8 @@ export function ImportSiteForm() {
               disabled={isLoading}
               videoFile={scrollHeroVideoFile}
               onVideoFileChange={setScrollHeroVideoFile}
+              selectedPresetId={scrollHeroPresetId}
+              onSelectedPresetIdChange={setScrollHeroPresetId}
             />
 
             <button

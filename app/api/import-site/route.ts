@@ -7,7 +7,7 @@ import {
   validateImportedSiteData,
 } from "@/lib/agents/scrape-import-site";
 import { uploadLogo } from "@/lib/agents/upload-logo";
-import { resolveScrollHeroVideoUrlFromFormData } from "@/lib/agents/upload-scroll-hero-video";
+import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scroll-hero-video";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_SECTIONS,
@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     const contentType = request.headers.get("content-type") ?? "";
     let url = "";
     let scrollAnimationEffect = false;
+    let scrollHeroPresetId: string | null = null;
     let pendingFormData: FormData | null = null;
 
     if (contentType.includes("multipart/form-data")) {
@@ -65,10 +66,19 @@ export async function POST(request: Request) {
           : "";
       scrollAnimationEffect =
         pendingFormData.get("scrollAnimationEffect") === "true";
+      const presetRaw = pendingFormData.get("scrollHeroPresetId");
+      scrollHeroPresetId =
+        typeof presetRaw === "string" && presetRaw.trim()
+          ? presetRaw.trim()
+          : null;
     } else {
       const body = await request.json();
       url = typeof body.url === "string" ? body.url.trim() : "";
       scrollAnimationEffect = body.scrollAnimationEffect === true;
+      scrollHeroPresetId =
+        typeof body.scrollHeroPresetId === "string"
+          ? body.scrollHeroPresetId.trim()
+          : null;
     }
 
     if (!url) {
@@ -95,11 +105,12 @@ export async function POST(request: Request) {
     }
 
     let scrollHeroVideoUrl: string | null = null;
-    if (scrollAnimationEffect && pendingFormData) {
-      scrollHeroVideoUrl = await resolveScrollHeroVideoUrlFromFormData(
-        pendingFormData,
-        imported.businessName,
-      );
+    if (scrollAnimationEffect) {
+      scrollHeroVideoUrl = await resolveScrollHeroVideoForBuild({
+        formData: pendingFormData,
+        businessName: imported.businessName,
+        presetId: scrollHeroPresetId,
+      });
     }
 
     const { html, siteSlug } = await buildSite({

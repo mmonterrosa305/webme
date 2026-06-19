@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import { uploadLogo } from "@/lib/agents/upload-logo";
-import { resolveScrollHeroVideoUrlFromFormData } from "@/lib/agents/upload-scroll-hero-video";
+import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scroll-hero-video";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -86,10 +86,11 @@ export async function POST(request: Request) {
     const contentType = request.headers.get("content-type") ?? "";
     let body: Record<string, unknown>;
     let scrollHeroVideoUrl: string | null = null;
+    let pendingFormData: FormData | null = null;
 
     if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      const payloadRaw = formData.get("buildPayload");
+      pendingFormData = await request.formData();
+      const payloadRaw = pendingFormData.get("buildPayload");
 
       if (typeof payloadRaw !== "string") {
         return NextResponse.json(
@@ -99,14 +100,24 @@ export async function POST(request: Request) {
       }
 
       body = JSON.parse(payloadRaw) as Record<string, unknown>;
-      const payloadBusinessName =
-        typeof body.businessName === "string" ? body.businessName.trim() : "site";
-      scrollHeroVideoUrl = await resolveScrollHeroVideoUrlFromFormData(
-        formData,
-        payloadBusinessName,
-      );
     } else {
       body = (await request.json()) as Record<string, unknown>;
+    }
+
+    const scrollAnimationEffect = body.scrollAnimationEffect === true;
+    const payloadBusinessName =
+      typeof body.businessName === "string" ? body.businessName.trim() : "site";
+    const scrollHeroPresetId =
+      typeof body.scrollHeroPresetId === "string"
+        ? body.scrollHeroPresetId.trim()
+        : null;
+
+    if (scrollAnimationEffect) {
+      scrollHeroVideoUrl = await resolveScrollHeroVideoForBuild({
+        formData: pendingFormData,
+        businessName: payloadBusinessName,
+        presetId: scrollHeroPresetId,
+      });
     }
 
     const cfTurnstileToken =
@@ -153,7 +164,6 @@ export async function POST(request: Request) {
     const styleId = typeof body.styleId === "string" ? body.styleId : "";
     const sections = parseSections(body.sections);
     const createLogoForMe = body.createLogoForMe === true;
-    const scrollAnimationEffect = body.scrollAnimationEffect === true;
     let logoBase64 =
       typeof body.logoBase64 === "string" ? body.logoBase64 : undefined;
     let logoMediaType =
