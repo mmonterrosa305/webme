@@ -91,8 +91,6 @@ function PackagePrice({ pkg }: { pkg: (typeof PACKAGES)[number] }) {
   );
 }
 
-const inputClassName =
-  "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
 
 function toPreviewFields(
   fields: Partial<PreviewFields> | undefined,
@@ -213,6 +211,114 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     doc.write(siteHtml);
     doc.close();
   }, [siteHtml]);
+
+  const injectTextEditors = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+
+    doc.getElementById("webme-text-edit-script")?.remove();
+    doc.getElementById("webme-text-edit-styles")?.remove();
+
+    const style = doc.createElement("style");
+    style.id = "webme-text-edit-styles";
+    style.textContent = `
+      [data-webme-editable="true"] {
+        cursor: text !important;
+        outline: none !important;
+        transition: box-shadow 0.15s ease;
+      }
+      [data-webme-editable="true"]:hover {
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.65) !important;
+      }
+      [data-webme-editable="true"]:focus {
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95) !important;
+      }
+    `;
+    doc.head.appendChild(style);
+
+    const script = doc.createElement("script");
+    script.id = "webme-text-edit-script";
+    script.textContent = `
+      (function () {
+        var configs = [
+          {
+            field: "headline",
+            selectors: ['[data-webme="headline"]', "#webme-scroll-hero h1", "section h1"],
+          },
+          {
+            field: "tagline",
+            selectors: ['[data-webme="tagline"]', "#webme-scroll-hero .hero-content p", "section .hero-content p"],
+          },
+          {
+            field: "businessName",
+            selectors: ['[data-webme="business-name"]', ".logo-text", "nav .logo-text"],
+          },
+          {
+            field: "phone",
+            selectors: ['[data-webme="phone"]'],
+          },
+        ];
+
+        function attachEditor(el, field) {
+          if (!el || el.getAttribute("data-webme-editable") === "true") return;
+
+          el.setAttribute("contenteditable", "true");
+          el.setAttribute("data-webme-editable", "true");
+          el.setAttribute("spellcheck", "false");
+
+          el.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              el.blur();
+            }
+          });
+
+          el.addEventListener("blur", function () {
+            window.parent.postMessage(
+              {
+                type: "text-edit",
+                field: field,
+                value: el.textContent.trim(),
+              },
+              "*",
+            );
+          });
+        }
+
+        configs.forEach(function (config) {
+          for (var i = 0; i < config.selectors.length; i++) {
+            var el = document.querySelector(config.selectors[i]);
+            if (el) {
+              attachEditor(el, config.field);
+              break;
+            }
+          }
+        });
+      })();
+    `;
+    doc.body.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const timeout = window.setTimeout(() => {
+      injectTextEditors();
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeout);
+      const doc = iframe.contentDocument;
+      if (doc) {
+        doc.getElementById("webme-text-edit-script")?.remove();
+        doc.getElementById("webme-text-edit-styles")?.remove();
+      }
+    };
+  }, [siteHtml, injectTextEditors]);
 
   useEffect(() => {
     function resetPaymentState() {
@@ -706,7 +812,12 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      const data = event.data as { type?: string; slot?: string };
+      const data = event.data as {
+        type?: string;
+        slot?: string;
+        field?: keyof PreviewFields;
+        value?: string;
+      };
       if (data?.type === "replace-photo" && typeof data.slot === "string") {
         void handleReplacePhoto(data.slot);
       }
@@ -715,6 +826,20 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
       }
       if (data?.type === "shuffle-video") {
         void handleShuffleVideo();
+      }
+      if (
+        data?.type === "text-edit" &&
+        data.field &&
+        typeof data.value === "string" &&
+        (data.field === "businessName" ||
+          data.field === "phone" ||
+          data.field === "headline" ||
+          data.field === "tagline")
+      ) {
+        setFields((current) => ({
+          ...current,
+          [data.field!]: data.value!,
+        }));
       }
     }
 
@@ -869,12 +994,20 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         </div>
       </div>
 
+      <div className="shrink-0 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 sm:px-6">
+        <p className="mx-auto max-w-7xl text-sm text-neutral-600">
+          Click the headline, tagline, business name, or phone number on the
+          site preview to edit text directly.
+        </p>
+      </div>
+
       <iframe
         ref={iframeRef}
         title={`Website preview for ${lead.business_name}`}
         sandbox="allow-scripts allow-same-origin"
         className="min-h-[55vh] w-full flex-1 border-0 bg-white"
         onLoad={() => {
+          injectTextEditors();
           injectHeroVideoOverlay();
           if (photoEditMode) {
             injectPhotoOverlays();
@@ -892,89 +1025,6 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               <p className="text-sm text-neutral-600">
                 {editsRemaining} of {editsLimit} free edits remaining
               </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <label
-                  htmlFor="previewBusinessName"
-                  className="mb-1 block text-xs font-medium text-neutral-700"
-                >
-                  Business name
-                </label>
-                <input
-                  id="previewBusinessName"
-                  value={fields.businessName}
-                  disabled={loadingEdits || saving}
-                  onChange={(event) =>
-                    setFields((current) => ({
-                      ...current,
-                      businessName: event.target.value,
-                    }))
-                  }
-                  className={inputClassName}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="previewHeadline"
-                  className="mb-1 block text-xs font-medium text-neutral-700"
-                >
-                  Headline
-                </label>
-                <input
-                  id="previewHeadline"
-                  value={fields.headline}
-                  disabled={loadingEdits || saving}
-                  onChange={(event) =>
-                    setFields((current) => ({
-                      ...current,
-                      headline: event.target.value,
-                    }))
-                  }
-                  className={inputClassName}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="previewPhone"
-                  className="mb-1 block text-xs font-medium text-neutral-700"
-                >
-                  Phone number
-                </label>
-                <input
-                  id="previewPhone"
-                  value={fields.phone}
-                  disabled={loadingEdits || saving}
-                  onChange={(event) =>
-                    setFields((current) => ({
-                      ...current,
-                      phone: event.target.value,
-                    }))
-                  }
-                  className={inputClassName}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="previewTagline"
-                  className="mb-1 block text-xs font-medium text-neutral-700"
-                >
-                  Tagline
-                </label>
-                <input
-                  id="previewTagline"
-                  value={fields.tagline}
-                  disabled={loadingEdits || saving}
-                  onChange={(event) =>
-                    setFields((current) => ({
-                      ...current,
-                      tagline: event.target.value,
-                    }))
-                  }
-                  className={inputClassName}
-                />
-              </div>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
