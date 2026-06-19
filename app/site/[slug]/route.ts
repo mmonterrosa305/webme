@@ -1,3 +1,4 @@
+import { prepareScrollHeroSiteHtml } from "@/lib/agents/scroll-hero-video";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { NextResponse } from "next/server";
 
@@ -42,7 +43,9 @@ export async function GET(
     return new NextResponse("Site not found", { status: 404 });
   }
 
-  return new NextResponse(injectAnalyticsScript(lead.site_html), {
+  const html = prepareScrollHeroSiteHtml(lead.site_html);
+
+  return new NextResponse(injectAnalyticsScript(html), {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
     },

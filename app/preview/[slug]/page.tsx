@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { prepareScrollHeroSiteHtml } from "@/lib/agents/scroll-hero-video";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 
 import { PreviewShell } from "./preview-shell";
@@ -30,5 +31,12 @@ export default async function PreviewPage({ params }: PageProps) {
     notFound();
   }
 
-  return <PreviewShell lead={lead} />;
+  return (
+    <PreviewShell
+      lead={{
+        ...lead,
+        site_html: prepareScrollHeroSiteHtml(lead.site_html),
+      }}
+    />
+  );
 }

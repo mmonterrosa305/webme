@@ -9,6 +9,89 @@ export const GSAP_CDN =
 export const SCROLL_TRIGGER_CDN =
   "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js";
 
+const SCROLL_HERO_STYLES = `<style id="webme-scroll-hero-styles">
+html.webme-scroll-hero-page,
+html.webme-scroll-hero-page body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden;
+  width: 100%;
+}
+#webme-scroll-hero {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  max-width: none !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+.webme-scroll-hero-pin {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+.webme-scroll-hero-pin video[data-webme-scroll-hero="true"] {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  object-fit: cover;
+  z-index: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.webme-scroll-hero-pin .hero-overlay,
+.webme-scroll-hero-pin [class*="overlay"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.webme-scroll-hero-nav {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 10 !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none !important;
+  box-shadow: none !important;
+}
+.webme-scroll-hero-content {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto !important;
+  padding: 24px !important;
+  text-align: center;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+</style>`;
+
 const SCROLL_VIDEO_SEARCH_TERMS: Record<string, string[]> = {
   "Pool Service": ["pool splash", "swimming pool", "pool cleaning"],
   Landscaping: ["lawn mowing", "landscaping", "garden maintenance"],
@@ -126,6 +209,129 @@ function ensureScrollHeroInitScript($: cheerio.CheerioAPI): void {
   $("body").append(SCROLL_HERO_INIT_SCRIPT);
 }
 
+function ensureScrollHeroStyles($: cheerio.CheerioAPI): void {
+  $("#webme-scroll-hero-styles").remove();
+  const head = $("head");
+  if (head.length === 0) {
+    return;
+  }
+
+  head.append(SCROLL_HERO_STYLES);
+  $("html").addClass("webme-scroll-hero-page");
+}
+
+function findSiteNav($: cheerio.CheerioAPI): cheerio.Cheerio<AnyNode> {
+  const heroElement = $("#webme-scroll-hero").get(0);
+
+  for (const element of $("body").children().toArray()) {
+    const tagName = element.tagName?.toLowerCase();
+    if (tagName === "header" || tagName === "nav") {
+      return $(element);
+    }
+
+    if (heroElement && element === heroElement) {
+      break;
+    }
+  }
+
+  return $("header, nav").first();
+}
+
+function ensureScrollHeroNav($: cheerio.CheerioAPI): void {
+  const $nav = findSiteNav($);
+  if (!$nav.length) {
+    return;
+  }
+
+  const existingClass = $nav.attr("class") ?? "";
+  if (!existingClass.includes("webme-scroll-hero-nav")) {
+    $nav.attr("class", `${existingClass} webme-scroll-hero-nav`.trim());
+  }
+}
+
+function ensureScrollHeroPinLayout($: cheerio.CheerioAPI): void {
+  const $heroSection = $("#webme-scroll-hero");
+  if (!$heroSection.length) {
+    return;
+  }
+
+  $heroSection.attr(
+    "style",
+    "position:relative;height:300vh;width:100%;margin:0;padding:0;border:none;",
+  );
+
+  const $pin = $heroSection.find(".webme-scroll-hero-pin").first();
+  if ($pin.length) {
+    $pin.removeAttr("style");
+  }
+
+  const $video = $heroSection.find('video[data-webme-scroll-hero="true"]').first();
+  if ($video.length) {
+    $video.attr(
+      "style",
+      "position:absolute;inset:0;width:100vw;height:100vh;max-width:none;object-fit:cover;z-index:0;margin:0;padding:0;border:none;",
+    );
+  }
+
+  $heroSection
+    .find(".hero-overlay, [class*='overlay']")
+    .filter((_index, element) => {
+      const className = $(element).attr("class") ?? "";
+      return /overlay/i.test(className);
+    })
+    .each((_index, element) => {
+      const $overlay = $(element);
+      const style = $overlay.attr("style") ?? "";
+      if (!/position\s*:\s*absolute/i.test(style)) {
+        $overlay.attr(
+          "style",
+          `${style};position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:1;pointer-events:none;`.replace(
+            /^;/,
+            "",
+          ),
+        );
+      }
+    });
+}
+
+function ensureScrollHeroContentLayout($: cheerio.CheerioAPI): void {
+  const $heroSection = $("#webme-scroll-hero");
+  if (!$heroSection.length) {
+    return;
+  }
+
+  const $content = $heroSection
+    .find(".webme-scroll-hero-content, .hero-content, [class*='hero-content']")
+    .first();
+
+  if (!$content.length) {
+    return;
+  }
+
+  const existingClass = $content.attr("class") ?? "";
+  if (!existingClass.includes("webme-scroll-hero-content")) {
+    $content.attr("class", `${existingClass} webme-scroll-hero-content`.trim());
+  }
+
+  $content.removeAttr("style");
+}
+
+/** Idempotent fullscreen layout fixes for scroll-hero sites (new and existing HTML). */
+export function prepareScrollHeroSiteHtml(html: string): string {
+  if (!hasScrollHeroVideo(html)) {
+    return html;
+  }
+
+  const $ = cheerio.load(html);
+  ensureScrollHeroStyles($);
+  ensureScrollHeroNav($);
+  ensureScrollHeroPinLayout($);
+  ensureScrollHeroContentLayout($);
+  ensureGsapScripts($);
+  ensureScrollHeroInitScript($);
+  return $.html();
+}
+
 function setVideoSrc($video: cheerio.Cheerio<AnyNode>, videoUrl: string): void {
   $video.attr("src", videoUrl);
   $video.removeAttr("autoplay");
@@ -155,10 +361,7 @@ export function replaceScrollHeroVideoUrl(
   }
 
   setVideoSrc($video, newVideoUrl);
-  ensureGsapScripts($);
-  ensureScrollHeroInitScript($);
-
-  return $.html();
+  return prepareScrollHeroSiteHtml($.html());
 }
 
 export function replaceHeroVideoUrl(
@@ -213,7 +416,7 @@ export function applyScrollHeroVideo(
     }
 
     $video = $(
-      `<video data-webme="hero-image" data-webme-scroll-hero="true" muted playsinline preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>`,
+      `<video data-webme="hero-image" data-webme-scroll-hero="true" muted playsinline preload="auto"></video>`,
     );
     $heroSection.prepend($video);
   }
@@ -255,12 +458,8 @@ export function applyScrollHeroVideo(
 
   $heroSection.attr("id", "webme-scroll-hero");
   $heroSection.attr("data-webme-scroll-hero", "true");
-  $heroSection.attr(
-    "style",
-    "position:relative;height:300vh;width:100%;margin:0;padding:0;",
-  );
 
-  const pinHtml = `<div class="webme-scroll-hero-pin" style="position:sticky;top:0;height:100vh;width:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;"></div>`;
+  const pinHtml = `<div class="webme-scroll-hero-pin"></div>`;
   $heroSection.empty();
   const $pin = $(pinHtml);
   $heroSection.append($pin);
@@ -268,12 +467,7 @@ export function applyScrollHeroVideo(
   $pin.append(videoHtml);
 
   if (overlayHtml) {
-    const $overlayEl = $(overlayHtml);
-    $overlayEl.attr(
-      "style",
-      `${$overlayEl.attr("style") ?? ""};position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:1;pointer-events:none;`,
-    );
-    $pin.append($overlayEl);
+    $pin.append(overlayHtml);
   } else {
     $pin.append(
       `<div class="hero-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:1;pointer-events:none;"></div>`,
@@ -282,14 +476,16 @@ export function applyScrollHeroVideo(
 
   if (contentHtml) {
     const $contentEl = $(contentHtml);
+    const existingClass = $contentEl.attr("class") ?? "";
     $contentEl.attr(
-      "style",
-      `${$contentEl.attr("style") ?? ""};position:relative;z-index:2;width:100%;max-width:960px;margin:0 auto;padding:120px 24px 48px;text-align:center;color:#fff;`,
+      "class",
+      `${existingClass} webme-scroll-hero-content`.trim(),
     );
+    $contentEl.removeAttr("style");
     $pin.append($contentEl);
   } else {
     const contentParts: string[] = [
-      `<div class="hero-content" style="position:relative;z-index:2;width:100%;max-width:960px;margin:0 auto;padding:120px 24px 48px;text-align:center;color:#fff;">`,
+      `<div class="hero-content webme-scroll-hero-content">`,
     ];
 
     if (headlineHtml) {
@@ -308,8 +504,5 @@ export function applyScrollHeroVideo(
     $pin.append(contentParts.join(""));
   }
 
-  ensureGsapScripts($);
-  ensureScrollHeroInitScript($);
-
-  return $.html();
+  return prepareScrollHeroSiteHtml($.html());
 }
