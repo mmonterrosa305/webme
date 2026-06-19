@@ -14,6 +14,7 @@ type PlanId = "starter" | "monthly" | "premium";
 type PreviewFields = {
   businessName: string;
   phone: string;
+  headline: string;
   tagline: string;
   logoUrl: string;
 };
@@ -100,6 +101,7 @@ function toPreviewFields(
   return {
     businessName: fields?.businessName?.trim() || fallbackBusinessName,
     phone: fields?.phone?.trim() ?? "",
+    headline: fields?.headline?.trim() ?? "",
     tagline: fields?.tagline?.trim() ?? "",
     logoUrl: normalizeLogoUrl(fields?.logoUrl),
   };
@@ -139,6 +141,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const [fields, setFields] = useState<PreviewFields>({
     businessName: lead.business_name,
     phone: "",
+    headline: "",
     tagline: "",
     logoUrl: "",
   });
@@ -224,6 +227,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     savedFields !== null &&
     (fields.businessName !== savedFields.businessName ||
       fields.phone !== savedFields.phone ||
+      fields.headline !== savedFields.headline ||
       fields.tagline !== savedFields.tagline);
 
   async function handlePayNow(plan: PlanId) {
@@ -890,7 +894,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label
                   htmlFor="previewBusinessName"
@@ -906,6 +910,26 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
                     setFields((current) => ({
                       ...current,
                       businessName: event.target.value,
+                    }))
+                  }
+                  className={inputClassName}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="previewHeadline"
+                  className="mb-1 block text-xs font-medium text-neutral-700"
+                >
+                  Headline
+                </label>
+                <input
+                  id="previewHeadline"
+                  value={fields.headline}
+                  disabled={loadingEdits || saving}
+                  onChange={(event) =>
+                    setFields((current) => ({
+                      ...current,
+                      headline: event.target.value,
                     }))
                   }
                   className={inputClassName}

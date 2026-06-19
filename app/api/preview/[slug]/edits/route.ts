@@ -62,11 +62,13 @@ export async function POST(request: Request, context: RouteContext) {
     const body = (await request.json()) as {
       businessName?: string;
       phone?: string;
+      headline?: string;
       tagline?: string;
     };
 
     const businessName = body.businessName?.trim() ?? "";
     const phone = body.phone?.trim() ?? "";
+    const headline = body.headline?.trim() ?? "";
     const tagline = body.tagline?.trim() ?? "";
 
     if (!businessName) {
@@ -82,6 +84,7 @@ export async function POST(request: Request, context: RouteContext) {
     const result = await applyPreviewEdit(lead, {
       businessName,
       phone,
+      headline,
       tagline,
       logoUrl: existingFields.logoUrl,
     });

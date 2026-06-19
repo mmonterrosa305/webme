@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export type PreviewEditableFields = {
   businessName: string;
   phone: string;
+  headline: string;
   tagline: string;
   logoUrl: string;
 };
@@ -80,6 +81,7 @@ export function extractPreviewFields(
   return {
     businessName: content.businessName,
     phone: content.phone,
+    headline: content.headline,
     tagline: content.tagline,
     logoUrl: normalizeLogoUrl(content.logoUrl),
   };
@@ -100,6 +102,7 @@ export async function applyPreviewEdit(
     ...existingContent,
     businessName: fields.businessName.trim(),
     phone: fields.phone.trim(),
+    headline: fields.headline.trim(),
     tagline: fields.tagline.trim(),
   };
 
@@ -132,6 +135,7 @@ export async function applyPreviewEdit(
     fields: {
       businessName: nextContent.businessName,
       phone: nextContent.phone,
+      headline: nextContent.headline,
       tagline: nextContent.tagline,
       logoUrl: nextContent.logoUrl,
     },
