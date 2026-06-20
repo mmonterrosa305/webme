@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { INDUSTRIES } from "@/lib/agents/site-options";
+import { readJsonResponse } from "@/lib/api/fetch-json";
 import {
   MAX_PRESETS_PER_INDUSTRY,
   type VideoPreset,
@@ -179,10 +180,10 @@ export function VideoLibraryManager() {
 
     try {
       const response = await fetch("/api/video-presets");
-      const data = (await response.json()) as {
+      const data = await readJsonResponse<{
         presets?: VideoPreset[];
         error?: string;
-      };
+      }>(response);
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load presets.");
@@ -236,10 +237,10 @@ export function VideoLibraryManager() {
         body: formData,
       });
 
-      const data = (await response.json()) as {
+      const data = await readJsonResponse<{
         preset?: VideoPreset;
         error?: string;
-      };
+      }>(response);
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to upload preset.");
@@ -270,7 +271,7 @@ export function VideoLibraryManager() {
         method: "DELETE",
       });
 
-      const data = (await response.json()) as { error?: string };
+      const data = await readJsonResponse<{ error?: string }>(response);
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to delete preset.");

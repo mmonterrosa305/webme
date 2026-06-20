@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
 
 import {
+  countVideoPresetsForIndustry,
   createVideoPreset,
   listVideoPresets,
 } from "@/lib/video-presets/queries";
+import { MAX_PRESETS_PER_INDUSTRY } from "@/lib/video-presets/types";
 import {
   uploadPresetThumbnail,
   uploadPresetVideo,
+  validatePresetThumbnailFile,
+  validatePresetVideoFile,
 } from "@/lib/video-presets/upload-preset";
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status });
+}
 
 export async function GET(request: Request) {
   try {
@@ -20,13 +31,23 @@ export async function GET(request: Request) {
     const message =
       error instanceof Error ? error.message : "Failed to load video presets.";
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonError(message, 500);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
+    let formData: FormData;
+
+    try {
+      formData = await request.formData();
+    } catch {
+      return jsonError(
+        "Could not read the upload. The file may be too large (max 50 MB).",
+        413,
+      );
+    }
+
     const industry =
       typeof formData.get("industry") === "string"
         ? formData.get("industry")!.toString().trim()
@@ -39,16 +60,31 @@ export async function POST(request: Request) {
     const thumbnailFile = formData.get("thumbnail");
 
     if (!industry) {
-      return NextResponse.json(
-        { error: "Industry is required." },
-        { status: 400 },
-      );
+      return jsonError("Industry is required.", 400);
     }
 
     if (!(videoFile instanceof File) || videoFile.size === 0) {
-      return NextResponse.json(
-        { error: "Video file is required." },
-        { status: 400 },
+      return jsonError("Video file is required.", 400);
+    }
+
+    const videoValidationError = validatePresetVideoFile(videoFile);
+    if (videoValidationError) {
+      const status = videoValidationError.includes("50 MB") ? 413 : 400;
+      return jsonError(videoValidationError, status);
+    }
+
+    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+      const thumbnailValidationError = validatePresetThumbnailFile(thumbnailFile);
+      if (thumbnailValidationError) {
+        return jsonError(thumbnailValidationError, 400);
+      }
+    }
+
+    const existingCount = await countVideoPresetsForIndustry(industry);
+    if (existingCount >= MAX_PRESETS_PER_INDUSTRY) {
+      return jsonError(
+        `Each industry can have up to ${MAX_PRESETS_PER_INDUSTRY} preset videos.`,
+        409,
       );
     }
 
@@ -73,6 +109,6 @@ export async function POST(request: Request) {
     const message =
       error instanceof Error ? error.message : "Failed to create video preset.";
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonError(message, 500);
   }
 }
