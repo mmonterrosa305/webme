@@ -65,19 +65,6 @@ async function captureVideoThumbnail(file: File): Promise<File> {
   }
 }
 
-function groupPresetsByIndustry(
-  presets: VideoPreset[],
-): Record<string, VideoPreset[]> {
-  return presets.reduce<Record<string, VideoPreset[]>>((groups, preset) => {
-    if (!groups[preset.industry]) {
-      groups[preset.industry] = [];
-    }
-
-    groups[preset.industry].push(preset);
-    return groups;
-  }, {});
-}
-
 function PresetVideoCard({
   preset,
   isPlaying,
@@ -163,14 +150,12 @@ export function VideoLibraryManager() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const groupedPresets = useMemo(
-    () => groupPresetsByIndustry(presets),
-    [presets],
+  const filteredPresets = useMemo(
+    () => presets.filter((preset) => preset.industry === uploadIndustry),
+    [presets, uploadIndustry],
   );
 
-  const industryCount = presets.filter(
-    (preset) => preset.industry === uploadIndustry,
-  ).length;
+  const industryCount = filteredPresets.length;
 
   const suggestedLabel = `Option ${industryCount + 1}`;
 
@@ -204,6 +189,15 @@ export function VideoLibraryManager() {
   useEffect(() => {
     void loadPresets();
   }, [loadPresets]);
+
+  useEffect(() => {
+    if (
+      playingPresetId &&
+      !filteredPresets.some((preset) => preset.id === playingPresetId)
+    ) {
+      setPlayingPresetId(null);
+    }
+  }, [filteredPresets, playingPresetId]);
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -383,42 +377,39 @@ export function VideoLibraryManager() {
 
       <Panel
         title="Preset library"
-        subtitle="Videos organized by industry for scroll animation builds."
+        subtitle={`Preset videos for ${uploadIndustry}.`}
       >
         {loading ? (
           <p className="px-5 py-6 text-sm text-neutral-600">Loading presets...</p>
-        ) : presets.length === 0 ? (
+        ) : filteredPresets.length === 0 ? (
           <p className="px-5 py-6 text-sm text-neutral-600">
-            No preset videos yet. Upload one above to get started.
+            No preset videos for {uploadIndustry} yet. Upload one above to get
+            started.
           </p>
         ) : (
-          <div className="space-y-6 px-5 py-5">
-            {Object.entries(groupedPresets).map(([industry, industryPresets]) => (
-              <section key={industry}>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-neutral-900">
-                    {industry}
-                  </h3>
-                  <span className="text-xs text-neutral-500">
-                    {industryPresets.length} of {MAX_PRESETS_PER_INDUSTRY}
-                  </span>
-                </div>
+          <div className="px-5 py-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-neutral-900">
+                {uploadIndustry}
+              </h3>
+              <span className="text-xs text-neutral-500">
+                {filteredPresets.length} of {MAX_PRESETS_PER_INDUSTRY}
+              </span>
+            </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {industryPresets.map((preset) => (
-                    <PresetVideoCard
-                      key={preset.id}
-                      preset={preset}
-                      isPlaying={playingPresetId === preset.id}
-                      onPlay={() => setPlayingPresetId(preset.id)}
-                      onStop={() => setPlayingPresetId(null)}
-                      deleting={deletingId === preset.id}
-                      onDelete={() => void handleDelete(preset)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {filteredPresets.map((preset) => (
+                <PresetVideoCard
+                  key={preset.id}
+                  preset={preset}
+                  isPlaying={playingPresetId === preset.id}
+                  onPlay={() => setPlayingPresetId(preset.id)}
+                  onStop={() => setPlayingPresetId(null)}
+                  deleting={deletingId === preset.id}
+                  onDelete={() => void handleDelete(preset)}
+                />
+              ))}
+            </div>
           </div>
         )}
 
