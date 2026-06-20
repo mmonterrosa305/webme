@@ -77,6 +77,79 @@ function groupPresetsByIndustry(
   }, {});
 }
 
+function PresetVideoCard({
+  preset,
+  isPlaying,
+  onPlay,
+  onStop,
+  deleting,
+  onDelete,
+}: {
+  preset: VideoPreset;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onStop: () => void;
+  deleting: boolean;
+  onDelete: () => void;
+}) {
+  return (
+    <article className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="relative aspect-video bg-neutral-900">
+        {isPlaying ? (
+          <video
+            key={preset.id}
+            src={preset.video_url}
+            controls
+            autoPlay
+            playsInline
+            className="h-full w-full object-cover"
+            onEnded={onStop}
+          />
+        ) : (
+          <>
+            <img
+              src={preset.thumbnail_url}
+              alt={preset.label}
+              className="h-full w-full object-cover"
+            />
+            <button
+              type="button"
+              aria-label={`Preview ${preset.label}`}
+              onClick={onPlay}
+              className="absolute inset-0 flex items-center justify-center bg-black/20 transition hover:bg-black/30"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-neutral-900 shadow-md">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                  className="ml-0.5 h-4 w-4 fill-current"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            </button>
+          </>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-2 px-3 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-neutral-900">
+            {preset.label}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={deleting}
+          onClick={onDelete}
+          className="shrink-0 rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {deleting ? "Deleting..." : "Delete"}
+        </button>
+      </div>
+    </article>
+  );
+}
+
 export function VideoLibraryManager() {
   const [presets, setPresets] = useState<VideoPreset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +158,7 @@ export function VideoLibraryManager() {
   const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [playingPresetId, setPlayingPresetId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -203,6 +277,9 @@ export function VideoLibraryManager() {
       }
 
       setMessage(`Deleted ${preset.label} (${preset.industry}).`);
+      if (playingPresetId === preset.id) {
+        setPlayingPresetId(null);
+      }
       await loadPresets();
     } catch (deleteError) {
       setError(
@@ -328,33 +405,15 @@ export function VideoLibraryManager() {
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {industryPresets.map((preset) => (
-                    <article
+                    <PresetVideoCard
                       key={preset.id}
-                      className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
-                    >
-                      <div className="relative aspect-video bg-neutral-100">
-                        <img
-                          src={preset.thumbnail_url}
-                          alt={preset.label}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between gap-2 px-3 py-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-neutral-900">
-                            {preset.label}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={deletingId === preset.id}
-                          onClick={() => void handleDelete(preset)}
-                          className="shrink-0 rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingId === preset.id ? "Deleting..." : "Delete"}
-                        </button>
-                      </div>
-                    </article>
+                      preset={preset}
+                      isPlaying={playingPresetId === preset.id}
+                      onPlay={() => setPlayingPresetId(preset.id)}
+                      onStop={() => setPlayingPresetId(null)}
+                      deleting={deletingId === preset.id}
+                      onDelete={() => void handleDelete(preset)}
+                    />
                   ))}
                 </div>
               </section>
