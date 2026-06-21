@@ -158,29 +158,43 @@ export function ScrollAnimationBuildOptions({
                   return (
                     <div
                       key={preset.id}
-                      className={`overflow-hidden rounded-lg border bg-white transition ${
+                      className={`overflow-hidden rounded-lg border-[3px] bg-white transition ${
                         isSelected
-                          ? "border-neutral-900 ring-2 ring-neutral-900"
-                          : "border-neutral-200 hover:border-neutral-400"
+                          ? "border-blue-600 shadow-sm"
+                          : "border-transparent ring-1 ring-neutral-200 hover:ring-neutral-400"
                       } ${disabled ? "opacity-60" : ""}`}
                     >
                       <PresetVideoThumbnail
                         preset={preset}
                         isPlaying={playingPresetId === preset.id}
+                        isSelected={isSelected}
+                        disabled={disabled}
                         onPlay={() => setPlayingPresetId(preset.id)}
                         onStop={() => setPlayingPresetId(null)}
+                        onSelect={() => handlePresetSelect(preset.id)}
                       />
                       <button
                         type="button"
                         disabled={disabled}
+                        aria-pressed={isSelected}
                         onClick={() => handlePresetSelect(preset.id)}
                         className="w-full px-3 py-2 text-left disabled:cursor-not-allowed"
                       >
-                        <p className="text-sm font-medium text-neutral-900">
+                        <p
+                          className={`text-sm ${
+                            isSelected
+                              ? "font-semibold text-blue-700"
+                              : "font-medium text-neutral-900"
+                          }`}
+                        >
                           {preset.label}
                         </p>
                         {!industry ? (
-                          <p className="mt-0.5 text-xs text-neutral-500">
+                          <p
+                            className={`mt-0.5 text-xs ${
+                              isSelected ? "text-blue-600" : "text-neutral-500"
+                            }`}
+                          >
                             {preset.industry}
                           </p>
                         ) : null}
