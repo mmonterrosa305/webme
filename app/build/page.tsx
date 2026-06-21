@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { DEFAULT_SECTIONS, INDUSTRIES } from "@/lib/agents/site-options";
+import {
+  DEFAULT_SCROLL_BUILD_OPTIONS,
+  submitBuildSiteRequest,
+  type ScrollBuildOptions,
+} from "@/lib/agents/scroll-build-options";
+
+import { ScrollBuildOptionsField } from "@/app/(dashboard)/_components/scroll-build-options-field";
 
 const inputClassName =
   "w-full min-h-[48px] rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -49,6 +56,9 @@ export default function BuildPage() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [scrollBuildOptions, setScrollBuildOptions] = useState<ScrollBuildOptions>(
+    DEFAULT_SCROLL_BUILD_OPTIONS,
+  );
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
@@ -138,10 +148,8 @@ export default function BuildPage() {
         logoMediaType = logo.mediaType;
       }
 
-      const response = await fetch("/api/agents/build-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const response = await submitBuildSiteRequest(
+        {
           cfTurnstileToken: turnstileToken,
           ownerEmail: email.trim(),
           businessName: businessName.trim(),
@@ -156,8 +164,9 @@ export default function BuildPage() {
           ...(logoBase64 && logoMediaType
             ? { logoBase64, logoMediaType }
             : {}),
-        }),
-      });
+        },
+        scrollBuildOptions,
+      );
 
       const data = (await response.json()) as {
         siteSlug?: string;
@@ -316,6 +325,13 @@ export default function BuildPage() {
               className="block w-full min-h-[48px] text-base text-neutral-600 file:mr-4 file:min-h-[48px] file:rounded-lg file:border-0 file:bg-neutral-100 file:px-4 file:py-3 file:text-base file:font-medium file:text-neutral-900 hover:file:bg-neutral-200"
             />
           </div>
+
+          <ScrollBuildOptionsField
+            options={scrollBuildOptions}
+            onChange={setScrollBuildOptions}
+            industry={industry || undefined}
+            disabled={loading}
+          />
 
           {error ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">

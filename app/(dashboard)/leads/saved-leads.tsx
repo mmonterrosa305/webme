@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { DataTable, Panel } from "../_components/dashboard-ui";
+import { ScrollBuildOptionsField } from "../_components/scroll-build-options-field";
 import { COLOR_PALETTES, DEFAULT_SECTIONS, DESIGN_STYLES } from "@/lib/agents/site-options";
+import {
+  getScrollBuildOptions,
+  submitBuildSiteRequest,
+  type ScrollBuildOptions,
+} from "@/lib/agents/scroll-build-options";
 import type { LeadStatus, SavedLead } from "@/lib/leads/types";
 
 const STATUS_STYLES: Record<
@@ -89,6 +95,9 @@ export function SavedLeads() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
+  const [scrollBuildOptionsById, setScrollBuildOptionsById] = useState<
+    Record<string, ScrollBuildOptions>
+  >({});
   const [editingEmail, setEditingEmail] = useState<Record<string, string>>({});
   const [savingEmail, setSavingEmail] = useState<Set<string>>(new Set());
 
@@ -324,10 +333,8 @@ export function SavedLeads() {
       const randomStyle =
         DESIGN_STYLES[Math.floor(Math.random() * DESIGN_STYLES.length)];
 
-      const response = await fetch("/api/agents/build-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const response = await submitBuildSiteRequest(
+        {
           businessName: lead.business_name,
           city: lead.city,
           industry: lead.industry,
@@ -335,8 +342,9 @@ export function SavedLeads() {
           styleId: randomStyle.id,
           sections: DEFAULT_SECTIONS,
           createLogoForMe: true,
-        }),
-      });
+        },
+        getScrollBuildOptions(scrollBuildOptionsById, lead.id),
+      );
 
       const data = (await response.json()) as {
         siteSlug?: string;
@@ -574,6 +582,26 @@ export function SavedLeads() {
         ];
   });
 
+  const rowFooters = leads.map((lead) => {
+    if (!isPendingReview(lead) || regeneratingIds.has(lead.id)) {
+      return null;
+    }
+
+    return (
+      <ScrollBuildOptionsField
+        options={getScrollBuildOptions(scrollBuildOptionsById, lead.id)}
+        onChange={(next) =>
+          setScrollBuildOptionsById((current) => ({
+            ...current,
+            [lead.id]: next,
+          }))
+        }
+        industry={lead.industry ?? undefined}
+        disabled={pendingIds.has(lead.id) || regeneratingIds.has(lead.id)}
+      />
+    );
+  });
+
   return (
     <Panel
       title="Saved leads"
@@ -602,6 +630,7 @@ export function SavedLeads() {
         <DataTable
           columns={["Business", "City", "Industry", "Status", "Email", "Actions"]}
           rows={rows}
+          rowFooters={rowFooters}
         />
       ) : (
         <div className="px-5 py-10 text-sm text-neutral-500">

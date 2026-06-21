@@ -13,8 +13,12 @@ import {
   type SectionId,
   type StyleId,
 } from "@/lib/agents/site-options";
-import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
-import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
+import {
+  DEFAULT_SCROLL_BUILD_OPTIONS,
+  submitBuildSiteRequest,
+  type ScrollBuildOptions,
+} from "@/lib/agents/scroll-build-options";
+import { ScrollBuildOptionsField } from "../_components/scroll-build-options-field";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -64,12 +68,8 @@ export function WebDesignAgentForm() {
   const [sections, setSections] = useState<SectionId[]>(DEFAULT_SECTIONS);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [createLogoForMe, setCreateLogoForMe] = useState(false);
-  const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
-  const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
-    null,
-  );
-  const [scrollHeroPresetId, setScrollHeroPresetId] = useState<string | null>(
-    null,
+  const [scrollBuildOptions, setScrollBuildOptions] = useState<ScrollBuildOptions>(
+    DEFAULT_SCROLL_BUILD_OPTIONS,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,28 +134,10 @@ export function WebDesignAgentForm() {
         styleId,
         sections,
         createLogoForMe,
-        scrollAnimationEffect,
-        scrollHeroPresetId: scrollHeroPresetId ?? undefined,
         ...logoPayload,
       };
 
-      let response: Response;
-
-      if (scrollHeroVideoFile) {
-        const formData = new FormData();
-        formData.append("buildPayload", JSON.stringify(payload));
-        formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
-        response = await fetch("/api/agents/build-site", {
-          method: "POST",
-          body: formData,
-        });
-      } else {
-        response = await fetch("/api/agents/build-site", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
+      const response = await submitBuildSiteRequest(payload, scrollBuildOptions);
 
       const data = (await response.json()) as { html?: string; error?: string };
 
@@ -458,15 +440,11 @@ export function WebDesignAgentForm() {
           ) : null}
 
           <div className="flex flex-wrap items-end gap-4">
-            <ScrollAnimationBuildOptions
-              checked={scrollAnimationEffect}
-              onCheckedChange={setScrollAnimationEffect}
-              disabled={loading}
+            <ScrollBuildOptionsField
+              options={scrollBuildOptions}
+              onChange={setScrollBuildOptions}
               industry={industry}
-              videoFile={scrollHeroVideoFile}
-              onVideoFileChange={setScrollHeroVideoFile}
-              selectedPresetId={scrollHeroPresetId}
-              onSelectedPresetIdChange={setScrollHeroPresetId}
+              disabled={loading}
             />
 
             <button

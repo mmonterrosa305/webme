@@ -14,12 +14,19 @@ import {
   INDUSTRIES,
 } from "@/lib/agents/site-options";
 import {
+  getScrollBuildOptions,
+  submitBuildSiteRequest,
+  type ScrollBuildOptions,
+} from "@/lib/agents/scroll-build-options";
+import {
   clearLeadsSearchState,
   getLeadsSearchState,
   persistLeadsSearchState,
   persistLeadsSearchStateFull,
 } from "@/lib/leads/search-state";
 import type { LeadSearchResult } from "@/lib/leads/types";
+
+import { ScrollBuildOptionsField } from "../_components/scroll-build-options-field";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -170,6 +177,9 @@ export function LeadsSearch() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [buildStates, setBuildStates] = useState<Record<string, BuildState>>({});
+  const [scrollBuildOptionsById, setScrollBuildOptionsById] = useState<
+    Record<string, ScrollBuildOptions>
+  >({});
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [queueSuccessMessage, setQueueSuccessMessage] = useState<string | null>(
     null,
@@ -185,6 +195,7 @@ export function LeadsSearch() {
     setShowExistingSites(false);
     setSearchError(null);
     setBuildStates({});
+    setScrollBuildOptionsById({});
     setSelectedLeads(new Set());
   }
 
@@ -195,6 +206,7 @@ export function LeadsSearch() {
     setHasSearched(true);
     setResults([]);
     setBuildStates({});
+    setScrollBuildOptionsById({});
     persistLeadsSearchState({ hasSearched: true, results: [] });
 
     try {
@@ -232,10 +244,10 @@ export function LeadsSearch() {
     }));
 
     try {
-      const response = await fetch("/api/agents/build-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const scroll = getScrollBuildOptions(scrollBuildOptionsById, lead.placeId);
+
+      const response = await submitBuildSiteRequest(
+        {
           businessName: lead.businessName,
           city: lead.city,
           industry: lead.industry,
@@ -246,8 +258,9 @@ export function LeadsSearch() {
           styleId: "modern-minimal",
           sections: DEFAULT_SECTIONS,
           createLogoForMe: true,
-        }),
-      });
+        },
+        scroll,
+      );
 
       const data = (await response.json()) as {
         html?: string;
@@ -418,6 +431,31 @@ export function LeadsSearch() {
         ];
       }),
     [buildStates, visibleResults, selectedLeads],
+  );
+
+  const rowFooters = useMemo(
+    () =>
+      visibleResults.map((lead) => {
+        const buildState = buildStates[lead.placeId];
+        if (buildState?.loading || buildState?.html) {
+          return null;
+        }
+
+        return (
+          <ScrollBuildOptionsField
+            options={getScrollBuildOptions(scrollBuildOptionsById, lead.placeId)}
+            onChange={(next) =>
+              setScrollBuildOptionsById((current) => ({
+                ...current,
+                [lead.placeId]: next,
+              }))
+            }
+            industry={lead.industry}
+            disabled={buildState?.loading}
+          />
+        );
+      }),
+    [buildStates, scrollBuildOptionsById, visibleResults],
   );
 
   async function handleAddToOutreachQueue() {
@@ -594,6 +632,7 @@ export function LeadsSearch() {
               "Action",
             ]}
             rows={rows}
+            rowFooters={rowFooters}
           />
         ) : (
           <div className="px-5 py-10 text-sm text-neutral-500">

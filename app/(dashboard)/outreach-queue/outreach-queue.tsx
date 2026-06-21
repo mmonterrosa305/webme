@@ -3,8 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
+import {
+  getScrollBuildOptions,
+  submitBuildSiteRequest,
+  type ScrollBuildOptions,
+} from "@/lib/agents/scroll-build-options";
 
 import { Panel, DataTable } from "../_components/dashboard-ui";
+import { ScrollBuildOptionsField } from "../_components/scroll-build-options-field";
 import { BuildProgressBar } from "./build-progress-bar";
 import {
   MAX_CONCURRENT_BUILDS,
@@ -37,6 +43,10 @@ export function OutreachQueue() {
   const [sending, setSending] = useState<Set<string>>(new Set());
   const [sendingAll, setSendingAll] = useState(false);
   const [buildJobs, setBuildJobs] = useState<Record<string, BuildJobState>>({});
+  const [scrollBuildOptionsById, setScrollBuildOptionsById] = useState<
+    Record<string, ScrollBuildOptions>
+  >({});
+  const scrollBuildOptionsRef = useRef<Record<string, ScrollBuildOptions>>({});
   const [findingEmailIds, setFindingEmailIds] = useState<Set<string>>(new Set());
   const [editingEmailIds, setEditingEmailIds] = useState<Set<string>>(new Set());
   const [savingEmailIds, setSavingEmailIds] = useState<Set<string>>(new Set());
@@ -46,6 +56,11 @@ export function OutreachQueue() {
   const buildQueueRef = useRef<string[]>([]);
   const activeBuildIdsRef = useRef<Set<string>>(new Set());
   const itemsByIdRef = useRef<Record<string, QueueItem>>({});
+
+  function setScrollOptionsForItem(itemId: string, next: ScrollBuildOptions) {
+    scrollBuildOptionsRef.current[itemId] = next;
+    setScrollBuildOptionsById((current) => ({ ...current, [itemId]: next }));
+  }
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -119,10 +134,10 @@ export function OutreachQueue() {
     }
 
     try {
-      const response = await fetch("/api/agents/build-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const scroll = getScrollBuildOptions(scrollBuildOptionsRef.current, itemId);
+
+      const response = await submitBuildSiteRequest(
+        {
           businessName: item.business_name,
           city: item.city,
           industry: item.industry,
@@ -130,8 +145,9 @@ export function OutreachQueue() {
           styleId: "modern-minimal",
           sections: DEFAULT_SECTIONS,
           createLogoForMe: true,
-        }),
-      });
+        },
+        scroll,
+      );
 
       const data = (await response.json()) as {
         siteSlug?: string;
@@ -572,17 +588,29 @@ export function OutreachQueue() {
 
   const rowFooters = queue.map((item) => {
     const buildJob = buildJobs[item.id];
-    if (!buildJob || item.site_slug) {
-      return null;
+
+    if (buildJob && !item.site_slug) {
+      return (
+        <BuildProgressBar
+          label={buildJob.stageLabel}
+          progress={buildJob.progress}
+          queued={buildJob.status === "queued"}
+        />
+      );
     }
 
-    return (
-      <BuildProgressBar
-        label={buildJob.stageLabel}
-        progress={buildJob.progress}
-        queued={buildJob.status === "queued"}
-      />
-    );
+    if (!item.site_slug && !buildJob) {
+      return (
+        <ScrollBuildOptionsField
+          options={getScrollBuildOptions(scrollBuildOptionsById, item.id)}
+          onChange={(next) => setScrollOptionsForItem(item.id, next)}
+          industry={item.industry ?? undefined}
+          disabled={sending.has(item.id) || sendingAll}
+        />
+      );
+    }
+
+    return null;
   });
 
   return (
