@@ -12,6 +12,7 @@ import {
 } from "@/lib/video-presets/types";
 
 import { Panel } from "../_components/dashboard-ui";
+import { PresetVideoThumbnail } from "../_components/preset-video-thumbnail";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -84,43 +85,12 @@ function PresetVideoCard({
 }) {
   return (
     <article className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-      <div className="relative aspect-video bg-neutral-900">
-        {isPlaying ? (
-          <video
-            key={preset.id}
-            src={preset.video_url}
-            controls
-            autoPlay
-            playsInline
-            className="h-full w-full object-cover"
-            onEnded={onStop}
-          />
-        ) : (
-          <>
-            <img
-              src={preset.thumbnail_url}
-              alt={preset.label}
-              className="h-full w-full object-cover"
-            />
-            <button
-              type="button"
-              aria-label={`Preview ${preset.label}`}
-              onClick={onPlay}
-              className="absolute inset-0 flex items-center justify-center bg-black/20 transition hover:bg-black/30"
-            >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-neutral-900 shadow-md">
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                  className="ml-0.5 h-4 w-4 fill-current"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </span>
-            </button>
-          </>
-        )}
-      </div>
+      <PresetVideoThumbnail
+        preset={preset}
+        isPlaying={isPlaying}
+        onPlay={onPlay}
+        onStop={onStop}
+      />
       <div className="flex items-center justify-between gap-2 px-3 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-neutral-900">

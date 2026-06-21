@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
 import type { VideoPreset } from "@/lib/video-presets/types";
+
+import { PresetVideoThumbnail } from "./preset-video-thumbnail";
 
 export function ScrollAnimationBuildOptions({
   checked,
@@ -27,6 +28,7 @@ export function ScrollAnimationBuildOptions({
   const [presets, setPresets] = useState<VideoPreset[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
+  const [playingPresetId, setPlayingPresetId] = useState<string | null>(null);
 
   function handleCheckedChange(nextChecked: boolean) {
     onCheckedChange(nextChecked);
@@ -34,6 +36,7 @@ export function ScrollAnimationBuildOptions({
     if (!nextChecked) {
       onVideoFileChange(null);
       onSelectedPresetIdChange(null);
+      setPlayingPresetId(null);
     }
   }
 
@@ -87,6 +90,15 @@ export function ScrollAnimationBuildOptions({
       cancelled = true;
     };
   }, [checked, industry]);
+
+  useEffect(() => {
+    if (
+      playingPresetId &&
+      !presets.some((preset) => preset.id === playingPresetId)
+    ) {
+      setPlayingPresetId(null);
+    }
+  }, [presets, playingPresetId]);
 
   function handlePresetSelect(presetId: string) {
     onSelectedPresetIdChange(selectedPresetId === presetId ? null : presetId);
@@ -144,25 +156,26 @@ export function ScrollAnimationBuildOptions({
                   const isSelected = selectedPresetId === preset.id;
 
                   return (
-                    <button
+                    <div
                       key={preset.id}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => handlePresetSelect(preset.id)}
-                      className={`overflow-hidden rounded-lg border text-left transition ${
+                      className={`overflow-hidden rounded-lg border bg-white transition ${
                         isSelected
                           ? "border-neutral-900 ring-2 ring-neutral-900"
-                          : "border-neutral-200 bg-white hover:border-neutral-400"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                          : "border-neutral-200 hover:border-neutral-400"
+                      } ${disabled ? "opacity-60" : ""}`}
                     >
-                      <div className="aspect-video bg-neutral-100">
-                        <img
-                          src={preset.thumbnail_url}
-                          alt={preset.label}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div className="px-3 py-2">
+                      <PresetVideoThumbnail
+                        preset={preset}
+                        isPlaying={playingPresetId === preset.id}
+                        onPlay={() => setPlayingPresetId(preset.id)}
+                        onStop={() => setPlayingPresetId(null)}
+                      />
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => handlePresetSelect(preset.id)}
+                        className="w-full px-3 py-2 text-left disabled:cursor-not-allowed"
+                      >
                         <p className="text-sm font-medium text-neutral-900">
                           {preset.label}
                         </p>
@@ -171,8 +184,8 @@ export function ScrollAnimationBuildOptions({
                             {preset.industry}
                           </p>
                         ) : null}
-                      </div>
-                    </button>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
