@@ -55,7 +55,12 @@ export function OutreachQueue() {
 
   const buildQueueRef = useRef<string[]>([]);
   const activeBuildIdsRef = useRef<Set<string>>(new Set());
+  const buildJobsRef = useRef<Record<string, BuildJobState>>({});
   const itemsByIdRef = useRef<Record<string, QueueItem>>({});
+
+  useEffect(() => {
+    buildJobsRef.current = buildJobs;
+  }, [buildJobs]);
 
   function setScrollOptionsForItem(itemId: string, next: ScrollBuildOptions) {
     scrollBuildOptionsRef.current[itemId] = next;
@@ -127,14 +132,56 @@ export function OutreachQueue() {
     return () => window.clearInterval(interval);
   }, []);
 
+  const releaseBuildSlot = useCallback((itemId: string, reason: string) => {
+    console.log("[outreach-queue] releaseBuildSlot", { itemId, reason });
+    activeBuildIdsRef.current.delete(itemId);
+    setBuildJobs((current) => {
+      if (!current[itemId]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[itemId];
+      buildJobsRef.current = next;
+      return next;
+    });
+  }, []);
+
   const runBuild = useCallback(async (itemId: string) => {
     const item = itemsByIdRef.current[itemId];
     if (!item) {
+      console.error("[outreach-queue] runBuild aborted: item missing", {
+        itemId,
+      });
+      releaseBuildSlot(itemId, "missing-item");
+      processBuildQueueRef.current();
       return;
     }
 
+    if (item.site_slug) {
+      console.log("[outreach-queue] runBuild skipped: site already exists", {
+        itemId,
+        siteSlug: item.site_slug,
+      });
+      releaseBuildSlot(itemId, "site-already-exists");
+      processBuildQueueRef.current();
+      return;
+    }
+
+    console.log("[outreach-queue] runBuild starting", {
+      itemId,
+      businessName: item.business_name,
+    });
+
     try {
       const scroll = getScrollBuildOptions(scrollBuildOptionsRef.current, itemId);
+
+      console.log("[outreach-queue] runBuild submitting request", {
+        itemId,
+        scrollAnimationEffect: scroll.scrollAnimationEffect,
+        scrollHeroPresetId: scroll.scrollHeroPresetId,
+        hasVideoFile: Boolean(scroll.scrollHeroVideoFile),
+      });
 
       const response = await submitBuildSiteRequest(
         {
@@ -153,6 +200,14 @@ export function OutreachQueue() {
         siteSlug?: string;
         error?: string;
       };
+
+      console.log("[outreach-queue] runBuild response received", {
+        itemId,
+        ok: response.ok,
+        status: response.status,
+        siteSlug: data.siteSlug,
+        error: data.error,
+      });
 
       if (!response.ok || !data.siteSlug) {
         throw new Error(data.error ?? "Failed to build site.");
@@ -176,39 +231,62 @@ export function OutreachQueue() {
         ...item,
         site_slug: data.siteSlug,
       };
+
+      console.log("[outreach-queue] runBuild completed", {
+        itemId,
+        siteSlug: data.siteSlug,
+      });
     } catch (err) {
+      console.error("[outreach-queue] runBuild failed", { itemId, err });
       setActionError(
         err instanceof Error ? err.message : "Failed to build site.",
       );
     } finally {
-      activeBuildIdsRef.current.delete(itemId);
-      setBuildJobs((current) => {
-        if (!current[itemId]) {
-          return current;
-        }
-
-        const next = { ...current };
-        delete next[itemId];
-        return next;
-      });
+      releaseBuildSlot(itemId, "finished");
       processBuildQueueRef.current();
     }
-  }, []);
+  }, [releaseBuildSlot]);
 
   const processBuildQueueRef = useRef<() => void>(() => {});
 
   processBuildQueueRef.current = () => {
+    for (const activeId of [...activeBuildIdsRef.current]) {
+      const job = buildJobsRef.current[activeId];
+      if (!job || job.status !== "building") {
+        console.warn("[outreach-queue] Releasing orphan active build slot", {
+          activeId,
+          jobStatus: job?.status,
+        });
+        activeBuildIdsRef.current.delete(activeId);
+      }
+    }
+
+    console.log("[outreach-queue] processBuildQueue", {
+      activeBuilds: activeBuildIdsRef.current.size,
+      queuedIds: buildQueueRef.current.length,
+      maxConcurrent: MAX_CONCURRENT_BUILDS,
+    });
+
     while (
       activeBuildIdsRef.current.size < MAX_CONCURRENT_BUILDS &&
       buildQueueRef.current.length > 0
     ) {
       const itemId = buildQueueRef.current.shift();
       if (!itemId || activeBuildIdsRef.current.has(itemId)) {
+        console.log("[outreach-queue] processBuildQueue skipping queue entry", {
+          itemId,
+          reason: !itemId ? "empty-id" : "already-active",
+        });
         continue;
       }
 
       const item = itemsByIdRef.current[itemId];
       if (!item || item.site_slug) {
+        console.log("[outreach-queue] processBuildQueue dropping stale job", {
+          itemId,
+          hasItem: Boolean(item),
+          siteSlug: item?.site_slug ?? null,
+        });
         setBuildJobs((current) => {
           if (!current[itemId]) {
             return current;
@@ -222,40 +300,65 @@ export function OutreachQueue() {
       }
 
       activeBuildIdsRef.current.add(itemId);
-      setBuildJobs((current) => ({
-        ...current,
-        [itemId]: createActiveBuildJob(),
-      }));
+      console.log("[outreach-queue] processBuildQueue starting build", {
+        itemId,
+        activeBuilds: activeBuildIdsRef.current.size,
+      });
+      setBuildJobs((current) => {
+        const next = {
+          ...current,
+          [itemId]: createActiveBuildJob(),
+        };
+        buildJobsRef.current = next;
+        return next;
+      });
       void runBuild(itemId);
     }
   };
 
   function enqueueBuildSite(item: QueueItem) {
-    if (item.site_slug) {
+    console.log("[outreach-queue] Build Site clicked", {
+      itemId: item.id,
+      businessName: item.business_name,
+      siteSlug: item.site_slug,
+      existingJob: buildJobsRef.current[item.id]?.status ?? null,
+      activeBuilds: activeBuildIdsRef.current.size,
+      queuedIds: buildQueueRef.current.length,
+    });
+
+    const latestItem = itemsByIdRef.current[item.id] ?? item;
+    if (latestItem.site_slug) {
+      console.log("[outreach-queue] Build Site ignored: site already exists", {
+        itemId: item.id,
+        siteSlug: latestItem.site_slug,
+      });
       return;
     }
 
-    let shouldEnqueue = false;
-
-    setBuildJobs((current) => {
-      if (current[item.id]) {
-        return current;
-      }
-
-      shouldEnqueue = true;
-      return {
-        ...current,
-        [item.id]: createQueuedBuildJob(),
-      };
-    });
-
-    if (!shouldEnqueue) {
+    if (buildJobsRef.current[item.id]) {
+      console.log("[outreach-queue] Build Site ignored: job already tracked", {
+        itemId: item.id,
+        status: buildJobsRef.current[item.id].status,
+      });
       return;
     }
 
     setActionError(null);
-    itemsByIdRef.current[item.id] = item;
+    itemsByIdRef.current[item.id] = latestItem;
+
+    const queuedJob = createQueuedBuildJob();
+    buildJobsRef.current = {
+      ...buildJobsRef.current,
+      [item.id]: queuedJob,
+    };
+    setBuildJobs(buildJobsRef.current);
     buildQueueRef.current.push(item.id);
+
+    console.log("[outreach-queue] Build Site enqueued", {
+      itemId: item.id,
+      queueLength: buildQueueRef.current.length,
+    });
+
     processBuildQueueRef.current();
   }
 
