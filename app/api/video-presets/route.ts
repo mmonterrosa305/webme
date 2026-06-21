@@ -7,14 +7,16 @@ import {
 } from "@/lib/video-presets/queries";
 import { MAX_PRESETS_PER_INDUSTRY } from "@/lib/video-presets/types";
 import {
-  uploadPresetThumbnail,
-  uploadPresetVideo,
-  validatePresetThumbnailFile,
-  validatePresetVideoFile,
+  getPresetPublicStorageUrl,
+  isValidPresetThumbnailPath,
+  isValidPresetVideoPath,
+  logVideoPreset,
+  logVideoPresetError,
+  verifyPresetStorageObjectExists,
 } from "@/lib/video-presets/upload-preset";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ presets });
   } catch (error) {
+    logVideoPresetError("list:failed", error);
+
     const message =
       error instanceof Error ? error.message : "Failed to load video presets.";
 
@@ -36,48 +40,41 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  try {
-    let formData: FormData;
+  const startedAt = Date.now();
 
-    try {
-      formData = await request.formData();
-    } catch {
-      return jsonError(
-        "Could not read the upload. The file may be too large (max 50 MB).",
-        413,
-      );
-    }
+  try {
+    const body = (await request.json()) as {
+      industry?: unknown;
+      label?: unknown;
+      videoPath?: unknown;
+      thumbnailPath?: unknown;
+    };
 
     const industry =
-      typeof formData.get("industry") === "string"
-        ? formData.get("industry")!.toString().trim()
-        : "";
+      typeof body.industry === "string" ? body.industry.trim() : "";
     const label =
-      typeof formData.get("label") === "string"
-        ? formData.get("label")!.toString().trim()
-        : "";
-    const videoFile = formData.get("video");
-    const thumbnailFile = formData.get("thumbnail");
+      typeof body.label === "string" ? body.label.trim() : "";
+    const videoPath =
+      typeof body.videoPath === "string" ? body.videoPath.trim() : "";
+    const thumbnailPath =
+      typeof body.thumbnailPath === "string" ? body.thumbnailPath.trim() : "";
+
+    logVideoPreset("finalize:start", {
+      industry,
+      videoPath,
+      thumbnailPath: thumbnailPath || null,
+    });
 
     if (!industry) {
       return jsonError("Industry is required.", 400);
     }
 
-    if (!(videoFile instanceof File) || videoFile.size === 0) {
-      return jsonError("Video file is required.", 400);
+    if (!videoPath || !isValidPresetVideoPath(videoPath, industry)) {
+      return jsonError("Invalid video upload path.", 400);
     }
 
-    const videoValidationError = validatePresetVideoFile(videoFile);
-    if (videoValidationError) {
-      const status = videoValidationError.includes("50 MB") ? 413 : 400;
-      return jsonError(videoValidationError, status);
-    }
-
-    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
-      const thumbnailValidationError = validatePresetThumbnailFile(thumbnailFile);
-      if (thumbnailValidationError) {
-        return jsonError(thumbnailValidationError, 400);
-      }
+    if (thumbnailPath && !isValidPresetThumbnailPath(thumbnailPath, industry)) {
+      return jsonError("Invalid thumbnail upload path.", 400);
     }
 
     const existingCount = await countVideoPresetsForIndustry(industry);
@@ -88,24 +85,48 @@ export async function POST(request: Request) {
       );
     }
 
-    const videoUrl = await uploadPresetVideo(videoFile, industry);
+    const videoExists = await verifyPresetStorageObjectExists(videoPath);
+    if (!videoExists) {
+      return jsonError(
+        "Video upload was not found in storage. Try uploading again.",
+        400,
+      );
+    }
 
-    let thumbnailUrl = "";
-    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
-      thumbnailUrl = await uploadPresetThumbnail(thumbnailFile, industry);
-    } else {
-      thumbnailUrl = videoUrl;
+    let thumbnailUrl = getPresetPublicStorageUrl(videoPath);
+
+    if (thumbnailPath) {
+      const thumbnailExists =
+        await verifyPresetStorageObjectExists(thumbnailPath);
+      if (!thumbnailExists) {
+        return jsonError(
+          "Thumbnail upload was not found in storage. Try uploading again.",
+          400,
+        );
+      }
+
+      thumbnailUrl = getPresetPublicStorageUrl(thumbnailPath);
     }
 
     const preset = await createVideoPreset({
       industry,
       label: label || `Option ${Date.now()}`,
-      videoUrl,
+      videoUrl: getPresetPublicStorageUrl(videoPath),
       thumbnailUrl,
+    });
+
+    logVideoPreset("finalize:success", {
+      industry,
+      presetId: preset.id,
+      durationMs: Date.now() - startedAt,
     });
 
     return NextResponse.json({ preset });
   } catch (error) {
+    logVideoPresetError("finalize:failed", error, {
+      durationMs: Date.now() - startedAt,
+    });
+
     const message =
       error instanceof Error ? error.message : "Failed to create video preset.";
 

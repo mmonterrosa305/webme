@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { INDUSTRIES } from "@/lib/agents/site-options";
 import { readJsonResponse } from "@/lib/api/fetch-json";
+import { createClient } from "@/lib/supabase/client";
 import {
   MAX_PRESETS_PER_INDUSTRY,
+  PRESET_STORAGE_BUCKET,
   type VideoPreset,
 } from "@/lib/video-presets/types";
 
@@ -220,15 +222,80 @@ export function VideoLibraryManager() {
 
     try {
       const thumbnailFile = await captureVideoThumbnail(uploadVideoFile);
-      const formData = new FormData();
-      formData.append("industry", uploadIndustry);
-      formData.append("label", uploadLabel.trim() || suggestedLabel);
-      formData.append("video", uploadVideoFile);
-      formData.append("thumbnail", thumbnailFile);
+
+      const uploadUrlResponse = await fetch("/api/video-presets/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          industry: uploadIndustry,
+          video: {
+            name: uploadVideoFile.name,
+            size: uploadVideoFile.size,
+            type: uploadVideoFile.type,
+          },
+          thumbnail: {
+            name: thumbnailFile.name,
+            size: thumbnailFile.size,
+            type: thumbnailFile.type,
+          },
+        }),
+      });
+
+      const uploadTargets = await readJsonResponse<{
+        video?: { path: string; token: string; publicUrl: string };
+        thumbnail?: { path: string; token: string; publicUrl: string } | null;
+        error?: string;
+      }>(uploadUrlResponse);
+
+      if (!uploadUrlResponse.ok || !uploadTargets.video) {
+        throw new Error(uploadTargets.error ?? "Failed to prepare video upload.");
+      }
+
+      const supabase = createClient();
+
+      const { error: videoUploadError } = await supabase.storage
+        .from(PRESET_STORAGE_BUCKET)
+        .uploadToSignedUrl(
+          uploadTargets.video.path,
+          uploadTargets.video.token,
+          uploadVideoFile,
+          { contentType: uploadVideoFile.type },
+        );
+
+      if (videoUploadError) {
+        throw new Error(`Video upload failed: ${videoUploadError.message}`);
+      }
+
+      let thumbnailPath = uploadTargets.video.path;
+
+      if (uploadTargets.thumbnail) {
+        const { error: thumbnailUploadError } = await supabase.storage
+          .from(PRESET_STORAGE_BUCKET)
+          .uploadToSignedUrl(
+            uploadTargets.thumbnail.path,
+            uploadTargets.thumbnail.token,
+            thumbnailFile,
+            { contentType: thumbnailFile.type },
+          );
+
+        if (thumbnailUploadError) {
+          throw new Error(
+            `Thumbnail upload failed: ${thumbnailUploadError.message}`,
+          );
+        }
+
+        thumbnailPath = uploadTargets.thumbnail.path;
+      }
 
       const response = await fetch("/api/video-presets", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          industry: uploadIndustry,
+          label: uploadLabel.trim() || suggestedLabel,
+          videoPath: uploadTargets.video.path,
+          thumbnailPath,
+        }),
       });
 
       const data = await readJsonResponse<{

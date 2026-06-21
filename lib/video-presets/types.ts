@@ -9,4 +9,6 @@ export type VideoPreset = {
 
 export const MAX_PRESETS_PER_INDUSTRY = 4;
 
+export const PRESET_STORAGE_BUCKET = "client-assets";
+
 export const SCROLL_HERO_PRESET_FIELD = "scrollHeroPresetId";

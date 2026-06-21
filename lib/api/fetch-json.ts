@@ -10,7 +10,7 @@ function formatUploadFailure(status: number, bodyPreview: string): string {
   }
 
   if (status === 502 || status === 503 || status === 504) {
-    return "The server is temporarily unavailable. Wait a moment and try again.";
+    return `Upload timed out or the server gateway returned HTTP ${status}. Try again, or use a smaller video if the problem persists.`;
   }
 
   if (bodyPreview.startsWith("<!DOCTYPE") || bodyPreview.startsWith("<html")) {
