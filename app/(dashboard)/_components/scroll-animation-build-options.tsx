@@ -158,10 +158,10 @@ export function ScrollAnimationBuildOptions({
                   return (
                     <div
                       key={preset.id}
-                      className={`overflow-hidden rounded-lg border-[3px] bg-white transition ${
+                      className={`overflow-hidden rounded-lg border-4 bg-white transition ${
                         isSelected
-                          ? "border-blue-600 shadow-sm"
-                          : "border-transparent ring-1 ring-neutral-200 hover:ring-neutral-400"
+                          ? "border-blue-600 shadow-md ring-2 ring-blue-200"
+                          : "border-transparent ring-1 ring-inset ring-neutral-200 hover:ring-neutral-400"
                       } ${disabled ? "opacity-60" : ""}`}
                     >
                       <PresetVideoThumbnail
@@ -178,12 +178,14 @@ export function ScrollAnimationBuildOptions({
                         disabled={disabled}
                         aria-pressed={isSelected}
                         onClick={() => handlePresetSelect(preset.id)}
-                        className="w-full px-3 py-2 text-left disabled:cursor-not-allowed"
+                        className={`w-full px-3 py-2.5 text-left transition disabled:cursor-not-allowed ${
+                          isSelected ? "bg-blue-100" : "bg-white"
+                        }`}
                       >
                         <p
                           className={`text-sm ${
                             isSelected
-                              ? "font-semibold text-blue-700"
+                              ? "font-bold text-blue-800"
                               : "font-medium text-neutral-900"
                           }`}
                         >
@@ -192,10 +194,17 @@ export function ScrollAnimationBuildOptions({
                         {!industry ? (
                           <p
                             className={`mt-0.5 text-xs ${
-                              isSelected ? "text-blue-600" : "text-neutral-500"
+                              isSelected
+                                ? "font-medium text-blue-700"
+                                : "text-neutral-500"
                             }`}
                           >
                             {preset.industry}
+                          </p>
+                        ) : null}
+                        {isSelected ? (
+                          <p className="mt-1.5 text-sm font-bold text-blue-700">
+                            Selected
                           </p>
                         ) : null}
                       </button>

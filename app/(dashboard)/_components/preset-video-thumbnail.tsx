@@ -5,15 +5,15 @@ import type { VideoPreset } from "@/lib/video-presets/types";
 function SelectedCheckmarkBadge() {
   return (
     <span
-      className="absolute right-2 top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white shadow-md"
+      className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg ring-2 ring-white"
       aria-hidden
     >
       <svg
         viewBox="0 0 24 24"
-        className="h-3.5 w-3.5"
+        className="h-5 w-5"
         fill="none"
         stroke="currentColor"
-        strokeWidth="3"
+        strokeWidth="3.5"
       >
         <path
           d="M5 13l4 4L19 7"
@@ -45,15 +45,18 @@ export function PresetVideoThumbnail({
   return (
     <div className="relative aspect-video bg-neutral-900">
       {isPlaying ? (
-        <video
-          key={preset.id}
-          src={preset.video_url}
-          controls
-          autoPlay
-          playsInline
-          className="h-full w-full object-cover"
-          onEnded={onStop}
-        />
+        <>
+          <video
+            key={preset.id}
+            src={preset.video_url}
+            controls
+            autoPlay
+            playsInline
+            className="h-full w-full object-cover"
+            onEnded={onStop}
+          />
+          {isSelected ? <SelectedCheckmarkBadge /> : null}
+        </>
       ) : (
         <>
           {onSelect ? (
