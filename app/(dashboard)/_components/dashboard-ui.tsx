@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 export function PageHeader({
   eyebrow,
@@ -69,9 +69,11 @@ export function Panel({
 export function DataTable({
   columns,
   rows,
+  rowFooters,
 }: {
   columns: string[];
   rows: ReactNode[][];
+  rowFooters?: (ReactNode | null | undefined)[];
 }) {
   return (
     <div className="overflow-x-auto">
@@ -87,13 +89,22 @@ export function DataTable({
         </thead>
         <tbody className="divide-y divide-neutral-100">
           {rows.map((cells, i) => (
-            <tr key={i} className="transition hover:bg-neutral-50">
-              {cells.map((cell, j) => (
-                <td key={j} className="px-5 py-3.5 text-neutral-700">
-                  {cell}
-                </td>
-              ))}
-            </tr>
+            <Fragment key={i}>
+              <tr className="transition hover:bg-neutral-50">
+                {cells.map((cell, j) => (
+                  <td key={j} className="px-5 py-3.5 text-neutral-700">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+              {rowFooters?.[i] ? (
+                <tr className="bg-neutral-50/60">
+                  <td colSpan={columns.length} className="px-5 pb-3.5 pt-0">
+                    {rowFooters[i]}
+                  </td>
+                </tr>
+              ) : null}
+            </Fragment>
           ))}
         </tbody>
       </table>
