@@ -105,6 +105,7 @@ export async function POST(request: Request) {
     }
 
     const scrollAnimationEffect = body.scrollAnimationEffect === true;
+    const cardHoverEffect = body.cardHoverEffect === true;
     const payloadBusinessName =
       typeof body.businessName === "string" ? body.businessName.trim() : "site";
     const scrollHeroPresetId =
@@ -254,6 +255,7 @@ export async function POST(request: Request) {
       logoSvg,
       scrollAnimationEffect,
       scrollHeroVideoUrl,
+      cardHoverEffect,
     };
 
     const { html, siteSlug } = await buildSite(buildInput);

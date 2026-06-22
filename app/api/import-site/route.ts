@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     const contentType = request.headers.get("content-type") ?? "";
     let url = "";
     let scrollAnimationEffect = false;
+    let cardHoverEffect = false;
     let scrollHeroPresetId: string | null = null;
     let pendingFormData: FormData | null = null;
 
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
           : "";
       scrollAnimationEffect =
         pendingFormData.get("scrollAnimationEffect") === "true";
+      cardHoverEffect = pendingFormData.get("cardHoverEffect") === "true";
       const presetRaw = pendingFormData.get("scrollHeroPresetId");
       scrollHeroPresetId =
         typeof presetRaw === "string" && presetRaw.trim()
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
       const body = await request.json();
       url = typeof body.url === "string" ? body.url.trim() : "";
       scrollAnimationEffect = body.scrollAnimationEffect === true;
+      cardHoverEffect = body.cardHoverEffect === true;
       scrollHeroPresetId =
         typeof body.scrollHeroPresetId === "string"
           ? body.scrollHeroPresetId.trim()
@@ -125,6 +128,7 @@ export async function POST(request: Request) {
       logoUrl,
       scrollAnimationEffect,
       scrollHeroVideoUrl,
+      cardHoverEffect,
     });
 
     const siteBuiltAt = new Date().toISOString();

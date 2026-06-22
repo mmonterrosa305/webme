@@ -86,6 +86,7 @@ export async function buildBusinessSearchSite(
   options?: {
     scrollAnimationEffect?: boolean;
     scrollHeroVideoUrl?: string | null;
+    cardHoverEffect?: boolean;
   },
 ) {
   const businessProfile = toBusinessProfile(result);
@@ -115,6 +116,7 @@ export async function buildBusinessSearchSite(
     logoUrl,
     scrollAnimationEffect: options?.scrollAnimationEffect ?? false,
     scrollHeroVideoUrl: options?.scrollHeroVideoUrl ?? null,
+    cardHoverEffect: options?.cardHoverEffect ?? false,
   });
 
   const siteBuiltAt = new Date().toISOString();

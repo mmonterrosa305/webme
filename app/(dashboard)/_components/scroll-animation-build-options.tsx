@@ -9,6 +9,8 @@ import { PresetVideoThumbnail } from "./preset-video-thumbnail";
 export function ScrollAnimationBuildOptions({
   checked,
   onCheckedChange,
+  cardHoverChecked,
+  onCardHoverCheckedChange,
   disabled,
   industry,
   videoFile,
@@ -18,6 +20,8 @@ export function ScrollAnimationBuildOptions({
 }: {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
+  cardHoverChecked: boolean;
+  onCardHoverCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
   industry?: string;
   videoFile: File | null;
@@ -114,16 +118,30 @@ export function ScrollAnimationBuildOptions({
 
   return (
     <div className="w-full space-y-4">
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => handleCheckedChange(event.target.checked)}
-          disabled={disabled}
-          className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-        />
-        ✨ Add scroll animation effect
-      </label>
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(event) => handleCheckedChange(event.target.checked)}
+            disabled={disabled}
+            className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+          />
+          ✨ Add scroll animation effect
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+          <input
+            type="checkbox"
+            checked={cardHoverChecked}
+            onChange={(event) =>
+              onCardHoverCheckedChange(event.target.checked)
+            }
+            disabled={disabled}
+            className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+          />
+          🖱️ Add card hover effects
+        </label>
+      </div>
 
       {checked ? (
         <div className="space-y-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">

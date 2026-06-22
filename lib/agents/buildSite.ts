@@ -9,6 +9,7 @@ import {
   type IndustryPhotoSet,
 } from "./fetch-pixabay-photos";
 import { normalizeHeroVideoAttributes } from "./normalize-hero-video";
+import { applyServiceCardHoverEffect } from "./service-card-hover";
 import {
   applyScrollHeroVideo,
   fetchScrollHeroVideoFromPexels,
@@ -77,7 +78,8 @@ Add these exact data-webme attributes so clients can edit their site later:
 - Header/nav logo img: data-webme="logo"
 - Logo image: always apply style="filter: brightness(0) invert(1); height: 60px; width: auto;" to the logo <img> tag when the navbar background is dark. If the navbar is light/white, use style="height: 60px; width: auto;" without the filter.
 - About section image: data-webme="about-image"
-- Service card backgrounds (in order): data-webme="service-image-1" through data-webme="service-image-4"
+- Service card wrappers (the full card element, not just the background): data-webme="service-card" on each of the 4 cards
+- Service card backgrounds (in order): data-webme="service-image-1" through data-webme="service-image-4" on the background element inside each card
 - Gallery images (left to right): data-webme="gallery-image-1" through data-webme="gallery-image-3"
 - Contact sidebar phone: data-webme="phone" (also use tel: link)
 - Contact sidebar address: data-webme="address"
@@ -107,6 +109,7 @@ export type BuildSiteInput = {
   logoSvg?: string;
   scrollAnimationEffect?: boolean;
   scrollHeroVideoUrl?: string | null;
+  cardHoverEffect?: boolean;
 };
 
 type SupportedImageMediaType =
@@ -475,6 +478,10 @@ export async function buildSite(
 
   if (input.scrollAnimationEffect && heroVideoUrl) {
     html = applyScrollHeroVideo(html, heroVideoUrl, heroUrl);
+  }
+
+  if (input.cardHoverEffect) {
+    html = applyServiceCardHoverEffect(html);
   }
 
   if (!html.includes("<html") && !html.includes("<!DOCTYPE")) {

@@ -4,12 +4,14 @@ export type ScrollBuildOptions = {
   scrollAnimationEffect: boolean;
   scrollHeroPresetId: string | null;
   scrollHeroVideoFile: File | null;
+  cardHoverEffect: boolean;
 };
 
 export const DEFAULT_SCROLL_BUILD_OPTIONS: ScrollBuildOptions = {
   scrollAnimationEffect: false,
   scrollHeroPresetId: null,
   scrollHeroVideoFile: null,
+  cardHoverEffect: false,
 };
 
 export function getScrollBuildOptions(
@@ -27,6 +29,7 @@ export function withScrollBuildPayload(
     ...payload,
     scrollAnimationEffect: scroll.scrollAnimationEffect,
     scrollHeroPresetId: scroll.scrollHeroPresetId ?? undefined,
+    cardHoverEffect: scroll.cardHoverEffect,
   };
 }
 

@@ -59,6 +59,8 @@ function BusinessResultCard({
   building,
   scrollAnimationEffect,
   onScrollAnimationEffectChange,
+  cardHoverEffect,
+  onCardHoverEffectChange,
   scrollHeroVideoFile,
   onScrollHeroVideoFileChange,
   scrollHeroPresetId,
@@ -69,6 +71,8 @@ function BusinessResultCard({
   building: boolean;
   scrollAnimationEffect: boolean;
   onScrollAnimationEffectChange: (checked: boolean) => void;
+  cardHoverEffect: boolean;
+  onCardHoverEffectChange: (checked: boolean) => void;
   scrollHeroVideoFile: File | null;
   onScrollHeroVideoFileChange: (file: File | null) => void;
   scrollHeroPresetId: string | null;
@@ -175,6 +179,8 @@ function BusinessResultCard({
         <ScrollAnimationBuildOptions
           checked={scrollAnimationEffect}
           onCheckedChange={onScrollAnimationEffectChange}
+          cardHoverChecked={cardHoverEffect}
+          onCardHoverCheckedChange={onCardHoverEffectChange}
           disabled={building}
           industry={business.industry}
           videoFile={scrollHeroVideoFile}
@@ -209,6 +215,7 @@ export function BusinessSearchForm() {
   );
   const [queueError, setQueueError] = useState<string | null>(null);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
+  const [cardHoverEffect, setCardHoverEffect] = useState(false);
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
     null,
   );
@@ -277,6 +284,7 @@ export function BusinessSearchForm() {
           "scrollAnimationEffect",
           scrollAnimationEffect ? "true" : "false",
         );
+        formData.append("cardHoverEffect", cardHoverEffect ? "true" : "false");
         if (scrollHeroPresetId) {
           formData.append("scrollHeroPresetId", scrollHeroPresetId);
         }
@@ -292,6 +300,7 @@ export function BusinessSearchForm() {
           body: JSON.stringify({
             business,
             scrollAnimationEffect,
+            cardHoverEffect,
             scrollHeroPresetId: scrollHeroPresetId ?? undefined,
           }),
         });
@@ -440,6 +449,8 @@ export function BusinessSearchForm() {
             building={isBuilding}
             scrollAnimationEffect={scrollAnimationEffect}
             onScrollAnimationEffectChange={setScrollAnimationEffect}
+            cardHoverEffect={cardHoverEffect}
+            onCardHoverEffectChange={setCardHoverEffect}
             scrollHeroVideoFile={scrollHeroVideoFile}
             onScrollHeroVideoFileChange={setScrollHeroVideoFile}
             scrollHeroPresetId={scrollHeroPresetId}

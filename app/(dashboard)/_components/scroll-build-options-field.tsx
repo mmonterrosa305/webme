@@ -2,7 +2,6 @@
 
 import { ScrollAnimationBuildOptions } from "./scroll-animation-build-options";
 import {
-  DEFAULT_SCROLL_BUILD_OPTIONS,
   type ScrollBuildOptions,
 } from "@/lib/agents/scroll-build-options";
 
@@ -22,11 +21,20 @@ export function ScrollBuildOptionsField({
       checked={options.scrollAnimationEffect}
       onCheckedChange={(checked) => {
         if (!checked) {
-          onChange(DEFAULT_SCROLL_BUILD_OPTIONS);
+          onChange({
+            scrollAnimationEffect: false,
+            scrollHeroPresetId: null,
+            scrollHeroVideoFile: null,
+            cardHoverEffect: options.cardHoverEffect,
+          });
           return;
         }
 
         onChange({ ...options, scrollAnimationEffect: true });
+      }}
+      cardHoverChecked={options.cardHoverEffect}
+      onCardHoverCheckedChange={(cardHoverEffect) => {
+        onChange({ ...options, cardHoverEffect });
       }}
       disabled={disabled}
       industry={industry}

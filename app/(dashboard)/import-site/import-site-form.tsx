@@ -28,6 +28,7 @@ export function ImportSiteForm() {
   );
   const [queueError, setQueueError] = useState<string | null>(null);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
+  const [cardHoverEffect, setCardHoverEffect] = useState(false);
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
     null,
   );
@@ -57,6 +58,7 @@ export function ImportSiteForm() {
           "scrollAnimationEffect",
           scrollAnimationEffect ? "true" : "false",
         );
+        formData.append("cardHoverEffect", cardHoverEffect ? "true" : "false");
         if (scrollHeroPresetId) {
           formData.append("scrollHeroPresetId", scrollHeroPresetId);
         }
@@ -72,6 +74,7 @@ export function ImportSiteForm() {
           body: JSON.stringify({
             url,
             scrollAnimationEffect,
+            cardHoverEffect,
             scrollHeroPresetId: scrollHeroPresetId ?? undefined,
           }),
         });
@@ -176,6 +179,8 @@ export function ImportSiteForm() {
             <ScrollAnimationBuildOptions
               checked={scrollAnimationEffect}
               onCheckedChange={setScrollAnimationEffect}
+              cardHoverChecked={cardHoverEffect}
+              onCardHoverCheckedChange={setCardHoverEffect}
               disabled={isLoading}
               videoFile={scrollHeroVideoFile}
               onVideoFileChange={setScrollHeroVideoFile}
