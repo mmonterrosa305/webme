@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { LeadPreview } from "@/lib/leads/types";
-import { hasScrollHeroVideo } from "@/lib/agents/scroll-hero-video";
+import {
+  extractScrollHeroVideoUrl,
+  hasScrollHeroVideo,
+  matchPresetIdFromVideoUrl,
+} from "@/lib/agents/scroll-hero-video";
 import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
 
-type Modal = "packages" | "declined" | "edits-exhausted" | null;
+import { PresetVideoPicker } from "@/app/(dashboard)/_components/preset-video-picker";
+
+type Modal = "packages" | "declined" | "edits-exhausted" | "pick-preset" | null;
 
 type PlanId = "starter" | "monthly" | "premium";
 
@@ -153,14 +159,15 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const [replacingSlot, setReplacingSlot] = useState<string | null>(null);
   const [shufflingVideo, setShufflingVideo] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [applyingPresetId, setApplyingPresetId] = useState<string | null>(null);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  const hasHeroVideo =
-    siteHtml.includes('data-webme="hero-image"') &&
-    siteHtml.includes("<video");
   const hasScrollHero = hasScrollHeroVideo(siteHtml);
+  const scrollVideoControlsDisabled =
+    shufflingVideo || uploadingVideo || applyingPresetId !== null;
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -770,6 +777,81 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     }
   }, [lead.industry, lead.site_slug]);
 
+  const handleApplyPreset = useCallback(
+    async (presetId: string) => {
+      if (!presetId || applyingPresetId) {
+        return;
+      }
+
+      setApplyingPresetId(presetId);
+      setEditError(null);
+
+      try {
+        const response = await fetch("/api/leads/apply-preset-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            siteSlug: lead.site_slug,
+            presetId,
+            industry: lead.industry ?? undefined,
+          }),
+        });
+
+        const data = (await response.json()) as {
+          siteHtml?: string;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to apply preset video.");
+        }
+
+        if (data.siteHtml) {
+          setSiteHtml(data.siteHtml);
+        }
+
+        setActivePresetId(presetId);
+        setModal(null);
+      } catch (error) {
+        setEditError(
+          error instanceof Error
+            ? error.message
+            : "Failed to apply preset video.",
+        );
+      } finally {
+        setApplyingPresetId(null);
+      }
+    },
+    [applyingPresetId, lead.industry, lead.site_slug],
+  );
+
+  const openPickPresetModal = useCallback(async () => {
+    setActivePresetId(null);
+    setModal("pick-preset");
+
+    const currentUrl = extractScrollHeroVideoUrl(siteHtml);
+    if (!currentUrl || !lead.industry) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/video-presets?industry=${encodeURIComponent(lead.industry)}`,
+      );
+      const data = (await response.json()) as {
+        presets?: { id: string; video_url: string }[];
+      };
+
+      if (response.ok) {
+        setActivePresetId(
+          matchPresetIdFromVideoUrl(currentUrl, data.presets ?? []),
+        );
+      }
+    } catch {
+      // Best-effort match for the current hero video.
+    }
+  }, [lead.industry, siteHtml]);
+
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -934,23 +1016,33 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
             >
               {uploadingLogo ? "Uploading..." : hasLogo ? "Change Logo" : "Upload Logo"}
             </button>
-            <button
-              type="button"
-              disabled={shufflingVideo}
-              onClick={() => void handleShuffleVideo()}
-              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {shufflingVideo ? "Shuffling..." : "Shuffle Video"}
-            </button>
-            {hasScrollHero || hasHeroVideo ? (
-              <button
-                type="button"
-                disabled={uploadingVideo}
-                onClick={() => videoInputRef.current?.click()}
-                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {uploadingVideo ? "Uploading..." : "Upload Custom Video"}
-              </button>
+            {hasScrollHero ? (
+              <>
+                <button
+                  type="button"
+                  disabled={scrollVideoControlsDisabled}
+                  onClick={() => void handleShuffleVideo()}
+                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {shufflingVideo ? "Shuffling..." : "Shuffle Video"}
+                </button>
+                <button
+                  type="button"
+                  disabled={scrollVideoControlsDisabled}
+                  onClick={() => void openPickPresetModal()}
+                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {applyingPresetId ? "Applying..." : "Pick Preset"}
+                </button>
+                <button
+                  type="button"
+                  disabled={scrollVideoControlsDisabled}
+                  onClick={() => videoInputRef.current?.click()}
+                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {uploadingVideo ? "Uploading..." : "Upload Custom Video"}
+                </button>
+              </>
             ) : null}
           </div>
         </div>
@@ -1183,6 +1275,51 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               className="mt-6 rounded-lg bg-neutral-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
             >
               Claim your site
+            </button>
+          </div>
+        </ModalBackdrop>
+      ) : null}
+
+      {modal === "pick-preset" ? (
+        <ModalBackdrop onClose={() => setModal(null)}>
+          <div className="p-6 sm:p-8">
+            <h2 className="text-xl font-semibold text-neutral-900">
+              Pick a preset video
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              {lead.industry
+                ? `Choose a scroll hero video from the ${lead.industry} library. Preview with play — selection applies immediately.`
+                : "This site has no industry set, so presets cannot be loaded."}
+            </p>
+
+            {lead.industry ? (
+              <div className="mt-6">
+                <PresetVideoPicker
+                  industry={lead.industry}
+                  selectedPresetId={activePresetId}
+                  onSelectedPresetIdChange={(presetId) => {
+                    if (presetId) {
+                      void handleApplyPreset(presetId);
+                    }
+                  }}
+                  disabled={applyingPresetId !== null}
+                  enabled
+                  showAutoSelect={false}
+                  gridClassName="grid gap-3 sm:grid-cols-2"
+                />
+              </div>
+            ) : null}
+
+            {applyingPresetId ? (
+              <p className="mt-4 text-sm text-neutral-600">Applying video...</p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setModal(null)}
+              className="mt-6 w-full text-center text-sm text-neutral-500 hover:text-neutral-800"
+            >
+              Close
             </button>
           </div>
         </ModalBackdrop>

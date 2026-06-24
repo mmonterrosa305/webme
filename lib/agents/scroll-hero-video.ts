@@ -220,6 +220,51 @@ export function hasScrollHeroVideo(html: string): boolean {
   );
 }
 
+/** Read the scroll hero video src from saved site HTML. */
+export function extractScrollHeroVideoUrl(html: string): string | null {
+  const patterns = [
+    /<video[^>]*data-webme-scroll-hero="true"[^>]*\ssrc="([^"]+)"/i,
+    /<video[^>]*\ssrc="([^"]+)"[^>]*data-webme-scroll-hero="true"/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+function normalizeVideoUrlForCompare(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url.split("?")[0] ?? url;
+  }
+}
+
+/** Match a preset id from site HTML when the hero uses a library video URL. */
+export function matchPresetIdFromVideoUrl(
+  videoUrl: string | null,
+  presets: { id: string; video_url: string }[],
+): string | null {
+  if (!videoUrl) {
+    return null;
+  }
+
+  const normalized = normalizeVideoUrlForCompare(videoUrl);
+  const match = presets.find(
+    (preset) =>
+      normalizeVideoUrlForCompare(preset.video_url) === normalized ||
+      videoUrl === preset.video_url,
+  );
+
+  return match?.id ?? null;
+}
+
 /** Search Pexels for a cinematic hero video matching the business industry. */
 export async function fetchScrollHeroVideoFromPexels(
   industry: string,
