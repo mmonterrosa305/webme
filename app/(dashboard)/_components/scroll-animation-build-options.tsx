@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import type { VideoPreset } from "@/lib/video-presets/types";
 
@@ -33,13 +33,12 @@ export function ScrollAnimationBuildOptions({
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
   const [playingPresetId, setPlayingPresetId] = useState<string | null>(null);
+  const presetGroupName = useId();
 
   function handleCheckedChange(nextChecked: boolean) {
     onCheckedChange(nextChecked);
 
     if (!nextChecked) {
-      onVideoFileChange(null);
-      onSelectedPresetIdChange(null);
       setPlayingPresetId(null);
     }
   }
@@ -104,18 +103,6 @@ export function ScrollAnimationBuildOptions({
     }
   }, [presets, playingPresetId]);
 
-  function handlePresetSelect(presetId: string) {
-    onSelectedPresetIdChange(selectedPresetId === presetId ? null : presetId);
-    onVideoFileChange(null);
-  }
-
-  function handleVideoFileChange(file: File | null) {
-    onVideoFileChange(file);
-    if (file) {
-      onSelectedPresetIdChange(null);
-    }
-  }
-
   return (
     <div className="w-full space-y-4">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -169,66 +156,73 @@ export function ScrollAnimationBuildOptions({
                 use Pexels auto-select.
               </p>
             ) : (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {presets.map((preset) => {
-                  const isSelected = selectedPresetId === preset.id;
+              <div
+                role="radiogroup"
+                aria-label="Preset video selection"
+                className="mt-3 space-y-3"
+              >
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
+                  <input
+                    type="radio"
+                    name={presetGroupName}
+                    checked={selectedPresetId === null}
+                    onChange={() => onSelectedPresetIdChange(null)}
+                    disabled={disabled}
+                    className="h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                  />
+                  Auto-select from Pexels (default)
+                </label>
 
-                  return (
-                    <div
-                      key={preset.id}
-                      className={`overflow-hidden rounded-lg border-4 bg-white transition ${
-                        isSelected
-                          ? "border-blue-600 shadow-md ring-2 ring-blue-200"
-                          : "border-transparent ring-1 ring-inset ring-neutral-200 hover:ring-neutral-400"
-                      } ${disabled ? "opacity-60" : ""}`}
-                    >
-                      <PresetVideoThumbnail
-                        preset={preset}
-                        isPlaying={playingPresetId === preset.id}
-                        isSelected={isSelected}
-                        disabled={disabled}
-                        onPlay={() => setPlayingPresetId(preset.id)}
-                        onStop={() => setPlayingPresetId(null)}
-                        onSelect={() => handlePresetSelect(preset.id)}
-                      />
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        aria-pressed={isSelected}
-                        onClick={() => handlePresetSelect(preset.id)}
-                        className={`w-full px-3 py-2.5 text-left transition disabled:cursor-not-allowed ${
-                          isSelected ? "bg-blue-100" : "bg-white"
-                        }`}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {presets.map((preset) => {
+                    const isSelected = selectedPresetId === preset.id;
+
+                    return (
+                      <div
+                        key={preset.id}
+                        className={`overflow-hidden rounded-lg border bg-white ${
+                          isSelected
+                            ? "border-blue-600"
+                            : "border-neutral-200"
+                        } ${disabled ? "opacity-60" : ""}`}
                       >
-                        <p
-                          className={`text-sm ${
-                            isSelected
-                              ? "font-bold text-blue-800"
-                              : "font-medium text-neutral-900"
-                          }`}
-                        >
-                          {preset.label}
-                        </p>
-                        {!industry ? (
-                          <p
-                            className={`mt-0.5 text-xs ${
-                              isSelected
-                                ? "font-medium text-blue-700"
-                                : "text-neutral-500"
-                            }`}
-                          >
-                            {preset.industry}
+                        <PresetVideoThumbnail
+                          preset={preset}
+                          isPlaying={playingPresetId === preset.id}
+                          disabled={disabled}
+                          onPlay={() => setPlayingPresetId(preset.id)}
+                          onStop={() => setPlayingPresetId(null)}
+                        />
+                        <div className="px-3 py-2.5">
+                          <p className="text-sm font-medium text-neutral-900">
+                            {preset.label}
                           </p>
-                        ) : null}
-                        {isSelected ? (
-                          <p className="mt-1.5 text-sm font-bold text-blue-700">
-                            Selected
-                          </p>
-                        ) : null}
-                      </button>
-                    </div>
-                  );
-                })}
+                          {!industry ? (
+                            <p className="mt-0.5 text-xs text-neutral-500">
+                              {preset.industry}
+                            </p>
+                          ) : null}
+                          <label className="mt-2 flex cursor-pointer items-center gap-2">
+                            <input
+                              type="radio"
+                              name={presetGroupName}
+                              value={preset.id}
+                              checked={isSelected}
+                              onChange={() =>
+                                onSelectedPresetIdChange(preset.id)
+                              }
+                              disabled={disabled}
+                              className="h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                            />
+                            <span className="text-sm text-neutral-700">
+                              Use this video
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -242,7 +236,7 @@ export function ScrollAnimationBuildOptions({
               accept="video/mp4,video/webm,video/quicktime"
               disabled={disabled}
               onChange={(event) => {
-                handleVideoFileChange(event.target.files?.[0] ?? null);
+                onVideoFileChange(event.target.files?.[0] ?? null);
               }}
               className="mt-2 block w-full max-w-md text-sm text-neutral-700 file:mr-3 file:rounded-md file:border file:border-neutral-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-neutral-700 hover:file:bg-neutral-50"
             />

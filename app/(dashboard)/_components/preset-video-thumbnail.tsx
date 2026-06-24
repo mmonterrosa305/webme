@@ -2,85 +2,38 @@
 
 import type { VideoPreset } from "@/lib/video-presets/types";
 
-function SelectedCheckmarkBadge() {
-  return (
-    <span
-      className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg ring-2 ring-white"
-      aria-hidden
-    >
-      <svg
-        viewBox="0 0 24 24"
-        className="h-5 w-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3.5"
-      >
-        <path
-          d="M5 13l4 4L19 7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
-  );
-}
-
 export function PresetVideoThumbnail({
   preset,
   isPlaying,
-  isSelected = false,
   disabled = false,
   onPlay,
   onStop,
-  onSelect,
 }: {
   preset: VideoPreset;
   isPlaying: boolean;
-  isSelected?: boolean;
   disabled?: boolean;
   onPlay: () => void;
   onStop: () => void;
-  onSelect?: () => void;
 }) {
   return (
     <div className="relative aspect-video bg-neutral-900">
       {isPlaying ? (
-        <>
-          <video
-            key={preset.id}
-            src={preset.video_url}
-            controls
-            autoPlay
-            playsInline
-            className="h-full w-full object-cover"
-            onEnded={onStop}
-          />
-          {isSelected ? <SelectedCheckmarkBadge /> : null}
-        </>
+        <video
+          key={preset.id}
+          src={preset.video_url}
+          controls
+          autoPlay
+          playsInline
+          className="h-full w-full object-cover"
+          onEnded={onStop}
+        />
       ) : (
         <>
-          {onSelect ? (
-            <button
-              type="button"
-              disabled={disabled}
-              aria-pressed={isSelected}
-              aria-label={`Select ${preset.label}`}
-              onClick={onSelect}
-              className="absolute inset-0 z-0 h-full w-full disabled:cursor-not-allowed"
-            >
-              <img
-                src={preset.thumbnail_url}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            </button>
-          ) : (
-            <img
-              src={preset.thumbnail_url}
-              alt={preset.label}
-              className="h-full w-full object-cover"
-            />
-          )}
+          <img
+            src={preset.thumbnail_url}
+            alt={preset.label}
+            className="h-full w-full object-cover"
+          />
 
           <button
             type="button"
@@ -103,8 +56,6 @@ export function PresetVideoThumbnail({
               </svg>
             </span>
           </button>
-
-          {isSelected ? <SelectedCheckmarkBadge /> : null}
         </>
       )}
     </div>

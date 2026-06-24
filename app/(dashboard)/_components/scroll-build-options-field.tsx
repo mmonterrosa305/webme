@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 import { ScrollAnimationBuildOptions } from "./scroll-animation-build-options";
 import {
   type ScrollBuildOptions,
@@ -16,6 +18,13 @@ export function ScrollBuildOptionsField({
   industry?: string;
   disabled?: boolean;
 }) {
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  function updateOptions(patch: Partial<ScrollBuildOptions>) {
+    onChange({ ...optionsRef.current, ...patch });
+  }
+
   return (
     <ScrollAnimationBuildOptions
       checked={options.scrollAnimationEffect}
@@ -25,35 +34,35 @@ export function ScrollBuildOptionsField({
             scrollAnimationEffect: false,
             scrollHeroPresetId: null,
             scrollHeroVideoFile: null,
-            cardHoverEffect: options.cardHoverEffect,
+            cardHoverEffect: optionsRef.current.cardHoverEffect,
           });
           return;
         }
 
-        onChange({ ...options, scrollAnimationEffect: true });
+        updateOptions({ scrollAnimationEffect: true });
       }}
       cardHoverChecked={options.cardHoverEffect}
       onCardHoverCheckedChange={(cardHoverEffect) => {
-        onChange({ ...options, cardHoverEffect });
+        updateOptions({ cardHoverEffect });
       }}
       disabled={disabled}
       industry={industry}
       videoFile={options.scrollHeroVideoFile}
       onVideoFileChange={(file) => {
-        onChange({
-          ...options,
+        updateOptions({
           scrollAnimationEffect: true,
           scrollHeroVideoFile: file,
-          scrollHeroPresetId: file ? null : options.scrollHeroPresetId,
+          scrollHeroPresetId: file ? null : optionsRef.current.scrollHeroPresetId,
         });
       }}
       selectedPresetId={options.scrollHeroPresetId}
       onSelectedPresetIdChange={(presetId) => {
-        onChange({
-          ...options,
+        updateOptions({
           scrollAnimationEffect: true,
           scrollHeroPresetId: presetId,
-          scrollHeroVideoFile: presetId ? null : options.scrollHeroVideoFile,
+          scrollHeroVideoFile: presetId
+            ? null
+            : optionsRef.current.scrollHeroVideoFile,
         });
       }}
     />

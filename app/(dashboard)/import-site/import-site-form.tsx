@@ -178,14 +178,30 @@ export function ImportSiteForm() {
           <div className="flex flex-wrap items-end gap-4">
             <ScrollAnimationBuildOptions
               checked={scrollAnimationEffect}
-              onCheckedChange={setScrollAnimationEffect}
+              onCheckedChange={(checked) => {
+                setScrollAnimationEffect(checked);
+                if (!checked) {
+                  setScrollHeroVideoFile(null);
+                  setScrollHeroPresetId(null);
+                }
+              }}
               cardHoverChecked={cardHoverEffect}
               onCardHoverCheckedChange={setCardHoverEffect}
               disabled={isLoading}
               videoFile={scrollHeroVideoFile}
-              onVideoFileChange={setScrollHeroVideoFile}
+              onVideoFileChange={(file) => {
+                setScrollHeroVideoFile(file);
+                if (file) {
+                  setScrollHeroPresetId(null);
+                }
+              }}
               selectedPresetId={scrollHeroPresetId}
-              onSelectedPresetIdChange={setScrollHeroPresetId}
+              onSelectedPresetIdChange={(presetId) => {
+                setScrollHeroPresetId(presetId);
+                if (presetId) {
+                  setScrollHeroVideoFile(null);
+                }
+              }}
             />
 
             <button

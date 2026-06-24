@@ -448,13 +448,29 @@ export function BusinessSearchForm() {
             onBuild={() => void handleBuildSite()}
             building={isBuilding}
             scrollAnimationEffect={scrollAnimationEffect}
-            onScrollAnimationEffectChange={setScrollAnimationEffect}
+            onScrollAnimationEffectChange={(checked) => {
+              setScrollAnimationEffect(checked);
+              if (!checked) {
+                setScrollHeroVideoFile(null);
+                setScrollHeroPresetId(null);
+              }
+            }}
             cardHoverEffect={cardHoverEffect}
             onCardHoverEffectChange={setCardHoverEffect}
             scrollHeroVideoFile={scrollHeroVideoFile}
-            onScrollHeroVideoFileChange={setScrollHeroVideoFile}
+            onScrollHeroVideoFileChange={(file) => {
+              setScrollHeroVideoFile(file);
+              if (file) {
+                setScrollHeroPresetId(null);
+              }
+            }}
             scrollHeroPresetId={scrollHeroPresetId}
-            onScrollHeroPresetIdChange={setScrollHeroPresetId}
+            onScrollHeroPresetIdChange={(presetId) => {
+              setScrollHeroPresetId(presetId);
+              if (presetId) {
+                setScrollHeroVideoFile(null);
+              }
+            }}
           />
         ) : null}
 
