@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_SECTIONS,
 } from "@/lib/agents/site-options";
+import { withScrollHeroSequenceMetadata } from "@/lib/site-editor/scroll-hero-metadata";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -127,7 +128,6 @@ export async function POST(request: Request) {
     }
 
     let scrollHeroVideoUrl: string | null = null;
-    let scrollHeroSequenceFrames: string[] | null = null;
     if (scrollAnimationEffect) {
       const scrollHeroAssets = await resolveScrollHeroAssetsForBuild({
         formData: pendingFormData,
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       });
       scrollHeroMediaType = scrollHeroAssets.mediaType;
       scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
-      scrollHeroSequenceFrames = scrollHeroAssets.sequenceFrames;
+      scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
     }
 
     const { html, siteSlug } = await buildSite({
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
       scrollAnimationEffect,
       scrollHeroMediaType,
       scrollHeroVideoUrl,
-      scrollHeroSequenceFrames,
+      scrollHeroSequencePresetId,
       cardHoverEffect,
     });
 
@@ -181,7 +181,10 @@ export async function POST(request: Request) {
       site_built_at: siteBuiltAt,
       status: "pending_review",
       site_version: "A",
-      site_metadata: contentToMetadata(siteContent),
+      site_metadata: withScrollHeroSequenceMetadata(
+        contentToMetadata(siteContent),
+        scrollHeroSequencePresetId,
+      ),
       preview_edits_used: 0,
     };
 

@@ -30,6 +30,7 @@ export type SiteMetadata = {
   aboutImageUrl?: string;
   serviceImageUrls?: string[];
   galleryImageUrls?: string[];
+  scrollHeroSequenceId?: string;
 };
 
 export type ClientSiteData = {

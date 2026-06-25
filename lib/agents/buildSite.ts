@@ -112,7 +112,7 @@ export type BuildSiteInput = {
   scrollAnimationEffect?: boolean;
   scrollHeroMediaType?: ScrollHeroMediaType;
   scrollHeroVideoUrl?: string | null;
-  scrollHeroSequenceFrames?: string[] | null;
+  scrollHeroSequencePresetId?: string | null;
   cardHoverEffect?: boolean;
 };
 
@@ -448,7 +448,7 @@ export async function buildSite(
   const useImageSequence =
     input.scrollAnimationEffect &&
     input.scrollHeroMediaType === "image-sequence" &&
-    Boolean(input.scrollHeroSequenceFrames?.length);
+    Boolean(input.scrollHeroSequencePresetId);
 
   const heroVideoUrl = useImageSequence
     ? null
@@ -487,10 +487,10 @@ export async function buildSite(
 
   let html = normalizeHeroVideoAttributes(extractHtml(textBlock.text));
 
-  if (useImageSequence && input.scrollHeroSequenceFrames) {
+  if (useImageSequence && input.scrollHeroSequencePresetId) {
     html = applyScrollHeroSequence(
       html,
-      input.scrollHeroSequenceFrames,
+      input.scrollHeroSequencePresetId,
       heroUrl,
     );
   } else if (input.scrollAnimationEffect && heroVideoUrl) {

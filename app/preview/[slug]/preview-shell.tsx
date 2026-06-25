@@ -9,9 +9,8 @@ import {
   matchPresetIdFromVideoUrl,
 } from "@/lib/agents/scroll-hero-video";
 import {
-  extractScrollHeroSequenceFrames,
+  extractScrollHeroSequenceId,
   hasScrollHeroSequence,
-  matchSequencePresetIdFromFrames,
 } from "@/lib/agents/scroll-hero-sequence";
 import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
@@ -918,8 +917,13 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     setActiveSequenceId(null);
     setModal("pick-sequence");
 
-    const currentFrames = extractScrollHeroSequenceFrames(siteHtml);
-    if (!currentFrames.length || !lead.industry) {
+    const currentSequenceId = extractScrollHeroSequenceId(siteHtml);
+    if (currentSequenceId) {
+      setActiveSequenceId(currentSequenceId);
+      return;
+    }
+
+    if (!lead.industry) {
       return;
     }
 
@@ -931,13 +935,11 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         sequences?: { id: string; frames_urls: string[] }[];
       };
 
-      if (response.ok) {
-        setActiveSequenceId(
-          matchSequencePresetIdFromFrames(currentFrames, data.sequences ?? []),
-        );
+      if (response.ok && data.sequences?.length === 1) {
+        setActiveSequenceId(data.sequences[0]!.id);
       }
     } catch {
-      // Best-effort match for the current sequence.
+      // Best-effort preselect for the picker.
     }
   }, [lead.industry, siteHtml]);
 

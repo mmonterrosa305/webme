@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   PREVIEW_FREE_EDITS,
 } from "@/lib/plans/edit-limits";
-import { prepareScrollHeroSiteHtml } from "@/lib/agents/scroll-hero-video";
+import { prepareLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
 import {
   applyPreviewEdit,
   extractPreviewFields,
@@ -33,7 +33,11 @@ export async function GET(_request: Request, context: RouteContext) {
       editsUsed: lead.preview_edits_used ?? 0,
       editsLimit: PREVIEW_FREE_EDITS,
       editsRemaining: remaining,
-      siteHtml: prepareScrollHeroSiteHtml(lead.site_html),
+      siteHtml: await prepareLeadSiteHtml(
+        lead.site_html,
+        lead.site_metadata,
+        null,
+      ),
     });
   } catch (error) {
     const message =
@@ -93,7 +97,7 @@ export async function POST(request: Request, context: RouteContext) {
     const editsRemaining = Math.max(0, PREVIEW_FREE_EDITS - editsUsed);
 
     return NextResponse.json({
-      html: prepareScrollHeroSiteHtml(result.html),
+      html: await prepareLeadSiteHtml(result.html, lead.site_metadata, null),
       fields: result.fields,
       editsUsed,
       editsLimit: PREVIEW_FREE_EDITS,

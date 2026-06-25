@@ -1,4 +1,4 @@
-import { prepareScrollHeroSiteHtml } from "@/lib/agents/scroll-hero-video";
+import { prepareLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { NextResponse } from "next/server";
 
@@ -43,7 +43,11 @@ export async function GET(
     return new NextResponse("Site not found", { status: 404 });
   }
 
-  const html = prepareScrollHeroSiteHtml(lead.site_html);
+  const html = await prepareLeadSiteHtml(
+    lead.site_html,
+    lead.site_metadata,
+    lead.industry,
+  );
 
   return new NextResponse(injectAnalyticsScript(html), {
     headers: {

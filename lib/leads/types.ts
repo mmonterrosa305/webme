@@ -1,3 +1,5 @@
+import type { SiteMetadata } from "@/lib/site-editor/types";
+
 export type LeadPreview = {
   id: string;
   business_name: string;
@@ -5,6 +7,7 @@ export type LeadPreview = {
   industry: string | null;
   site_slug: string;
   site_html: string;
+  site_metadata: SiteMetadata | null;
   owner_email: string | null;
   status: string | null;
 };

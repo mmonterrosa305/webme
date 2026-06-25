@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { prepareScrollHeroSiteHtml } from "@/lib/agents/scroll-hero-video";
+import { prepareLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 
 import { PreviewShell } from "./preview-shell";
@@ -31,11 +31,17 @@ export default async function PreviewPage({ params }: PageProps) {
     notFound();
   }
 
+  const siteHtml = await prepareLeadSiteHtml(
+    lead.site_html,
+    lead.site_metadata,
+    lead.industry,
+  );
+
   return (
     <PreviewShell
       lead={{
         ...lead,
-        site_html: prepareScrollHeroSiteHtml(lead.site_html),
+        site_html: siteHtml,
       }}
     />
   );

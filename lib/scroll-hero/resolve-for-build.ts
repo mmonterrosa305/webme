@@ -1,12 +1,34 @@
 import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
-import { resolveScrollHeroSequenceForBuild } from "@/lib/image-sequences/resolve-scroll-hero-sequence";
+import { getImageSequenceById } from "@/lib/image-sequences/queries";
+import { SCROLL_HERO_SEQUENCE_PRESET_FIELD } from "@/lib/image-sequences/types";
 import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scroll-hero-video";
 
 export type ScrollHeroBuildAssets = {
   mediaType: ScrollHeroMediaType;
   videoUrl: string | null;
-  sequenceFrames: string[] | null;
+  sequencePresetId: string | null;
 };
+
+async function resolveSequencePresetId(options: {
+  formData?: FormData | null;
+  presetId?: string | null;
+}): Promise<string | null> {
+  let presetId = options.presetId?.trim() ?? null;
+
+  if (options.formData) {
+    const presetFromForm = options.formData.get(SCROLL_HERO_SEQUENCE_PRESET_FIELD);
+    if (typeof presetFromForm === "string" && presetFromForm.trim()) {
+      presetId = presetFromForm.trim();
+    }
+  }
+
+  if (!presetId) {
+    return null;
+  }
+
+  const sequence = await getImageSequenceById(presetId);
+  return sequence?.id ?? null;
+}
 
 export async function resolveScrollHeroAssetsForBuild(options: {
   formData?: FormData | null;
@@ -21,7 +43,7 @@ export async function resolveScrollHeroAssetsForBuild(options: {
       : "video";
 
   if (mediaType === "image-sequence") {
-    const sequenceFrames = await resolveScrollHeroSequenceForBuild({
+    const resolvedSequenceId = await resolveSequencePresetId({
       formData: options.formData,
       presetId: options.sequencePresetId,
     });
@@ -29,7 +51,7 @@ export async function resolveScrollHeroAssetsForBuild(options: {
     return {
       mediaType,
       videoUrl: null,
-      sequenceFrames,
+      sequencePresetId: resolvedSequenceId,
     };
   }
 
@@ -42,6 +64,6 @@ export async function resolveScrollHeroAssetsForBuild(options: {
   return {
     mediaType: "video",
     videoUrl,
-    sequenceFrames: null,
+    sequencePresetId: null,
   };
 }

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 
 import {
   hasScrollHeroSequence,
-  replaceScrollHeroSequenceFrames,
+  replaceScrollHeroSequenceId,
 } from "@/lib/agents/scroll-hero-sequence";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getImageSequenceById } from "@/lib/image-sequences/queries";
+import type { SiteMetadata } from "@/lib/site-editor/types";
 
 export async function POST(request: Request) {
   try {
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const { data: lead, error: fetchError } = await supabase
       .from("leads")
-      .select("site_html, industry")
+      .select("site_html, industry, site_metadata")
       .eq("site_slug", siteSlug)
       .maybeSingle();
 
@@ -66,10 +67,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const updatedHtml = replaceScrollHeroSequenceFrames(
-      lead.site_html,
-      sequence.frames_urls,
-    );
+    const updatedHtml = replaceScrollHeroSequenceId(lead.site_html, sequence.id);
 
     if (!updatedHtml) {
       return NextResponse.json(
@@ -78,9 +76,19 @@ export async function POST(request: Request) {
       );
     }
 
+    const existingMetadata =
+      (lead.site_metadata as SiteMetadata | null) ?? {};
+    const nextMetadata: SiteMetadata = {
+      ...existingMetadata,
+      scrollHeroSequenceId: sequence.id,
+    };
+
     const { error: updateError } = await supabase
       .from("leads")
-      .update({ site_html: updatedHtml })
+      .update({
+        site_html: updatedHtml,
+        site_metadata: nextMetadata,
+      })
       .eq("site_slug", siteSlug);
 
     if (updateError) {

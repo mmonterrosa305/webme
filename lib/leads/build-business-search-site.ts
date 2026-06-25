@@ -2,6 +2,7 @@ import { buildSite } from "@/lib/agents/buildSite";
 import type { BusinessProfile } from "@/lib/agents/scrapeBusinessData";
 import { uploadLogo } from "@/lib/agents/upload-logo";
 import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
+import { withScrollHeroSequenceMetadata } from "@/lib/site-editor/scroll-hero-metadata";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -89,7 +90,7 @@ export async function buildBusinessSearchSite(
     scrollAnimationEffect?: boolean;
     scrollHeroMediaType?: ScrollHeroMediaType;
     scrollHeroVideoUrl?: string | null;
-    scrollHeroSequenceFrames?: string[] | null;
+    scrollHeroSequencePresetId?: string | null;
     cardHoverEffect?: boolean;
   },
 ) {
@@ -121,7 +122,7 @@ export async function buildBusinessSearchSite(
     scrollAnimationEffect: options?.scrollAnimationEffect ?? false,
     scrollHeroMediaType: options?.scrollHeroMediaType ?? "video",
     scrollHeroVideoUrl: options?.scrollHeroVideoUrl ?? null,
-    scrollHeroSequenceFrames: options?.scrollHeroSequenceFrames ?? null,
+    scrollHeroSequencePresetId: options?.scrollHeroSequencePresetId ?? null,
     cardHoverEffect: options?.cardHoverEffect ?? false,
   });
 
@@ -148,7 +149,10 @@ export async function buildBusinessSearchSite(
     site_built_at: siteBuiltAt,
     status: "pending_review",
     site_version: "A",
-    site_metadata: contentToMetadata(siteContent),
+    site_metadata: withScrollHeroSequenceMetadata(
+      contentToMetadata(siteContent),
+      options?.scrollHeroSequencePresetId,
+    ),
     preview_edits_used: 0,
   };
 

@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 
+import { matchImageSequenceByFrames } from "@/lib/image-sequences/match-by-frames";
+
 import {
   GSAP_CDN,
   SCROLL_TRIGGER_CDN,
@@ -8,6 +10,7 @@ import {
 } from "./scroll-hero-video";
 
 export const SCROLL_HERO_SEQUENCE_MARKER = "sequence";
+export const SCROLL_HERO_SEQUENCE_ID_ATTR = "data-webme-sequence-id";
 
 const SCROLL_HERO_SEQUENCE_CANVAS_STYLES = `
 .webme-scroll-hero-pin canvas[data-webme-scroll-hero="sequence"] {
@@ -30,142 +33,205 @@ const SCROLL_HERO_SEQUENCE_CANVAS_STYLES = `
 const SCROLL_HERO_SEQUENCE_INIT_SCRIPT = `<script id="webme-scroll-hero-sequence-init">
 (function () {
   function initScrollHeroSequence() {
-    if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
-
-    gsap.registerPlugin(ScrollTrigger);
-
-    var section = document.getElementById("webme-scroll-hero");
-    var pin = section && section.querySelector(".webme-scroll-hero-pin");
-    var canvas = document.querySelector('canvas[data-webme-scroll-hero="sequence"]');
-    var framesEl = document.getElementById("webme-scroll-hero-frames");
-    if (!section || !pin || !canvas || !framesEl) return;
-
-    var frameUrls;
     try {
-      frameUrls = JSON.parse(framesEl.textContent || "[]");
+      if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      var section = document.getElementById("webme-scroll-hero");
+      var pin = section && section.querySelector(".webme-scroll-hero-pin");
+      var canvas = document.querySelector('canvas[data-webme-scroll-hero="sequence"]');
+      if (!section || !pin || !canvas) return;
+
+      var ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      var images = [];
+      var dpr = window.devicePixelRatio || 1;
+      var posterUrl = canvas.getAttribute("data-poster") || "";
+
+      function resizeCanvas() {
+        var rect = pin.getBoundingClientRect();
+        var width = Math.max(1, Math.floor(rect.width));
+        var height = Math.max(1, Math.floor(rect.height));
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function drawCover(img) {
+        var cw = canvas.width / dpr;
+        var ch = canvas.height / dpr;
+        var iw = img.naturalWidth || img.width;
+        var ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        var scale = Math.max(cw / iw, ch / ih);
+        var dw = iw * scale;
+        var dh = ih * scale;
+        var dx = (cw - dw) / 2;
+        var dy = (ch - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      }
+
+      function drawFrame(progress) {
+        if (!images.length || !images[0]) return;
+
+        resizeCanvas();
+        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+        var maxIndex = images.length - 1;
+        var exact = progress * maxIndex;
+        var idx = Math.floor(exact);
+        var next = Math.min(idx + 1, maxIndex);
+        var blend = exact - idx;
+
+        var imgA = images[idx];
+        if (!imgA) return;
+
+        drawCover(imgA);
+
+        if (blend > 0.001 && next !== idx) {
+          var imgB = images[next];
+          if (imgB) {
+            ctx.globalAlpha = blend;
+            drawCover(imgB);
+            ctx.globalAlpha = 1;
+          }
+        }
+      }
+
+      function bindScrollHero() {
+        var existingPin = ScrollTrigger.getById("webme-scroll-hero-pin");
+        if (existingPin) existingPin.kill();
+        var existingScrub = ScrollTrigger.getById("webme-scroll-hero-scrub");
+        if (existingScrub) existingScrub.kill();
+
+        ScrollTrigger.create({
+          id: "webme-scroll-hero-pin",
+          trigger: section,
+          start: "top top",
+          end: "bottom bottom",
+          pin: pin,
+          pinSpacing: false,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+        });
+
+        ScrollTrigger.create({
+          id: "webme-scroll-hero-scrub",
+          trigger: section,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: true,
+          onUpdate: function (self) {
+            drawFrame(self.progress);
+          },
+        });
+
+        drawFrame(0);
+        ScrollTrigger.refresh();
+      }
+
+      function showPosterFallback() {
+        if (!posterUrl) return;
+
+        resizeCanvas();
+        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        var img = new Image();
+        img.onload = function () {
+          drawCover(img);
+        };
+        img.onerror = function () {};
+        img.src = posterUrl;
+      }
+
+      function preloadFrames(frameUrls) {
+        if (!frameUrls || !frameUrls.length) {
+          showPosterFallback();
+          return;
+        }
+
+        images = new Array(frameUrls.length);
+        var loaded = 0;
+
+        frameUrls.forEach(function (url, index) {
+          var img = new Image();
+          img.decoding = "async";
+          img.onload = function () {
+            loaded++;
+            if (loaded === frameUrls.length) {
+              bindScrollHero();
+            }
+          };
+          img.onerror = function () {
+            loaded++;
+            if (loaded === frameUrls.length) {
+              if (images[0]) {
+                bindScrollHero();
+              } else {
+                showPosterFallback();
+              }
+            }
+          };
+          img.src = url;
+          images[index] = img;
+        });
+      }
+
+      function loadLegacyInlineFrames() {
+        var framesEl = document.getElementById("webme-scroll-hero-frames");
+        if (!framesEl) {
+          showPosterFallback();
+          return;
+        }
+
+        try {
+          var frameUrls = JSON.parse(framesEl.textContent || "[]");
+          preloadFrames(frameUrls);
+        } catch (e) {
+          showPosterFallback();
+        }
+      }
+
+      function loadFramesFromApi(sequenceId) {
+        fetch("/api/image-sequences/" + encodeURIComponent(sequenceId))
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error("Sequence fetch failed");
+            }
+            return response.json();
+          })
+          .then(function (data) {
+            if (data.frames_urls && data.frames_urls.length) {
+              preloadFrames(data.frames_urls);
+            } else {
+              loadLegacyInlineFrames();
+            }
+          })
+          .catch(function () {
+            loadLegacyInlineFrames();
+          });
+      }
+
+      var sequenceId = canvas.getAttribute("data-webme-sequence-id");
+      if (sequenceId) {
+        loadFramesFromApi(sequenceId);
+      } else {
+        loadLegacyInlineFrames();
+      }
+
+      window.addEventListener("resize", function () {
+        var scrub = ScrollTrigger.getById("webme-scroll-hero-scrub");
+        if (scrub) {
+          drawFrame(scrub.progress);
+        }
+      });
     } catch (e) {
-      return;
+      console.warn("[webme] scroll hero sequence init failed", e);
     }
-
-    if (!frameUrls.length) return;
-
-    var ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    var images = new Array(frameUrls.length);
-    var loaded = 0;
-    var dpr = window.devicePixelRatio || 1;
-
-    function resizeCanvas() {
-      var rect = pin.getBoundingClientRect();
-      var width = Math.max(1, Math.floor(rect.width));
-      var height = Math.max(1, Math.floor(rect.height));
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = width + "px";
-      canvas.style.height = height + "px";
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    function drawCover(img) {
-      var cw = canvas.width / dpr;
-      var ch = canvas.height / dpr;
-      var iw = img.naturalWidth || img.width;
-      var ih = img.naturalHeight || img.height;
-      if (!iw || !ih) return;
-
-      var scale = Math.max(cw / iw, ch / ih);
-      var dw = iw * scale;
-      var dh = ih * scale;
-      var dx = (cw - dw) / 2;
-      var dy = (ch - dh) / 2;
-      ctx.drawImage(img, dx, dy, dw, dh);
-    }
-
-    function drawFrame(progress) {
-      if (!images.length || !images[0]) return;
-
-      resizeCanvas();
-      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-
-      var maxIndex = images.length - 1;
-      var exact = progress * maxIndex;
-      var idx = Math.floor(exact);
-      var next = Math.min(idx + 1, maxIndex);
-      var blend = exact - idx;
-
-      var imgA = images[idx];
-      if (!imgA) return;
-
-      drawCover(imgA);
-
-      if (blend > 0.001 && next !== idx) {
-        var imgB = images[next];
-        if (imgB) {
-          ctx.globalAlpha = blend;
-          drawCover(imgB);
-          ctx.globalAlpha = 1;
-        }
-      }
-    }
-
-    function bindScrollHero() {
-      var existingPin = ScrollTrigger.getById("webme-scroll-hero-pin");
-      if (existingPin) existingPin.kill();
-      var existingScrub = ScrollTrigger.getById("webme-scroll-hero-scrub");
-      if (existingScrub) existingScrub.kill();
-
-      ScrollTrigger.create({
-        id: "webme-scroll-hero-pin",
-        trigger: section,
-        start: "top top",
-        end: "bottom bottom",
-        pin: pin,
-        pinSpacing: false,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-      });
-
-      ScrollTrigger.create({
-        id: "webme-scroll-hero-scrub",
-        trigger: section,
-        start: "top top",
-        end: "bottom bottom",
-        scrub: true,
-        onUpdate: function (self) {
-          drawFrame(self.progress);
-        },
-      });
-
-      drawFrame(0);
-      ScrollTrigger.refresh();
-    }
-
-    frameUrls.forEach(function (url, index) {
-      var img = new Image();
-      img.decoding = "async";
-      img.onload = function () {
-        loaded++;
-        if (loaded === frameUrls.length) {
-          bindScrollHero();
-        }
-      };
-      img.onerror = function () {
-        loaded++;
-        if (loaded === frameUrls.length) {
-          bindScrollHero();
-        }
-      };
-      img.src = url;
-      images[index] = img;
-    });
-
-    window.addEventListener("resize", function () {
-      var scrub = ScrollTrigger.getById("webme-scroll-hero-scrub");
-      if (scrub) {
-        drawFrame(scrub.progress);
-      }
-    });
   }
 
   if (document.readyState === "loading") {
@@ -180,6 +246,10 @@ export function hasScrollHeroSequence(html: string): boolean {
   return html.includes('data-webme-scroll-hero="sequence"');
 }
 
+export function hasInlineSequenceFrames(html: string): boolean {
+  return html.includes('id="webme-scroll-hero-frames"');
+}
+
 export function hasScrollHeroAnimation(html: string): boolean {
   return (
     hasScrollHeroSequence(html) ||
@@ -188,15 +258,22 @@ export function hasScrollHeroAnimation(html: string): boolean {
   );
 }
 
-function escapeJsonForScript(json: string): string {
-  return json.replace(/</g, "\\u003c");
+export function extractScrollHeroSequenceId(html: string): string | null {
+  const match = html.match(
+    new RegExp(
+      `${SCROLL_HERO_SEQUENCE_ID_ATTR}=["']([^"']+)["']`,
+      "i",
+    ),
+  );
+
+  return match?.[1]?.trim() ?? null;
 }
 
 function ensureSequenceStyles($: cheerio.CheerioAPI): void {
   const styleBlock = $("#webme-scroll-hero-styles");
   if (
     styleBlock.length &&
-    !styleBlock.text().includes("canvas[data-webme-scroll-hero=\"sequence\"]")
+    !styleBlock.text().includes('canvas[data-webme-scroll-hero="sequence"]')
   ) {
     styleBlock.append(SCROLL_HERO_SEQUENCE_CANVAS_STYLES);
   }
@@ -223,45 +300,112 @@ function ensureGsapScripts($: cheerio.CheerioAPI): void {
   }
 }
 
-/** Idempotent layout + init for scroll-scrubbed image sequence heroes. */
-export function prepareScrollHeroSequenceSiteHtml(html: string): string {
+function stripInlineSequenceFrames($: cheerio.CheerioAPI): void {
+  $("#webme-scroll-hero-frames").remove();
+}
+
+function setCanvasSequenceId(
+  $: cheerio.CheerioAPI,
+  sequenceId: string,
+): void {
+  const $canvas = $('canvas[data-webme-scroll-hero="sequence"]').first();
+  if (!$canvas.length || !sequenceId.trim()) {
+    return;
+  }
+
+  $canvas.attr(SCROLL_HERO_SEQUENCE_ID_ATTR, sequenceId.trim());
+  stripInlineSequenceFrames($);
+}
+
+/** Compact HTML by storing only the sequence id (removes inline frame URL blob). */
+export function compactScrollHeroSequenceHtml(
+  html: string,
+  sequenceId?: string | null,
+): string {
   if (!hasScrollHeroSequence(html)) {
     return html;
   }
 
-  const prepared = prepareScrollHeroVideoSiteHtml(html);
+  const $ = cheerio.load(html);
+  const resolvedId =
+    sequenceId?.trim() ||
+    extractScrollHeroSequenceId($.html()) ||
+    null;
+
+  if (resolvedId) {
+    setCanvasSequenceId($, resolvedId);
+  }
+
+  return $.html();
+}
+
+/** Idempotent layout + init for scroll-scrubbed image sequence heroes. */
+export function prepareScrollHeroSequenceSiteHtml(
+  html: string,
+  sequenceId?: string | null,
+): string {
+  if (!hasScrollHeroSequence(html)) {
+    return html;
+  }
+
+  const compacted = compactScrollHeroSequenceHtml(html, sequenceId);
+  const prepared = prepareScrollHeroVideoSiteHtml(compacted);
   const $ = cheerio.load(prepared);
+
+  if (sequenceId?.trim()) {
+    setCanvasSequenceId($, sequenceId);
+  }
+
   ensureSequenceStyles($);
   ensureGsapScripts($);
   ensureSequenceInitScript($);
   return $.html();
 }
 
-function setSequenceFramesScript(
-  $: cheerio.CheerioAPI,
-  framesUrls: string[],
-): void {
-  const json = escapeJsonForScript(JSON.stringify(framesUrls));
-  $("#webme-scroll-hero-frames").remove();
-  $("body").append(
-    `<script type="application/json" id="webme-scroll-hero-frames">${json}</script>`,
-  );
+export async function prepareScrollHeroSequenceSiteHtmlAsync(
+  html: string,
+  options?: {
+    sequenceId?: string | null;
+    industry?: string | null;
+  },
+): Promise<string> {
+  if (!hasScrollHeroSequence(html)) {
+    return html;
+  }
+
+  let sequenceId =
+    options?.sequenceId?.trim() ||
+    extractScrollHeroSequenceId(html) ||
+    null;
+
+  if (!sequenceId && hasInlineSequenceFrames(html)) {
+    const frames = extractScrollHeroSequenceFrames(html);
+    if (frames.length > 0) {
+      const match = await matchImageSequenceByFrames(
+        frames,
+        options?.industry ?? undefined,
+      );
+      sequenceId = match?.id ?? null;
+    }
+  }
+
+  return prepareScrollHeroSequenceSiteHtml(html, sequenceId);
 }
 
-export function replaceScrollHeroSequenceFrames(
+export function replaceScrollHeroSequenceId(
   html: string,
-  framesUrls: string[],
+  sequenceId: string,
 ): string | null {
-  if (!hasScrollHeroSequence(html) || framesUrls.length === 0) {
+  if (!hasScrollHeroSequence(html) || !sequenceId.trim()) {
     return null;
   }
 
   const $ = cheerio.load(html);
-  setSequenceFramesScript($, framesUrls);
-  return prepareScrollHeroSequenceSiteHtml($.html());
+  setCanvasSequenceId($, sequenceId);
+  return prepareScrollHeroSequenceSiteHtml($.html(), sequenceId);
 }
 
-/** Match sequence preset id by comparing first frame URL. */
+/** @deprecated Legacy inline-frame matching for preview picker state. */
 export function matchSequencePresetIdFromFrames(
   framesUrls: string[],
   presets: { id: string; frames_urls: string[] }[],
@@ -274,8 +418,8 @@ export function matchSequencePresetIdFromFrames(
   const match = presets.find(
     (preset) =>
       preset.frames_urls[0] === firstFrame ||
-      preset.frames_urls.length === framesUrls.length &&
-        preset.frames_urls.every((url, index) => url === framesUrls[index]),
+      (preset.frames_urls.length === framesUrls.length &&
+        preset.frames_urls.every((url, index) => url === framesUrls[index])),
   );
 
   return match?.id ?? null;
@@ -303,10 +447,10 @@ export function extractScrollHeroSequenceFrames(html: string): string[] {
 /** Transform generated site HTML into a GSAP scroll-scrubbed canvas image sequence. */
 export function applyScrollHeroSequence(
   html: string,
-  framesUrls: string[],
+  sequenceId: string,
   posterUrl: string,
 ): string {
-  if (framesUrls.length === 0) {
+  if (!sequenceId.trim()) {
     return html;
   }
 
@@ -329,6 +473,8 @@ export function applyScrollHeroSequence(
     );
     $heroSection.prepend($canvas);
   }
+
+  $canvas.attr(SCROLL_HERO_SEQUENCE_ID_ATTR, sequenceId.trim());
 
   if (posterUrl) {
     $canvas.attr("data-poster", posterUrl);
@@ -411,6 +557,6 @@ export function applyScrollHeroSequence(
     $pin.append(contentParts.join(""));
   }
 
-  setSequenceFramesScript($, framesUrls);
-  return prepareScrollHeroSequenceSiteHtml($.html());
+  stripInlineSequenceFrames($);
+  return prepareScrollHeroSequenceSiteHtml($.html(), sequenceId);
 }

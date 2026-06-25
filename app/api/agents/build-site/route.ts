@@ -6,6 +6,7 @@ import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import { uploadLogo } from "@/lib/agents/upload-logo";
 import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
+import { withScrollHeroSequenceMetadata } from "@/lib/site-editor/scroll-hero-metadata";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
     const contentType = request.headers.get("content-type") ?? "";
     let body: Record<string, unknown>;
     let scrollHeroVideoUrl: string | null = null;
-    let scrollHeroSequenceFrames: string[] | null = null;
+    let scrollHeroSequencePresetId: string | null = null;
     let scrollHeroMediaType: "video" | "image-sequence" = "video";
     let pendingFormData: FormData | null = null;
 
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
       typeof body.scrollHeroPresetId === "string"
         ? body.scrollHeroPresetId.trim()
         : null;
-    const scrollHeroSequencePresetId =
+    scrollHeroSequencePresetId =
       typeof body.scrollHeroSequencePresetId === "string"
         ? body.scrollHeroSequencePresetId.trim()
         : null;
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
       });
       scrollHeroMediaType = scrollHeroAssets.mediaType;
       scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
-      scrollHeroSequenceFrames = scrollHeroAssets.sequenceFrames;
+      scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
     }
 
     const cfTurnstileToken =
@@ -271,7 +272,7 @@ export async function POST(request: Request) {
       scrollAnimationEffect,
       scrollHeroMediaType,
       scrollHeroVideoUrl,
-      scrollHeroSequenceFrames,
+      scrollHeroSequencePresetId,
       cardHoverEffect,
     };
 
@@ -285,6 +286,10 @@ export async function POST(request: Request) {
       phone: phone ?? businessProfile.phone ?? "",
       address: address ?? businessProfile.address ?? "",
     });
+    const siteMetadata = withScrollHeroSequenceMetadata(
+      contentToMetadata(siteContent),
+      scrollHeroSequencePresetId,
+    );
 
     const leadRow = {
       business_name: businessName,
@@ -302,7 +307,7 @@ export async function POST(request: Request) {
       site_built_at: siteBuiltAt,
       status: "pending_review",
       site_version: "A",
-      site_metadata: contentToMetadata(siteContent),
+      site_metadata: siteMetadata,
       preview_edits_used: 0,
     };
 

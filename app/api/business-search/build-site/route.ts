@@ -85,7 +85,6 @@ export async function POST(request: Request) {
     }
 
     let scrollHeroVideoUrl: string | null = null;
-    let scrollHeroSequenceFrames: string[] | null = null;
     if (scrollAnimationEffect) {
       const scrollHeroAssets = await resolveScrollHeroAssetsForBuild({
         formData: pendingFormData,
@@ -96,14 +95,14 @@ export async function POST(request: Request) {
       });
       scrollHeroMediaType = scrollHeroAssets.mediaType;
       scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
-      scrollHeroSequenceFrames = scrollHeroAssets.sequenceFrames;
+      scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
     }
 
     const result = await buildBusinessSearchSite(business, {
       scrollAnimationEffect,
       scrollHeroMediaType,
       scrollHeroVideoUrl,
-      scrollHeroSequenceFrames,
+      scrollHeroSequencePresetId,
       cardHoverEffect,
     });
 

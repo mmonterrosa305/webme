@@ -8,7 +8,7 @@ export async function getLeadBySlug(slug: string): Promise<LeadPreview | null> {
   const { data, error } = await supabase
     .from("leads")
     .select(
-      "id, business_name, city, industry, site_slug, site_html, owner_email, status, site_version, site_built_at",
+      "id, business_name, city, industry, site_slug, site_html, site_metadata, owner_email, status, site_version, site_built_at",
     )
     .eq("site_slug", slug)
     .maybeSingle();
