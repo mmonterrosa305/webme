@@ -5,6 +5,8 @@ import { useState } from "react";
 
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
 import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
+import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
+import { SCROLL_HERO_SEQUENCE_PRESET_FIELD } from "@/lib/image-sequences/types";
 
 import { Panel } from "../_components/dashboard-ui";
 import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
@@ -65,6 +67,10 @@ function BusinessResultCard({
   onScrollHeroVideoFileChange,
   scrollHeroPresetId,
   onScrollHeroPresetIdChange,
+  scrollHeroMediaType,
+  onScrollHeroMediaTypeChange,
+  scrollHeroSequencePresetId,
+  onScrollHeroSequencePresetIdChange,
 }: {
   business: BusinessSearchResult;
   onBuild: () => void;
@@ -77,6 +83,10 @@ function BusinessResultCard({
   onScrollHeroVideoFileChange: (file: File | null) => void;
   scrollHeroPresetId: string | null;
   onScrollHeroPresetIdChange: (presetId: string | null) => void;
+  scrollHeroMediaType: ScrollHeroMediaType;
+  onScrollHeroMediaTypeChange: (mediaType: ScrollHeroMediaType) => void;
+  scrollHeroSequencePresetId: string | null;
+  onScrollHeroSequencePresetIdChange: (sequenceId: string | null) => void;
 }) {
   const website = business.websiteData;
 
@@ -183,10 +193,14 @@ function BusinessResultCard({
           onCardHoverCheckedChange={onCardHoverEffectChange}
           disabled={building}
           industry={business.industry}
+          scrollHeroMediaType={scrollHeroMediaType}
+          onScrollHeroMediaTypeChange={onScrollHeroMediaTypeChange}
           videoFile={scrollHeroVideoFile}
           onVideoFileChange={onScrollHeroVideoFileChange}
           selectedPresetId={scrollHeroPresetId}
           onSelectedPresetIdChange={onScrollHeroPresetIdChange}
+          selectedSequencePresetId={scrollHeroSequencePresetId}
+          onSelectedSequencePresetIdChange={onScrollHeroSequencePresetIdChange}
         />
 
         <button
@@ -222,6 +236,11 @@ export function BusinessSearchForm() {
   const [scrollHeroPresetId, setScrollHeroPresetId] = useState<string | null>(
     null,
   );
+  const [scrollHeroSequencePresetId, setScrollHeroSequencePresetId] = useState<
+    string | null
+  >(null);
+  const [scrollHeroMediaType, setScrollHeroMediaType] =
+    useState<ScrollHeroMediaType>("video");
 
   const isSearching = phase === "searching";
   const isBuilding = phase === "building";
@@ -285,8 +304,15 @@ export function BusinessSearchForm() {
           scrollAnimationEffect ? "true" : "false",
         );
         formData.append("cardHoverEffect", cardHoverEffect ? "true" : "false");
+        formData.append("scrollHeroMediaType", scrollHeroMediaType);
         if (scrollHeroPresetId) {
           formData.append("scrollHeroPresetId", scrollHeroPresetId);
+        }
+        if (scrollHeroSequencePresetId) {
+          formData.append(
+            SCROLL_HERO_SEQUENCE_PRESET_FIELD,
+            scrollHeroSequencePresetId,
+          );
         }
         formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
         response = await fetch("/api/business-search/build-site", {
@@ -301,7 +327,9 @@ export function BusinessSearchForm() {
             business,
             scrollAnimationEffect,
             cardHoverEffect,
+            scrollHeroMediaType,
             scrollHeroPresetId: scrollHeroPresetId ?? undefined,
+            scrollHeroSequencePresetId: scrollHeroSequencePresetId ?? undefined,
           }),
         });
       }
@@ -453,15 +481,21 @@ export function BusinessSearchForm() {
               if (!checked) {
                 setScrollHeroVideoFile(null);
                 setScrollHeroPresetId(null);
+                setScrollHeroSequencePresetId(null);
+                setScrollHeroMediaType("video");
               }
             }}
             cardHoverEffect={cardHoverEffect}
             onCardHoverEffectChange={setCardHoverEffect}
+            scrollHeroMediaType={scrollHeroMediaType}
+            onScrollHeroMediaTypeChange={setScrollHeroMediaType}
             scrollHeroVideoFile={scrollHeroVideoFile}
             onScrollHeroVideoFileChange={(file) => {
               setScrollHeroVideoFile(file);
               if (file) {
                 setScrollHeroPresetId(null);
+                setScrollHeroSequencePresetId(null);
+                setScrollHeroMediaType("video");
               }
             }}
             scrollHeroPresetId={scrollHeroPresetId}
@@ -469,6 +503,17 @@ export function BusinessSearchForm() {
               setScrollHeroPresetId(presetId);
               if (presetId) {
                 setScrollHeroVideoFile(null);
+                setScrollHeroSequencePresetId(null);
+                setScrollHeroMediaType("video");
+              }
+            }}
+            scrollHeroSequencePresetId={scrollHeroSequencePresetId}
+            onScrollHeroSequencePresetIdChange={(sequenceId) => {
+              setScrollHeroSequencePresetId(sequenceId);
+              if (sequenceId) {
+                setScrollHeroPresetId(null);
+                setScrollHeroVideoFile(null);
+                setScrollHeroMediaType("image-sequence");
               }
             }}
           />

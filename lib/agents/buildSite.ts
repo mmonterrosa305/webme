@@ -14,6 +14,8 @@ import {
   applyScrollHeroVideo,
   fetchScrollHeroVideoFromPexels,
 } from "./scroll-hero-video";
+import { applyScrollHeroSequence } from "./scroll-hero-sequence";
+import type { ScrollHeroMediaType } from "./scroll-build-options";
 import {
   buildIndustryHeroListForPrompt,
   formatIndustryImagePromptBlock,
@@ -108,7 +110,9 @@ export type BuildSiteInput = {
   logoUrl?: string;
   logoSvg?: string;
   scrollAnimationEffect?: boolean;
+  scrollHeroMediaType?: ScrollHeroMediaType;
   scrollHeroVideoUrl?: string | null;
+  scrollHeroSequenceFrames?: string[] | null;
   cardHoverEffect?: boolean;
 };
 
@@ -441,11 +445,18 @@ export async function buildSite(
   const client = new Anthropic({ apiKey: getAnthropicApiKey() });
 
   const heroUrl = getRandomHero(input.industry);
-  const heroVideoUrl = input.scrollAnimationEffect
-    ? input.scrollHeroVideoUrl ??
-      (await fetchScrollHeroVideoFromPexels(industry)) ??
-      (await fetchHeroVideo(industry))
-    : await fetchHeroVideo(industry);
+  const useImageSequence =
+    input.scrollAnimationEffect &&
+    input.scrollHeroMediaType === "image-sequence" &&
+    Boolean(input.scrollHeroSequenceFrames?.length);
+
+  const heroVideoUrl = useImageSequence
+    ? null
+    : input.scrollAnimationEffect
+      ? input.scrollHeroVideoUrl ??
+        (await fetchScrollHeroVideoFromPexels(industry)) ??
+        (await fetchHeroVideo(industry))
+      : await fetchHeroVideo(industry);
   const pixabayPhotos = await fetchIndustryPhotos(industry);
   const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
   const messageOptions = { heroUrl, heroVideoUrl, siteSlug, pixabayPhotos };
@@ -476,7 +487,13 @@ export async function buildSite(
 
   let html = normalizeHeroVideoAttributes(extractHtml(textBlock.text));
 
-  if (input.scrollAnimationEffect && heroVideoUrl) {
+  if (useImageSequence && input.scrollHeroSequenceFrames) {
+    html = applyScrollHeroSequence(
+      html,
+      input.scrollHeroSequenceFrames,
+      heroUrl,
+    );
+  } else if (input.scrollAnimationEffect && heroVideoUrl) {
     html = applyScrollHeroVideo(html, heroVideoUrl, heroUrl);
   }
 

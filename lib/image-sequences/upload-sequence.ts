@@ -1,0 +1,100 @@
+import JSZip from "jszip";
+
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseUrl } from "@/lib/supabase/env";
+import { slugifyIndustry } from "@/lib/video-presets/upload-preset";
+
+import {
+  MAX_SEQUENCE_FRAMES,
+  MAX_SEQUENCE_ZIP_BYTES,
+  MIN_SEQUENCE_FRAMES,
+  SEQUENCE_STORAGE_BUCKET,
+} from "./types";
+
+const FRAME_FILE_PATTERN = /\.(jpe?g|png)$/i;
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80);
+}
+
+function naturalSort(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+function getPublicStorageUrl(objectPath: string): string {
+  const supabase = createAdminClient();
+  const { data } = supabase.storage
+    .from(SEQUENCE_STORAGE_BUCKET)
+    .getPublicUrl(objectPath);
+  let url = data.publicUrl;
+  const baseUrl = getSupabaseUrl();
+
+  if (!url.startsWith("http")) {
+    url = `${baseUrl}/storage/v1/object/public/${SEQUENCE_STORAGE_BUCKET}/${objectPath}`;
+  }
+
+  return url;
+}
+
+function contentTypeForFrame(fileName: string): string {
+  if (/\.png$/i.test(fileName)) {
+    return "image/png";
+  }
+
+  return "image/jpeg";
+}
+
+export async function extractAndUploadImageSequence(
+  zipBuffer: Buffer,
+  industry: string,
+): Promise<{ framesUrls: string[]; thumbnailUrl: string }> {
+  if (zipBuffer.byteLength > MAX_SEQUENCE_ZIP_BYTES) {
+    throw new Error("ZIP file must be 200 MB or smaller.");
+  }
+
+  const zip = await JSZip.loadAsync(zipBuffer);
+  const frameEntries = Object.entries(zip.files)
+    .filter(([name, entry]) => !entry.dir && FRAME_FILE_PATTERN.test(name))
+    .sort(([a], [b]) => naturalSort(a, b));
+
+  if (frameEntries.length < MIN_SEQUENCE_FRAMES) {
+    throw new Error(
+      `ZIP must contain at least ${MIN_SEQUENCE_FRAMES} JPG/PNG frames.`,
+    );
+  }
+
+  if (frameEntries.length > MAX_SEQUENCE_FRAMES) {
+    throw new Error(`ZIP can contain at most ${MAX_SEQUENCE_FRAMES} frames.`);
+  }
+
+  const industrySlug = slugifyIndustry(industry) || "industry";
+  const sequencePrefix = `hero-sequences/presets/${industrySlug}/${Date.now()}`;
+  const supabase = createAdminClient();
+  const framesUrls: string[] = [];
+
+  for (let index = 0; index < frameEntries.length; index++) {
+    const [fileName, entry] = frameEntries[index];
+    const frameBuffer = Buffer.from(await entry.async("nodebuffer"));
+    const paddedIndex = String(index + 1).padStart(4, "0");
+    const extension = /\.png$/i.test(fileName) ? ".png" : ".jpg";
+    const objectPath = `${sequencePrefix}/frame-${paddedIndex}${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(SEQUENCE_STORAGE_BUCKET)
+      .upload(objectPath, frameBuffer, {
+        contentType: contentTypeForFrame(fileName),
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    framesUrls.push(getPublicStorageUrl(objectPath));
+  }
+
+  return {
+    framesUrls,
+    thumbnailUrl: framesUrls[0] ?? "",
+  };
+}

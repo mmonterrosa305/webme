@@ -6,6 +6,8 @@ import { useState } from "react";
 import { Panel } from "../_components/dashboard-ui";
 import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
 import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
+import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
+import { SCROLL_HERO_SEQUENCE_PRESET_FIELD } from "@/lib/image-sequences/types";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -35,6 +37,11 @@ export function ImportSiteForm() {
   const [scrollHeroPresetId, setScrollHeroPresetId] = useState<string | null>(
     null,
   );
+  const [scrollHeroSequencePresetId, setScrollHeroSequencePresetId] = useState<
+    string | null
+  >(null);
+  const [scrollHeroMediaType, setScrollHeroMediaType] =
+    useState<ScrollHeroMediaType>("video");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,8 +66,15 @@ export function ImportSiteForm() {
           scrollAnimationEffect ? "true" : "false",
         );
         formData.append("cardHoverEffect", cardHoverEffect ? "true" : "false");
+        formData.append("scrollHeroMediaType", scrollHeroMediaType);
         if (scrollHeroPresetId) {
           formData.append("scrollHeroPresetId", scrollHeroPresetId);
+        }
+        if (scrollHeroSequencePresetId) {
+          formData.append(
+            SCROLL_HERO_SEQUENCE_PRESET_FIELD,
+            scrollHeroSequencePresetId,
+          );
         }
         formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
         response = await fetch("/api/import-site", {
@@ -75,7 +89,9 @@ export function ImportSiteForm() {
             url,
             scrollAnimationEffect,
             cardHoverEffect,
+            scrollHeroMediaType,
             scrollHeroPresetId: scrollHeroPresetId ?? undefined,
+            scrollHeroSequencePresetId: scrollHeroSequencePresetId ?? undefined,
           }),
         });
       }
@@ -183,11 +199,15 @@ export function ImportSiteForm() {
                 if (!checked) {
                   setScrollHeroVideoFile(null);
                   setScrollHeroPresetId(null);
+                  setScrollHeroSequencePresetId(null);
+                  setScrollHeroMediaType("video");
                 }
               }}
               cardHoverChecked={cardHoverEffect}
               onCardHoverCheckedChange={setCardHoverEffect}
               disabled={isLoading}
+              scrollHeroMediaType={scrollHeroMediaType}
+              onScrollHeroMediaTypeChange={setScrollHeroMediaType}
               videoFile={scrollHeroVideoFile}
               onVideoFileChange={(file) => {
                 setScrollHeroVideoFile(file);
@@ -199,6 +219,15 @@ export function ImportSiteForm() {
               onSelectedPresetIdChange={(presetId) => {
                 setScrollHeroPresetId(presetId);
                 if (presetId) {
+                  setScrollHeroVideoFile(null);
+                  setScrollHeroSequencePresetId(null);
+                }
+              }}
+              selectedSequencePresetId={scrollHeroSequencePresetId}
+              onSelectedSequencePresetIdChange={(sequenceId) => {
+                setScrollHeroSequencePresetId(sequenceId);
+                if (sequenceId) {
+                  setScrollHeroPresetId(null);
                   setScrollHeroVideoFile(null);
                 }
               }}

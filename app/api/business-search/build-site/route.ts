@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildBusinessSearchSite } from "@/lib/leads/build-business-search-site";
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
-import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scroll-hero-video";
+import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
 
 function isBusinessSearchResult(value: unknown): value is BusinessSearchResult {
   if (!value || typeof value !== "object") {
@@ -26,6 +26,8 @@ export async function POST(request: Request) {
     let scrollAnimationEffect = false;
     let cardHoverEffect = false;
     let scrollHeroPresetId: string | null = null;
+    let scrollHeroSequencePresetId: string | null = null;
+    let scrollHeroMediaType: "video" | "image-sequence" = "video";
     let pendingFormData: FormData | null = null;
 
     if (contentType.includes("multipart/form-data")) {
@@ -47,6 +49,15 @@ export async function POST(request: Request) {
         typeof presetRaw === "string" && presetRaw.trim()
           ? presetRaw.trim()
           : null;
+      const sequenceRaw = pendingFormData.get("scrollHeroSequencePresetId");
+      scrollHeroSequencePresetId =
+        typeof sequenceRaw === "string" && sequenceRaw.trim()
+          ? sequenceRaw.trim()
+          : null;
+      scrollHeroMediaType =
+        pendingFormData.get("scrollHeroMediaType") === "image-sequence"
+          ? "image-sequence"
+          : "video";
     } else {
       const body = await request.json();
       business = body.business as BusinessSearchResult;
@@ -56,6 +67,14 @@ export async function POST(request: Request) {
         typeof body.scrollHeroPresetId === "string"
           ? body.scrollHeroPresetId.trim()
           : null;
+      scrollHeroSequencePresetId =
+        typeof body.scrollHeroSequencePresetId === "string"
+          ? body.scrollHeroSequencePresetId.trim()
+          : null;
+      scrollHeroMediaType =
+        body.scrollHeroMediaType === "image-sequence"
+          ? "image-sequence"
+          : "video";
     }
 
     if (!isBusinessSearchResult(business)) {
@@ -66,17 +85,25 @@ export async function POST(request: Request) {
     }
 
     let scrollHeroVideoUrl: string | null = null;
+    let scrollHeroSequenceFrames: string[] | null = null;
     if (scrollAnimationEffect) {
-      scrollHeroVideoUrl = await resolveScrollHeroVideoForBuild({
+      const scrollHeroAssets = await resolveScrollHeroAssetsForBuild({
         formData: pendingFormData,
         businessName: business.businessName,
-        presetId: scrollHeroPresetId,
+        scrollHeroMediaType,
+        videoPresetId: scrollHeroPresetId,
+        sequencePresetId: scrollHeroSequencePresetId,
       });
+      scrollHeroMediaType = scrollHeroAssets.mediaType;
+      scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
+      scrollHeroSequenceFrames = scrollHeroAssets.sequenceFrames;
     }
 
     const result = await buildBusinessSearchSite(business, {
       scrollAnimationEffect,
+      scrollHeroMediaType,
       scrollHeroVideoUrl,
+      scrollHeroSequenceFrames,
       cardHoverEffect,
     });
 

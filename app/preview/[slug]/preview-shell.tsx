@@ -8,12 +8,18 @@ import {
   hasScrollHeroVideo,
   matchPresetIdFromVideoUrl,
 } from "@/lib/agents/scroll-hero-video";
+import {
+  extractScrollHeroSequenceFrames,
+  hasScrollHeroSequence,
+  matchSequencePresetIdFromFrames,
+} from "@/lib/agents/scroll-hero-sequence";
 import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
 
 import { PresetVideoPicker } from "@/app/(dashboard)/_components/preset-video-picker";
+import { PresetImageSequencePicker } from "@/app/(dashboard)/_components/preset-image-sequence-picker";
 
-type Modal = "packages" | "declined" | "edits-exhausted" | "pick-preset" | null;
+type Modal = "packages" | "declined" | "edits-exhausted" | "pick-preset" | "pick-sequence" | null;
 
 type PlanId = "starter" | "monthly" | "premium";
 
@@ -160,14 +166,22 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
   const [shufflingVideo, setShufflingVideo] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [applyingPresetId, setApplyingPresetId] = useState<string | null>(null);
+  const [applyingSequenceId, setApplyingSequenceId] = useState<string | null>(
+    null,
+  );
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [activeSequenceId, setActiveSequenceId] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const hasScrollHero = hasScrollHeroVideo(siteHtml);
+  const hasScrollSequence = hasScrollHeroSequence(siteHtml);
   const scrollVideoControlsDisabled =
-    shufflingVideo || uploadingVideo || applyingPresetId !== null;
+    shufflingVideo ||
+    uploadingVideo ||
+    applyingPresetId !== null ||
+    applyingSequenceId !== null;
 
   const loadEditStatus = useCallback(async () => {
     try {
@@ -852,6 +866,81 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     }
   }, [lead.industry, siteHtml]);
 
+  const handleApplySequence = useCallback(
+    async (sequenceId: string) => {
+      if (!sequenceId || applyingSequenceId) {
+        return;
+      }
+
+      setApplyingSequenceId(sequenceId);
+      setEditError(null);
+
+      try {
+        const response = await fetch("/api/leads/apply-preset-sequence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            siteSlug: lead.site_slug,
+            sequenceId,
+            industry: lead.industry ?? undefined,
+          }),
+        });
+
+        const data = (await response.json()) as {
+          siteHtml?: string;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to apply image sequence.");
+        }
+
+        if (data.siteHtml) {
+          setSiteHtml(data.siteHtml);
+        }
+
+        setActiveSequenceId(sequenceId);
+        setModal(null);
+      } catch (error) {
+        setEditError(
+          error instanceof Error
+            ? error.message
+            : "Failed to apply image sequence.",
+        );
+      } finally {
+        setApplyingSequenceId(null);
+      }
+    },
+    [applyingSequenceId, lead.industry, lead.site_slug],
+  );
+
+  const openPickSequenceModal = useCallback(async () => {
+    setActiveSequenceId(null);
+    setModal("pick-sequence");
+
+    const currentFrames = extractScrollHeroSequenceFrames(siteHtml);
+    if (!currentFrames.length || !lead.industry) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/image-sequences?industry=${encodeURIComponent(lead.industry)}`,
+      );
+      const data = (await response.json()) as {
+        sequences?: { id: string; frames_urls: string[] }[];
+      };
+
+      if (response.ok) {
+        setActiveSequenceId(
+          matchSequencePresetIdFromFrames(currentFrames, data.sequences ?? []),
+        );
+      }
+    } catch {
+      // Best-effort match for the current sequence.
+    }
+  }, [lead.industry, siteHtml]);
+
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -1016,7 +1105,16 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
             >
               {uploadingLogo ? "Uploading..." : hasLogo ? "Change Logo" : "Upload Logo"}
             </button>
-            {hasScrollHero ? (
+            {hasScrollSequence ? (
+              <button
+                type="button"
+                disabled={scrollVideoControlsDisabled}
+                onClick={() => void openPickSequenceModal()}
+                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {applyingSequenceId ? "Applying..." : "Pick Image Sequence"}
+              </button>
+            ) : hasScrollHero ? (
               <>
                 <button
                   type="button"
@@ -1275,6 +1373,51 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
               className="mt-6 rounded-lg bg-neutral-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
             >
               Claim your site
+            </button>
+          </div>
+        </ModalBackdrop>
+      ) : null}
+
+      {modal === "pick-sequence" ? (
+        <ModalBackdrop onClose={() => setModal(null)}>
+          <div className="p-6 sm:p-8">
+            <h2 className="text-xl font-semibold text-neutral-900">
+              Pick an image sequence
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              {lead.industry
+                ? `Choose a scroll-scrubbed frame sequence from the ${lead.industry} library.`
+                : "This site has no industry set, so sequences cannot be loaded."}
+            </p>
+
+            {lead.industry ? (
+              <div className="mt-6">
+                <PresetImageSequencePicker
+                  industry={lead.industry}
+                  selectedSequenceId={activeSequenceId}
+                  onSelectedSequenceIdChange={(sequenceId) => {
+                    if (sequenceId) {
+                      void handleApplySequence(sequenceId);
+                    }
+                  }}
+                  disabled={applyingSequenceId !== null}
+                  enabled
+                  showAutoSelect={false}
+                  gridClassName="grid gap-3 sm:grid-cols-2"
+                />
+              </div>
+            ) : null}
+
+            {applyingSequenceId ? (
+              <p className="mt-4 text-sm text-neutral-600">Applying sequence...</p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setModal(null)}
+              className="mt-6 w-full text-center text-sm text-neutral-500 hover:text-neutral-800"
+            >
+              Close
             </button>
           </div>
         </ModalBackdrop>

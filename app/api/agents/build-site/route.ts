@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import { uploadLogo } from "@/lib/agents/upload-logo";
-import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scroll-hero-video";
+import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -86,6 +86,8 @@ export async function POST(request: Request) {
     const contentType = request.headers.get("content-type") ?? "";
     let body: Record<string, unknown>;
     let scrollHeroVideoUrl: string | null = null;
+    let scrollHeroSequenceFrames: string[] | null = null;
+    let scrollHeroMediaType: "video" | "image-sequence" = "video";
     let pendingFormData: FormData | null = null;
 
     if (contentType.includes("multipart/form-data")) {
@@ -112,13 +114,26 @@ export async function POST(request: Request) {
       typeof body.scrollHeroPresetId === "string"
         ? body.scrollHeroPresetId.trim()
         : null;
+    const scrollHeroSequencePresetId =
+      typeof body.scrollHeroSequencePresetId === "string"
+        ? body.scrollHeroSequencePresetId.trim()
+        : null;
+    scrollHeroMediaType =
+      body.scrollHeroMediaType === "image-sequence"
+        ? "image-sequence"
+        : "video";
 
     if (scrollAnimationEffect) {
-      scrollHeroVideoUrl = await resolveScrollHeroVideoForBuild({
+      const scrollHeroAssets = await resolveScrollHeroAssetsForBuild({
         formData: pendingFormData,
         businessName: payloadBusinessName,
-        presetId: scrollHeroPresetId,
+        scrollHeroMediaType,
+        videoPresetId: scrollHeroPresetId,
+        sequencePresetId: scrollHeroSequencePresetId,
       });
+      scrollHeroMediaType = scrollHeroAssets.mediaType;
+      scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
+      scrollHeroSequenceFrames = scrollHeroAssets.sequenceFrames;
     }
 
     const cfTurnstileToken =
@@ -254,7 +269,9 @@ export async function POST(request: Request) {
       logoUrl,
       logoSvg,
       scrollAnimationEffect,
+      scrollHeroMediaType,
       scrollHeroVideoUrl,
+      scrollHeroSequenceFrames,
       cardHoverEffect,
     };
 

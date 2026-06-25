@@ -7,7 +7,7 @@ import {
   validateImportedSiteData,
 } from "@/lib/agents/scrape-import-site";
 import { uploadLogo } from "@/lib/agents/upload-logo";
-import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scroll-hero-video";
+import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_SECTIONS,
@@ -57,6 +57,8 @@ export async function POST(request: Request) {
     let scrollAnimationEffect = false;
     let cardHoverEffect = false;
     let scrollHeroPresetId: string | null = null;
+    let scrollHeroSequencePresetId: string | null = null;
+    let scrollHeroMediaType: "video" | "image-sequence" = "video";
     let pendingFormData: FormData | null = null;
 
     if (contentType.includes("multipart/form-data")) {
@@ -73,6 +75,15 @@ export async function POST(request: Request) {
         typeof presetRaw === "string" && presetRaw.trim()
           ? presetRaw.trim()
           : null;
+      const sequenceRaw = pendingFormData.get("scrollHeroSequencePresetId");
+      scrollHeroSequencePresetId =
+        typeof sequenceRaw === "string" && sequenceRaw.trim()
+          ? sequenceRaw.trim()
+          : null;
+      scrollHeroMediaType =
+        pendingFormData.get("scrollHeroMediaType") === "image-sequence"
+          ? "image-sequence"
+          : "video";
     } else {
       const body = await request.json();
       url = typeof body.url === "string" ? body.url.trim() : "";
@@ -82,6 +93,14 @@ export async function POST(request: Request) {
         typeof body.scrollHeroPresetId === "string"
           ? body.scrollHeroPresetId.trim()
           : null;
+      scrollHeroSequencePresetId =
+        typeof body.scrollHeroSequencePresetId === "string"
+          ? body.scrollHeroSequencePresetId.trim()
+          : null;
+      scrollHeroMediaType =
+        body.scrollHeroMediaType === "image-sequence"
+          ? "image-sequence"
+          : "video";
     }
 
     if (!url) {
@@ -108,12 +127,18 @@ export async function POST(request: Request) {
     }
 
     let scrollHeroVideoUrl: string | null = null;
+    let scrollHeroSequenceFrames: string[] | null = null;
     if (scrollAnimationEffect) {
-      scrollHeroVideoUrl = await resolveScrollHeroVideoForBuild({
+      const scrollHeroAssets = await resolveScrollHeroAssetsForBuild({
         formData: pendingFormData,
         businessName: imported.businessName,
-        presetId: scrollHeroPresetId,
+        scrollHeroMediaType,
+        videoPresetId: scrollHeroPresetId,
+        sequencePresetId: scrollHeroSequencePresetId,
       });
+      scrollHeroMediaType = scrollHeroAssets.mediaType;
+      scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
+      scrollHeroSequenceFrames = scrollHeroAssets.sequenceFrames;
     }
 
     const { html, siteSlug } = await buildSite({
@@ -127,7 +152,9 @@ export async function POST(request: Request) {
       businessProfile,
       logoUrl,
       scrollAnimationEffect,
+      scrollHeroMediaType,
       scrollHeroVideoUrl,
+      scrollHeroSequenceFrames,
       cardHoverEffect,
     });
 

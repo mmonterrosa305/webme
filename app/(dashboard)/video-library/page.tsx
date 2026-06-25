@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { PageHeader } from "../_components/dashboard-ui";
 import { VideoLibraryManager } from "./video-library-manager";
+import { ImageSequenceLibrarySection } from "./image-sequence-library-section";
 
 export const metadata: Metadata = {
   title: "Video Library — WebMe",
@@ -13,9 +14,17 @@ export default function VideoLibraryPage() {
       <PageHeader
         eyebrow="Scroll animation"
         title="Video Library"
-        description="Upload and manage preset scroll hero videos by industry. These appear as selectable options when building sites with scroll animation enabled."
+        description="Upload and manage preset scroll hero videos and canvas image sequences by industry. These appear when building sites with scroll animation enabled."
       />
       <VideoLibraryManager />
+      <div className="mt-10">
+        <PageHeader
+          eyebrow="Scroll animation"
+          title="Image Sequences"
+          description="Upload ZIP files of sequential frames for canvas-based scroll scrubbing on generated sites."
+        />
+        <ImageSequenceLibrarySection />
+      </div>
     </main>
   );
 }

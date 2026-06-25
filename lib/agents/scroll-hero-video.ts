@@ -214,8 +214,20 @@ const SCROLL_HERO_INIT_SCRIPT = `<script id="webme-scroll-hero-init">
 </script>`;
 
 export function hasScrollHeroVideo(html: string): boolean {
+  if (html.includes('data-webme-scroll-hero="sequence"')) {
+    return false;
+  }
+
   return (
     html.includes('data-webme-scroll-hero="true"') ||
+    html.includes("id=\"webme-scroll-hero\"")
+  );
+}
+
+function hasScrollHeroLayout(html: string): boolean {
+  return (
+    hasScrollHeroVideo(html) ||
+    html.includes('data-webme-scroll-hero="sequence"') ||
     html.includes("id=\"webme-scroll-hero\"")
   );
 }
@@ -382,6 +394,13 @@ function ensureScrollHeroPinLayout($: cheerio.CheerioAPI): void {
     $video.removeAttr("style");
   }
 
+  const $canvas = $heroSection
+    .find('canvas[data-webme-scroll-hero="sequence"]')
+    .first();
+  if ($canvas.length) {
+    $canvas.removeAttr("style");
+  }
+
   $heroSection
     .find(".hero-overlay, [class*='overlay']")
     .filter((_index, element) => {
@@ -445,10 +464,12 @@ function wrapPostHeroContent($: cheerio.CheerioAPI): void {
 }
 
 /** Idempotent fullscreen layout fixes for scroll-hero sites (new and existing HTML). */
-export function prepareScrollHeroSiteHtml(html: string): string {
-  if (!hasScrollHeroVideo(html)) {
+export function prepareScrollHeroVideoSiteHtml(html: string): string {
+  if (!hasScrollHeroLayout(html)) {
     return html;
   }
+
+  const isSequence = html.includes('data-webme-scroll-hero="sequence"');
 
   const $ = cheerio.load(html);
   ensureScrollHeroStyles($);
@@ -457,8 +478,22 @@ export function prepareScrollHeroSiteHtml(html: string): string {
   ensureScrollHeroContentLayout($);
   wrapPostHeroContent($);
   ensureGsapScripts($);
-  ensureScrollHeroInitScript($);
+
+  if (!isSequence) {
+    ensureScrollHeroInitScript($);
+  }
+
   return $.html();
+}
+
+export function prepareScrollHeroSiteHtml(html: string): string {
+  if (html.includes('data-webme-scroll-hero="sequence"')) {
+    const { prepareScrollHeroSequenceSiteHtml } =
+      require("./scroll-hero-sequence") as typeof import("./scroll-hero-sequence");
+    return prepareScrollHeroSequenceSiteHtml(html);
+  }
+
+  return prepareScrollHeroVideoSiteHtml(html);
 }
 
 function setVideoSrc($video: cheerio.Cheerio<AnyNode>, videoUrl: string): void {

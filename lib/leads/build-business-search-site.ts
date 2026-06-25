@@ -8,6 +8,8 @@ import {
 } from "@/lib/site-editor/extract-content";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
+
 import type { BusinessSearchResult } from "./business-search-types";
 
 const SUPPORTED_LOGO_TYPES = new Set([
@@ -85,7 +87,9 @@ export async function buildBusinessSearchSite(
   result: BusinessSearchResult,
   options?: {
     scrollAnimationEffect?: boolean;
+    scrollHeroMediaType?: ScrollHeroMediaType;
     scrollHeroVideoUrl?: string | null;
+    scrollHeroSequenceFrames?: string[] | null;
     cardHoverEffect?: boolean;
   },
 ) {
@@ -115,7 +119,9 @@ export async function buildBusinessSearchSite(
     businessProfile,
     logoUrl,
     scrollAnimationEffect: options?.scrollAnimationEffect ?? false,
+    scrollHeroMediaType: options?.scrollHeroMediaType ?? "video",
     scrollHeroVideoUrl: options?.scrollHeroVideoUrl ?? null,
+    scrollHeroSequenceFrames: options?.scrollHeroSequenceFrames ?? null,
     cardHoverEffect: options?.cardHoverEffect ?? false,
   });
 
