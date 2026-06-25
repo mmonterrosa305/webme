@@ -4,6 +4,10 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
+import {
+  SCROLL_HERO_SEQUENCE_SCROLL_END,
+} from "@/lib/scroll-hero/sequence-hero-scroll";
+
 gsap.registerPlugin(ScrollTrigger);
 
 type ScrollHeroSequenceHeroProps = {
@@ -78,7 +82,7 @@ export function ScrollHeroSequenceHero({
           id: TEXT_SCROLL_TRIGGER_ID,
           trigger: section,
           start: "top top",
-          end: "bottom bottom",
+          end: SCROLL_HERO_SEQUENCE_SCROLL_END,
           scrub: true,
         },
         defaults: { ease: "none" },
@@ -246,14 +250,15 @@ export function ScrollHeroSequenceHero({
     const bindScrollHero = () => {
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
       ScrollTrigger.getById("webme-scroll-hero-scrub")?.kill();
+      ScrollTrigger.getById(TEXT_SCROLL_TRIGGER_ID)?.kill();
 
       ScrollTrigger.create({
         id: "webme-scroll-hero-pin",
         trigger: section,
         start: "top top",
-        end: "bottom bottom",
+        end: SCROLL_HERO_SEQUENCE_SCROLL_END,
         pin: pin,
-        pinSpacing: false,
+        pinSpacing: true,
         anticipatePin: 1,
         invalidateOnRefresh: true,
       });
@@ -262,7 +267,7 @@ export function ScrollHeroSequenceHero({
         id: "webme-scroll-hero-scrub",
         trigger: section,
         start: "top top",
-        end: "bottom bottom",
+        end: SCROLL_HERO_SEQUENCE_SCROLL_END,
         scrub: true,
         onUpdate: (self) => {
           drawFrame(self.progress);
@@ -330,6 +335,7 @@ export function ScrollHeroSequenceHero({
       window.removeEventListener("resize", onResize);
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
       ScrollTrigger.getById("webme-scroll-hero-scrub")?.kill();
+      ScrollTrigger.getById(TEXT_SCROLL_TRIGGER_ID)?.kill();
     };
   }, [sequenceId, posterUrl]);
 
@@ -339,7 +345,7 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative h-[400vh] w-full"
+      className="relative h-screen w-full"
     >
       <div
         ref={pinRef}

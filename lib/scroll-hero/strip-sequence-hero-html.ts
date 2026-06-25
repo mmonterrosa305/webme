@@ -7,6 +7,66 @@ export type StrippedSequenceHero = {
   posterUrl: string;
 };
 
+const SEQUENCE_SITE_LAYOUT_STYLE_ID = "webme-sequence-site-layout";
+
+const SEQUENCE_SITE_LAYOUT_STYLES = `<style id="${SEQUENCE_SITE_LAYOUT_STYLE_ID}">
+body.webme-sequence-site {
+  margin: 0 !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+}
+body.webme-sequence-site > section:first-child,
+body.webme-sequence-site > header + section,
+body.webme-sequence-site > nav + section,
+body.webme-sequence-site > .webme-sequence-first-section {
+  margin-top: 0 !important;
+  position: relative !important;
+  z-index: 1 !important;
+  overflow: visible !important;
+}
+</style>`;
+
+function stripNegativeMarginFromStyle(style: string): string {
+  return style
+    .replace(/margin-top\s*:\s*[^;]+;?/gi, "")
+    .replace(/margin\s*:\s*[^;]+;?/gi, (match) => {
+      if (/^-/.test(match)) {
+        return "";
+      }
+      return match;
+    })
+    .trim();
+}
+
+function normalizePostSequenceHeroLayout($: cheerio.CheerioAPI): void {
+  $("body").addClass("webme-sequence-site");
+
+  $(`#${SEQUENCE_SITE_LAYOUT_STYLE_ID}`).remove();
+  const head = $("head");
+  if (head.length) {
+    head.append(SEQUENCE_SITE_LAYOUT_STYLES);
+  }
+
+  const $firstSection = $("body")
+    .children("section")
+    .filter((_index, element) => {
+      const id = $(element).attr("id") ?? "";
+      return id !== "webme-scroll-hero";
+    })
+    .first();
+
+  if (!$firstSection.length) {
+    return;
+  }
+
+  $firstSection.addClass("webme-sequence-first-section");
+
+  const existingStyle = $firstSection.attr("style") ?? "";
+  if (/margin-top\s*:\s*-|margin\s*:\s*-/i.test(existingStyle)) {
+    $firstSection.attr("style", stripNegativeMarginFromStyle(existingStyle));
+  }
+}
+
 function extractHeroCopy($: cheerio.CheerioAPI): {
   headline: string;
   tagline: string;
@@ -62,6 +122,8 @@ export function stripSequenceHeroFromSiteHtml(html: string): StrippedSequenceHer
       $(element).remove();
     }
   });
+
+  normalizePostSequenceHeroLayout($);
 
   return {
     html: $.html(),
