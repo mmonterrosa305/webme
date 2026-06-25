@@ -37,15 +37,39 @@ export async function resolveScrollHeroAssetsForBuild(options: {
   videoPresetId?: string | null;
   sequencePresetId?: string | null;
 }): Promise<ScrollHeroBuildAssets> {
+  const sequencePresetIdFromBody = options.sequencePresetId?.trim() ?? null;
+  const sequencePresetIdFromForm =
+    typeof options.formData?.get(SCROLL_HERO_SEQUENCE_PRESET_FIELD) === "string"
+      ? options.formData.get(SCROLL_HERO_SEQUENCE_PRESET_FIELD)?.toString().trim() ??
+        null
+      : null;
+  const requestedSequenceId =
+    sequencePresetIdFromForm || sequencePresetIdFromBody;
+
   const mediaType: ScrollHeroMediaType =
-    options.scrollHeroMediaType === "image-sequence"
+    options.scrollHeroMediaType === "image-sequence" || requestedSequenceId
       ? "image-sequence"
       : "video";
+
+  console.log("[resolveScrollHeroAssetsForBuild] input:", {
+    businessName: options.businessName,
+    scrollHeroMediaType: options.scrollHeroMediaType,
+    sequencePresetIdFromBody,
+    sequencePresetIdFromForm,
+    requestedSequenceId,
+    resolvedMediaType: mediaType,
+    videoPresetId: options.videoPresetId,
+  });
 
   if (mediaType === "image-sequence") {
     const resolvedSequenceId = await resolveSequencePresetId({
       formData: options.formData,
-      presetId: options.sequencePresetId,
+      presetId: requestedSequenceId,
+    });
+
+    console.log("[resolveScrollHeroAssetsForBuild] sequence result:", {
+      businessName: options.businessName,
+      resolvedSequenceId,
     });
 
     return {
@@ -59,6 +83,11 @@ export async function resolveScrollHeroAssetsForBuild(options: {
     formData: options.formData,
     businessName: options.businessName,
     presetId: options.videoPresetId,
+  });
+
+  console.log("[resolveScrollHeroAssetsForBuild] video result:", {
+    businessName: options.businessName,
+    videoUrl: videoUrl ? "(resolved)" : null,
   });
 
   return {

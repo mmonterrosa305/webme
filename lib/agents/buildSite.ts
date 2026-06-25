@@ -450,6 +450,15 @@ export async function buildSite(
     input.scrollHeroMediaType === "image-sequence" &&
     Boolean(input.scrollHeroSequencePresetId);
 
+  console.log("[buildSite] scroll hero decision:", {
+    businessName,
+    scrollAnimationEffect: input.scrollAnimationEffect,
+    scrollHeroMediaType: input.scrollHeroMediaType,
+    scrollHeroSequencePresetId: input.scrollHeroSequencePresetId,
+    scrollHeroVideoUrl: input.scrollHeroVideoUrl ? "(provided)" : null,
+    useImageSequence,
+  });
+
   const heroVideoUrl = useImageSequence
     ? null
     : input.scrollAnimationEffect

@@ -246,6 +246,16 @@ export function LeadsSearch() {
     try {
       const scroll = getScrollBuildOptions(scrollBuildOptionsById, lead.placeId);
 
+      console.log("[leads-search] build scroll options:", {
+        placeId: lead.placeId,
+        businessName: lead.businessName,
+        scrollAnimationEffect: scroll.scrollAnimationEffect,
+        scrollHeroMediaType: scroll.scrollHeroMediaType,
+        scrollHeroSequencePresetId: scroll.scrollHeroSequencePresetId,
+        scrollHeroPresetId: scroll.scrollHeroPresetId,
+        hasVideoFile: Boolean(scroll.scrollHeroVideoFile),
+      });
+
       const response = await submitBuildSiteRequest(
         {
           businessName: lead.businessName,
@@ -444,6 +454,7 @@ export function LeadsSearch() {
 
         return (
           <ScrollBuildOptionsField
+            fieldId={lead.placeId}
             options={getScrollBuildOptions(scrollBuildOptionsById, lead.placeId)}
             onChange={(next) =>
               setScrollBuildOptionsById((current) => ({

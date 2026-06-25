@@ -1,4 +1,7 @@
-import { fetchGoogleReviews } from "@/lib/google-places/fetch-google-reviews";
+import {
+  fetchGoogleReviews,
+  filterGoogleReviewsForDisplay,
+} from "@/lib/google-places/fetch-google-reviews";
 import {
   hasGoogleReviewsSection,
   injectGoogleReviewsSection,
@@ -41,5 +44,10 @@ export function applyStoredGoogleReviewsToHtml(
     return html;
   }
 
-  return injectGoogleReviewsSection(html, metadata.googleReviews);
+  const displayableReviews = filterGoogleReviewsForDisplay(metadata.googleReviews);
+  if (!displayableReviews.length) {
+    return html;
+  }
+
+  return injectGoogleReviewsSection(html, displayableReviews);
 }

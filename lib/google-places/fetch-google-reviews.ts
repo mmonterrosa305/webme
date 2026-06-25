@@ -10,6 +10,17 @@ export type FetchGoogleReviewsResult = {
   reviews: GoogleReview[];
 };
 
+export const MIN_DISPLAY_REVIEW_RATING = 4;
+
+export function filterGoogleReviewsForDisplay(
+  reviews: GoogleReview[],
+  maxReviews = 5,
+): GoogleReview[] {
+  return reviews
+    .filter((review) => review.rating >= MIN_DISPLAY_REVIEW_RATING)
+    .slice(0, maxReviews);
+}
+
 type FetchGoogleReviewsInput = {
   placeId?: string | null;
   businessName: string;
@@ -123,9 +134,14 @@ async function fetchReviewsForPlace(
       continue;
     }
 
+    const rating = clampRating(review.rating);
+    if (rating < MIN_DISPLAY_REVIEW_RATING) {
+      continue;
+    }
+
     reviews.push({
       authorName: review.authorAttribution?.displayName?.trim() || "Google User",
-      rating: clampRating(review.rating),
+      rating,
       text,
       publishedAt: formatPublishDate(
         review.publishTime,

@@ -13,11 +13,13 @@ export function ScrollBuildOptionsField({
   onChange,
   industry,
   disabled,
+  fieldId,
 }: {
   options: ScrollBuildOptions;
   onChange: (next: ScrollBuildOptions) => void;
   industry?: string;
   disabled?: boolean;
+  fieldId?: string;
 }) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -101,6 +103,9 @@ export function ScrollBuildOptionsField({
           scrollHeroVideoFile: null,
         });
       }}
+      mediaTypeGroupName={
+        fieldId ? `scrollHeroMediaType-${fieldId}` : "scrollHeroMediaType"
+      }
     />
   );
 }

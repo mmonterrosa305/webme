@@ -122,9 +122,20 @@ export async function POST(request: Request) {
         ? body.scrollHeroSequencePresetId.trim()
         : null;
     scrollHeroMediaType =
-      body.scrollHeroMediaType === "image-sequence"
+      body.scrollHeroMediaType === "image-sequence" ||
+      Boolean(scrollHeroSequencePresetId)
         ? "image-sequence"
         : "video";
+
+    console.log("[build-site] parsed scroll hero request:", {
+      businessName: payloadBusinessName,
+      scrollAnimationEffect,
+      scrollHeroMediaType: body.scrollHeroMediaType,
+      scrollHeroSequencePresetId,
+      scrollHeroPresetId,
+      resolvedScrollHeroMediaType: scrollHeroMediaType,
+      hasFormData: Boolean(pendingFormData),
+    });
 
     if (scrollAnimationEffect) {
       const scrollHeroAssets = await resolveScrollHeroAssetsForBuild({
@@ -137,6 +148,13 @@ export async function POST(request: Request) {
       scrollHeroMediaType = scrollHeroAssets.mediaType;
       scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
       scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
+
+      console.log("[build-site] resolved scroll hero assets:", {
+        businessName: payloadBusinessName,
+        scrollHeroMediaType,
+        scrollHeroSequencePresetId,
+        hasScrollHeroVideoUrl: Boolean(scrollHeroVideoUrl),
+      });
     }
 
     const cfTurnstileToken =

@@ -46,16 +46,38 @@ export async function submitBuildSiteRequest(
   payload: Record<string, unknown>,
   scroll: ScrollBuildOptions,
 ): Promise<Response> {
-  const fullPayload = withScrollBuildPayload(payload, scroll);
+  const sequencePresetId = scroll.scrollHeroSequencePresetId?.trim() ?? null;
+  const useImageSequence =
+    scroll.scrollAnimationEffect && Boolean(sequencePresetId);
 
-  if (
-    scroll.scrollAnimationEffect &&
-    scroll.scrollHeroMediaType === "video" &&
-    scroll.scrollHeroVideoFile
-  ) {
+  const fullPayload = withScrollBuildPayload(
+    payload,
+    useImageSequence
+      ? {
+          ...scroll,
+          scrollHeroMediaType: "image-sequence",
+          scrollHeroSequencePresetId: sequencePresetId,
+          scrollHeroPresetId: null,
+          scrollHeroVideoFile: null,
+        }
+      : scroll,
+  );
+
+  console.log("[submitBuildSiteRequest] scroll hero options:", {
+    scrollAnimationEffect: scroll.scrollAnimationEffect,
+    scrollHeroMediaType: scroll.scrollHeroMediaType,
+    scrollHeroSequencePresetId: sequencePresetId,
+    scrollHeroPresetId: scroll.scrollHeroPresetId,
+    hasVideoFile: Boolean(scroll.scrollHeroVideoFile),
+    useImageSequence,
+    payloadScrollHeroMediaType: fullPayload.scrollHeroMediaType,
+    payloadScrollHeroSequencePresetId: fullPayload.scrollHeroSequencePresetId,
+  });
+
+  if (useImageSequence && sequencePresetId) {
     const formData = new FormData();
     formData.append("buildPayload", JSON.stringify(fullPayload));
-    formData.append(SCROLL_HERO_VIDEO_FIELD, scroll.scrollHeroVideoFile);
+    formData.append(SCROLL_HERO_SEQUENCE_PRESET_FIELD, sequencePresetId);
 
     return fetch("/api/agents/build-site", {
       method: "POST",
@@ -65,15 +87,12 @@ export async function submitBuildSiteRequest(
 
   if (
     scroll.scrollAnimationEffect &&
-    scroll.scrollHeroMediaType === "image-sequence" &&
-    scroll.scrollHeroSequencePresetId
+    scroll.scrollHeroMediaType === "video" &&
+    scroll.scrollHeroVideoFile
   ) {
     const formData = new FormData();
     formData.append("buildPayload", JSON.stringify(fullPayload));
-    formData.append(
-      SCROLL_HERO_SEQUENCE_PRESET_FIELD,
-      scroll.scrollHeroSequencePresetId,
-    );
+    formData.append(SCROLL_HERO_VIDEO_FIELD, scroll.scrollHeroVideoFile);
 
     return fetch("/api/agents/build-site", {
       method: "POST",

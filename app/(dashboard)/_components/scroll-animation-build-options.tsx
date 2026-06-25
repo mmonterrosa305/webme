@@ -19,6 +19,7 @@ export function ScrollAnimationBuildOptions({
   onSelectedPresetIdChange,
   selectedSequencePresetId,
   onSelectedSequencePresetIdChange,
+  mediaTypeGroupName = "scrollHeroMediaType",
 }: {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
@@ -34,6 +35,7 @@ export function ScrollAnimationBuildOptions({
   onSelectedPresetIdChange: (presetId: string | null) => void;
   selectedSequencePresetId: string | null;
   onSelectedSequencePresetIdChange: (sequenceId: string | null) => void;
+  mediaTypeGroupName?: string;
 }) {
   return (
     <div className="w-full space-y-4">
@@ -76,7 +78,7 @@ export function ScrollAnimationBuildOptions({
               <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
                 <input
                   type="radio"
-                  name="scrollHeroMediaType"
+                  name={mediaTypeGroupName}
                   checked={scrollHeroMediaType === "video"}
                   onChange={() => onScrollHeroMediaTypeChange("video")}
                   disabled={disabled}
@@ -87,7 +89,7 @@ export function ScrollAnimationBuildOptions({
               <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
                 <input
                   type="radio"
-                  name="scrollHeroMediaType"
+                  name={mediaTypeGroupName}
                   checked={scrollHeroMediaType === "image-sequence"}
                   onChange={() =>
                     onScrollHeroMediaTypeChange("image-sequence")
