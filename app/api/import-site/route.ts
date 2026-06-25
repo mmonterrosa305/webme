@@ -8,7 +8,7 @@ import {
 } from "@/lib/agents/scrape-import-site";
 import { uploadLogo } from "@/lib/agents/upload-logo";
 import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
-import { enrichBuiltSiteWithGoogleReviews } from "@/lib/leads/enrich-built-site-with-google-reviews";
+import { enrichBuiltSiteHtml } from "@/lib/leads/enrich-built-site-html";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_SECTIONS,
@@ -172,11 +172,12 @@ export async function POST(request: Request) {
       scrollHeroSequencePresetId,
     );
 
-    const enriched = await enrichBuiltSiteWithGoogleReviews({
+    const enriched = await enrichBuiltSiteHtml({
       html: builtHtml,
       metadata: siteMetadata,
       businessName: imported.businessName,
       city: imported.city,
+      address: imported.address,
     });
     const html = enriched.html;
     siteMetadata = enriched.metadata;

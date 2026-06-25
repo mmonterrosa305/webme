@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
 import { extractScrollHeroSequenceId } from "@/lib/agents/scroll-hero-sequence";
-import { enrichBuiltSiteWithGoogleReviews } from "@/lib/leads/enrich-built-site-with-google-reviews";
+import { enrichBuiltSiteHtml } from "@/lib/leads/enrich-built-site-html";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
@@ -313,11 +313,12 @@ export async function POST(request: Request) {
       scrollHeroSequencePresetId,
     );
 
-    const enriched = await enrichBuiltSiteWithGoogleReviews({
+    const enriched = await enrichBuiltSiteHtml({
       html: builtHtml,
       metadata: siteMetadata,
       businessName,
       city,
+      address: address ?? businessProfile.address,
       placeId: googlePlaceId,
     });
     const html = enriched.html;

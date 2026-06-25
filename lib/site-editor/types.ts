@@ -35,6 +35,8 @@ export type SiteMetadata = {
   scrollHeroSequenceId?: string;
   googlePlaceId?: string;
   googleReviews?: GoogleReview[];
+  businessAddress?: string;
+  googleMapsEmbedUrl?: string;
 };
 
 export type ClientSiteData = {

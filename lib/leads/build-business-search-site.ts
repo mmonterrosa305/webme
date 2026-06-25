@@ -8,7 +8,7 @@ import {
   contentToMetadata,
   extractSiteContent,
 } from "@/lib/site-editor/extract-content";
-import { enrichBuiltSiteWithGoogleReviews } from "@/lib/leads/enrich-built-site-with-google-reviews";
+import { enrichBuiltSiteHtml } from "@/lib/leads/enrich-built-site-html";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
@@ -145,11 +145,12 @@ export async function buildBusinessSearchSite(
     options?.scrollHeroSequencePresetId,
   );
 
-  const enriched = await enrichBuiltSiteWithGoogleReviews({
+  const enriched = await enrichBuiltSiteHtml({
     html: builtHtml,
     metadata: siteMetadata,
     businessName: result.businessName,
     city: result.city,
+    address: result.address,
     placeId: result.placeId,
   });
   const html = enriched.html;

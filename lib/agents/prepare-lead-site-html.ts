@@ -1,4 +1,4 @@
-import { applyStoredGoogleReviewsToHtml } from "@/lib/leads/enrich-built-site-with-google-reviews";
+import { applyStoredSiteEnrichmentsToHtml } from "@/lib/leads/enrich-built-site-html";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
@@ -36,7 +36,7 @@ export async function prepareLeadSiteHtml(
     prepared = prepareScrollHeroVideoSiteHtml(html);
   }
 
-  return applyStoredGoogleReviewsToHtml(
+  return applyStoredSiteEnrichmentsToHtml(
     prepared,
     metadata as SiteMetadata | null,
   );
