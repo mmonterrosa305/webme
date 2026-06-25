@@ -74,38 +74,67 @@ export function ScrollHeroSequenceHero({
       return;
     }
 
-    const ctx = gsap.context(() => {
-      gsap.set(textEls, { opacity: 0, y: 40 });
+    let ctx: gsap.Context | null = null;
 
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          id: TEXT_SCROLL_TRIGGER_ID,
-          trigger: section,
-          start: "top top",
-          end: SCROLL_HERO_SEQUENCE_SCROLL_END,
-          scrub: true,
-        },
-        defaults: { ease: "none" },
-      });
+    const bindTextScroll = () => {
+      ctx?.revert();
+      ctx = gsap.context(() => {
+        gsap.set(textEls, { opacity: 0, y: 40 });
 
-      if (headlineEl) {
-        tl.to(headlineEl, { opacity: 1, y: 0, duration: 0.2 }, 0);
-        tl.to(headlineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.6);
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            id: TEXT_SCROLL_TRIGGER_ID,
+            trigger: section,
+            start: "top top",
+            end: SCROLL_HERO_SEQUENCE_SCROLL_END,
+            scrub: true,
+          },
+          defaults: { ease: "none" },
+        });
+
+        if (headlineEl) {
+          tl.to(headlineEl, { opacity: 1, y: 0, duration: 0.2 }, 0);
+          tl.to(headlineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.6);
+        }
+
+        if (taglineEl) {
+          tl.to(taglineEl, { opacity: 1, y: 0, duration: 0.15 }, 0.65);
+          tl.to(taglineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
+        }
+
+        if (ctaEl) {
+          tl.to(ctaEl, { opacity: 1, y: 0, duration: 0.15 }, 0.68);
+          tl.to(ctaEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
+        }
+      }, section);
+
+      ScrollTrigger.refresh();
+    };
+
+    // Bind after canvas pin/scrub triggers exist so text scrub stays in sync.
+    const onHeroReady = () => bindTextScroll();
+
+    window.addEventListener("webme-sequence-hero-ready", onHeroReady);
+
+    const waitForPin = (attempts: number) => {
+      if (ScrollTrigger.getById("webme-scroll-hero-pin")) {
+        bindTextScroll();
+        return;
       }
 
-      if (taglineEl) {
-        tl.to(taglineEl, { opacity: 1, y: 0, duration: 0.15 }, 0.65);
-        tl.to(taglineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
+      if (attempts <= 0) {
+        bindTextScroll();
+        return;
       }
 
-      if (ctaEl) {
-        tl.to(ctaEl, { opacity: 1, y: 0, duration: 0.15 }, 0.68);
-        tl.to(ctaEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
-      }
-    }, section);
+      window.setTimeout(() => waitForPin(attempts - 1), 50);
+    };
+
+    waitForPin(80);
 
     return () => {
-      ctx.revert();
+      window.removeEventListener("webme-sequence-hero-ready", onHeroReady);
+      ctx?.revert();
     };
   }, [resolvedHeadline, resolvedTagline, ctaLabel]);
 
@@ -250,7 +279,6 @@ export function ScrollHeroSequenceHero({
     const bindScrollHero = () => {
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
       ScrollTrigger.getById("webme-scroll-hero-scrub")?.kill();
-      ScrollTrigger.getById(TEXT_SCROLL_TRIGGER_ID)?.kill();
 
       ScrollTrigger.create({
         id: "webme-scroll-hero-pin",
@@ -276,6 +304,7 @@ export function ScrollHeroSequenceHero({
 
       drawFrame(0);
       ScrollTrigger.refresh();
+      window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
     };
 
     const beginSequence = (urls: string[]) => {
@@ -335,7 +364,6 @@ export function ScrollHeroSequenceHero({
       window.removeEventListener("resize", onResize);
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
       ScrollTrigger.getById("webme-scroll-hero-scrub")?.kill();
-      ScrollTrigger.getById(TEXT_SCROLL_TRIGGER_ID)?.kill();
     };
   }, [sequenceId, posterUrl]);
 
@@ -357,11 +385,11 @@ export function ScrollHeroSequenceHero({
           aria-hidden
         />
         {showOverlay ? (
-          <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 text-center text-white">
+          <div className="pointer-events-none relative z-20 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 pt-24 text-center text-white">
             {resolvedHeadline ? (
               <h1
                 ref={headlineRef}
-                className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
+                className="pointer-events-none font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
                 style={{ textShadow: HERO_TEXT_SHADOW }}
               >
                 {resolvedHeadline}
@@ -370,7 +398,7 @@ export function ScrollHeroSequenceHero({
             {resolvedTagline ? (
               <p
                 ref={taglineRef}
-                className="mt-4 max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
+                className="pointer-events-none mt-4 max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
                 style={{ textShadow: HERO_TEXT_SHADOW }}
               >
                 {resolvedTagline}

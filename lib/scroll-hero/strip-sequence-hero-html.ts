@@ -15,6 +15,13 @@ body.webme-sequence-site {
   overflow-x: visible !important;
   overflow-y: visible !important;
 }
+body.webme-sequence-site.webme-sequence-site-has-nav .webme-sequence-first-section {
+  margin-top: 0 !important;
+  padding-top: var(--webme-sequence-nav-offset, 88px) !important;
+  position: relative !important;
+  z-index: 1 !important;
+  overflow: visible !important;
+}
 body.webme-sequence-site > section:first-child,
 body.webme-sequence-site > header + section,
 body.webme-sequence-site > nav + section,
@@ -64,6 +71,16 @@ function normalizePostSequenceHeroLayout($: cheerio.CheerioAPI): void {
   const existingStyle = $firstSection.attr("style") ?? "";
   if (/margin-top\s*:\s*-|margin\s*:\s*-/i.test(existingStyle)) {
     $firstSection.attr("style", stripNegativeMarginFromStyle(existingStyle));
+  }
+
+  const $nav = $("body").children("header, nav").first();
+  if (!$nav.length) {
+    const $nestedNav = $("body header, body nav").first();
+    if ($nestedNav.length) {
+      $("body").addClass("webme-sequence-site-has-nav");
+    }
+  } else {
+    $("body").addClass("webme-sequence-site-has-nav");
   }
 }
 
