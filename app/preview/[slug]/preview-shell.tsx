@@ -1212,30 +1212,22 @@ export function PreviewShell({
         />
       ) : null}
 
-      <div
-        className={
-          scrollSequenceId
-            ? "relative z-[1] w-full flex-1 bg-white"
-            : "contents"
-        }
-      >
-        <iframe
-          ref={iframeRef}
-          title={`Website preview for ${lead.business_name}`}
-          sandbox="allow-scripts allow-same-origin"
-          className="min-h-[55vh] w-full flex-1 border-0 bg-white"
-          srcDoc={siteHtml}
-          onLoad={() => {
-            injectTextEditors();
-            if (!scrollSequenceId) {
-              injectHeroVideoOverlay();
-            }
-            if (photoEditMode) {
-              injectPhotoOverlays();
-            }
-          }}
-        />
-      </div>
+      <iframe
+        ref={iframeRef}
+        title={`Website preview for ${lead.business_name}`}
+        sandbox="allow-scripts allow-same-origin"
+        className="min-h-[55vh] w-full flex-1 border-0 bg-white"
+        srcDoc={siteHtml}
+        onLoad={() => {
+          injectTextEditors();
+          if (!scrollSequenceId) {
+            injectHeroVideoOverlay();
+          }
+          if (photoEditMode) {
+            injectPhotoOverlays();
+          }
+        }}
+      />
 
       {editsRemaining > 0 ? (
         <div className="shrink-0 border-t border-neutral-200 bg-white px-4 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] sm:px-6">

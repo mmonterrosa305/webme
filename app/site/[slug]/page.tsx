@@ -56,9 +56,7 @@ export default async function SitePage({ params }: PageProps) {
           headline={heroCopy.headline}
           tagline={heroCopy.tagline}
         />
-        <div className="relative z-[1] w-full bg-white">
-          <SiteContentFrame html={bodyHtml} title={lead.business_name} />
-        </div>
+        <SiteContentFrame html={bodyHtml} title={lead.business_name} />
       </div>
     );
   }

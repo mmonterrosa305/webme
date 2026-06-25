@@ -4,10 +4,6 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-import {
-  SCROLL_HERO_SEQUENCE_SCROLL_END,
-} from "@/lib/scroll-hero/sequence-hero-scroll";
-
 gsap.registerPlugin(ScrollTrigger);
 
 type ScrollHeroSequenceHeroProps = {
@@ -42,24 +38,6 @@ export function ScrollHeroSequenceHero({
   const ctaRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    console.log("[ScrollHeroSequenceHero] hero copy received:", {
-      headline,
-      tagline,
-      businessName,
-      resolvedHeadline,
-      resolvedTagline,
-      sequenceId,
-    });
-  }, [
-    headline,
-    tagline,
-    businessName,
-    resolvedHeadline,
-    resolvedTagline,
-    sequenceId,
-  ]);
-
-  useEffect(() => {
     const section = sectionRef.current;
     if (!section) {
       return;
@@ -78,6 +56,7 @@ export function ScrollHeroSequenceHero({
 
     const bindTextScroll = () => {
       ctx?.revert();
+
       ctx = gsap.context(() => {
         gsap.set(textEls, { opacity: 0, y: 40 });
 
@@ -86,7 +65,7 @@ export function ScrollHeroSequenceHero({
             id: TEXT_SCROLL_TRIGGER_ID,
             trigger: section,
             start: "top top",
-            end: SCROLL_HERO_SEQUENCE_SCROLL_END,
+            end: "bottom bottom",
             scrub: true,
           },
           defaults: { ease: "none" },
@@ -111,26 +90,12 @@ export function ScrollHeroSequenceHero({
       ScrollTrigger.refresh();
     };
 
-    // Bind after canvas pin/scrub triggers exist so text scrub stays in sync.
     const onHeroReady = () => bindTextScroll();
-
     window.addEventListener("webme-sequence-hero-ready", onHeroReady);
 
-    const waitForPin = (attempts: number) => {
-      if (ScrollTrigger.getById("webme-scroll-hero-pin")) {
-        bindTextScroll();
-        return;
-      }
-
-      if (attempts <= 0) {
-        bindTextScroll();
-        return;
-      }
-
-      window.setTimeout(() => waitForPin(attempts - 1), 50);
-    };
-
-    waitForPin(80);
+    if (ScrollTrigger.getById("webme-scroll-hero-pin")) {
+      bindTextScroll();
+    }
 
     return () => {
       window.removeEventListener("webme-sequence-hero-ready", onHeroReady);
@@ -284,9 +249,9 @@ export function ScrollHeroSequenceHero({
         id: "webme-scroll-hero-pin",
         trigger: section,
         start: "top top",
-        end: SCROLL_HERO_SEQUENCE_SCROLL_END,
+        end: "bottom bottom",
         pin: pin,
-        pinSpacing: true,
+        pinSpacing: false,
         anticipatePin: 1,
         invalidateOnRefresh: true,
       });
@@ -295,7 +260,7 @@ export function ScrollHeroSequenceHero({
         id: "webme-scroll-hero-scrub",
         trigger: section,
         start: "top top",
-        end: SCROLL_HERO_SEQUENCE_SCROLL_END,
+        end: "bottom bottom",
         scrub: true,
         onUpdate: (self) => {
           drawFrame(self.progress);
@@ -373,7 +338,7 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative h-screen w-full"
+      className="relative h-[400vh] w-full"
     >
       <div
         ref={pinRef}
@@ -385,11 +350,11 @@ export function ScrollHeroSequenceHero({
           aria-hidden
         />
         {showOverlay ? (
-          <div className="pointer-events-none relative z-20 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 pt-24 text-center text-white">
+          <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 pt-24 text-center text-white">
             {resolvedHeadline ? (
               <h1
                 ref={headlineRef}
-                className="pointer-events-none font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
+                className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
                 style={{ textShadow: HERO_TEXT_SHADOW }}
               >
                 {resolvedHeadline}
@@ -398,7 +363,7 @@ export function ScrollHeroSequenceHero({
             {resolvedTagline ? (
               <p
                 ref={taglineRef}
-                className="pointer-events-none mt-4 max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
+                className="mt-4 max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
                 style={{ textShadow: HERO_TEXT_SHADOW }}
               >
                 {resolvedTagline}
