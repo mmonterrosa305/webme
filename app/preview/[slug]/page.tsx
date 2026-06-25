@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { prepareLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
+import { prepareAndPersistLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 
 import { PreviewShell } from "./preview-shell";
@@ -31,7 +31,8 @@ export default async function PreviewPage({ params }: PageProps) {
     notFound();
   }
 
-  const siteHtml = await prepareLeadSiteHtml(
+  const siteHtml = await prepareAndPersistLeadSiteHtml(
+    lead.site_slug,
     lead.site_html,
     lead.site_metadata,
     lead.industry,

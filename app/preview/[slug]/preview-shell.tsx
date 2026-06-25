@@ -222,16 +222,6 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     void loadEditStatus();
   }, [loadEditStatus]);
 
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-    doc.open();
-    doc.write(siteHtml);
-    doc.close();
-  }, [siteHtml]);
-
   const injectTextEditors = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -1198,6 +1188,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         title={`Website preview for ${lead.business_name}`}
         sandbox="allow-scripts allow-same-origin"
         className="min-h-[55vh] w-full flex-1 border-0 bg-white"
+        srcDoc={siteHtml}
         onLoad={() => {
           injectTextEditors();
           injectHeroVideoOverlay();

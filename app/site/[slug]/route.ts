@@ -1,4 +1,4 @@
-import { prepareLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
+import { prepareAndPersistLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { NextResponse } from "next/server";
 
@@ -43,7 +43,8 @@ export async function GET(
     return new NextResponse("Site not found", { status: 404 });
   }
 
-  const html = await prepareLeadSiteHtml(
+  const html = await prepareAndPersistLeadSiteHtml(
+    slug,
     lead.site_html,
     lead.site_metadata,
     lead.industry,

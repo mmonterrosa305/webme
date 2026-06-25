@@ -46,7 +46,9 @@ const SCROLL_HERO_SEQUENCE_INIT_SCRIPT = `<script id="webme-scroll-hero-sequence
       var ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      var images = [];
+      var frameUrls = [];
+      var imageCache = Object.create(null);
+      var pendingLoads = Object.create(null);
       var dpr = window.devicePixelRatio || 1;
       var posterUrl = canvas.getAttribute("data-poster") || "";
 
@@ -76,31 +78,83 @@ const SCROLL_HERO_SEQUENCE_INIT_SCRIPT = `<script id="webme-scroll-hero-sequence
         ctx.drawImage(img, dx, dy, dw, dh);
       }
 
-      function drawFrame(progress) {
-        if (!images.length || !images[0]) return;
+      function loadImageAt(index) {
+        if (index < 0 || index >= frameUrls.length) {
+          return Promise.resolve(null);
+        }
+        if (imageCache[index]) {
+          return Promise.resolve(imageCache[index]);
+        }
+        if (pendingLoads[index]) {
+          return pendingLoads[index];
+        }
+        pendingLoads[index] = new Promise(function (resolve) {
+          var img = new Image();
+          img.decoding = "async";
+          img.onload = function () {
+            imageCache[index] = img;
+            delete pendingLoads[index];
+            resolve(img);
+          };
+          img.onerror = function () {
+            delete pendingLoads[index];
+            resolve(null);
+          };
+          img.src = frameUrls[index];
+        });
+        return pendingLoads[index];
+      }
+
+      function prefetchWindow(centerIndex) {
+        var start = Math.max(0, centerIndex - 2);
+        var end = Math.min(frameUrls.length - 1, centerIndex + 4);
+        for (var i = start; i <= end; i++) {
+          void loadImageAt(i);
+        }
+      }
+
+      function showPosterFallback() {
+        if (!posterUrl) return;
 
         resizeCanvas();
         ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        var img = new Image();
+        img.onload = function () {
+          drawCover(img);
+        };
+        img.onerror = function () {};
+        img.src = posterUrl;
+      }
 
-        var maxIndex = images.length - 1;
+      function drawFrame(progress) {
+        if (!frameUrls.length) return;
+
+        var maxIndex = frameUrls.length - 1;
         var exact = progress * maxIndex;
         var idx = Math.floor(exact);
         var next = Math.min(idx + 1, maxIndex);
         var blend = exact - idx;
+        prefetchWindow(idx);
 
-        var imgA = images[idx];
-        if (!imgA) return;
-
-        drawCover(imgA);
-
-        if (blend > 0.001 && next !== idx) {
-          var imgB = images[next];
-          if (imgB) {
-            ctx.globalAlpha = blend;
-            drawCover(imgB);
-            ctx.globalAlpha = 1;
+        loadImageAt(idx).then(function (imgA) {
+          if (!imgA) {
+            showPosterFallback();
+            return;
           }
-        }
+
+          resizeCanvas();
+          ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+          drawCover(imgA);
+
+          if (blend > 0.001 && next !== idx) {
+            loadImageAt(next).then(function (imgB) {
+              if (!imgB) return;
+              ctx.globalAlpha = blend;
+              drawCover(imgB);
+              ctx.globalAlpha = 1;
+            });
+          }
+        });
       }
 
       function bindScrollHero() {
@@ -135,65 +189,21 @@ const SCROLL_HERO_SEQUENCE_INIT_SCRIPT = `<script id="webme-scroll-hero-sequence
         ScrollTrigger.refresh();
       }
 
-      function showPosterFallback() {
-        if (!posterUrl) return;
-
-        resizeCanvas();
-        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-        var img = new Image();
-        img.onload = function () {
-          drawCover(img);
-        };
-        img.onerror = function () {};
-        img.src = posterUrl;
-      }
-
-      function preloadFrames(frameUrls) {
-        if (!frameUrls || !frameUrls.length) {
+      function beginSequence(urls) {
+        frameUrls = Array.isArray(urls) ? urls : [];
+        if (!frameUrls.length) {
           showPosterFallback();
           return;
         }
 
-        images = new Array(frameUrls.length);
-        var loaded = 0;
-
-        frameUrls.forEach(function (url, index) {
-          var img = new Image();
-          img.decoding = "async";
-          img.onload = function () {
-            loaded++;
-            if (loaded === frameUrls.length) {
-              bindScrollHero();
-            }
-          };
-          img.onerror = function () {
-            loaded++;
-            if (loaded === frameUrls.length) {
-              if (images[0]) {
-                bindScrollHero();
-              } else {
-                showPosterFallback();
-              }
-            }
-          };
-          img.src = url;
-          images[index] = img;
+        loadImageAt(0).then(function (img) {
+          if (img) {
+            bindScrollHero();
+          } else {
+            showPosterFallback();
+          }
         });
-      }
-
-      function loadLegacyInlineFrames() {
-        var framesEl = document.getElementById("webme-scroll-hero-frames");
-        if (!framesEl) {
-          showPosterFallback();
-          return;
-        }
-
-        try {
-          var frameUrls = JSON.parse(framesEl.textContent || "[]");
-          preloadFrames(frameUrls);
-        } catch (e) {
-          showPosterFallback();
-        }
+        prefetchWindow(0);
       }
 
       function loadFramesFromApi(sequenceId) {
@@ -206,13 +216,13 @@ const SCROLL_HERO_SEQUENCE_INIT_SCRIPT = `<script id="webme-scroll-hero-sequence
           })
           .then(function (data) {
             if (data.frames_urls && data.frames_urls.length) {
-              preloadFrames(data.frames_urls);
+              beginSequence(data.frames_urls);
             } else {
-              loadLegacyInlineFrames();
+              showPosterFallback();
             }
           })
           .catch(function () {
-            loadLegacyInlineFrames();
+            showPosterFallback();
           });
       }
 
@@ -220,7 +230,7 @@ const SCROLL_HERO_SEQUENCE_INIT_SCRIPT = `<script id="webme-scroll-hero-sequence
       if (sequenceId) {
         loadFramesFromApi(sequenceId);
       } else {
-        loadLegacyInlineFrames();
+        showPosterFallback();
       }
 
       window.addEventListener("resize", function () {
@@ -327,6 +337,11 @@ export function compactScrollHeroSequenceHtml(
   }
 
   const $ = cheerio.load(html);
+
+  if (hasInlineSequenceFrames($.html())) {
+    stripInlineSequenceFrames($);
+  }
+
   const resolvedId =
     sequenceId?.trim() ||
     extractScrollHeroSequenceId($.html()) ||
