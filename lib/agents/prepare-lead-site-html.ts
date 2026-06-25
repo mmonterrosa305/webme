@@ -3,8 +3,8 @@ import type { SiteMetadata } from "@/lib/site-editor/types";
 
 import {
   extractScrollHeroSequenceId,
-  hasInlineSequenceFrames,
   hasScrollHeroSequence,
+  hasStaleSequenceInitScript,
   prepareScrollHeroSequenceSiteHtmlAsync,
 } from "./scroll-hero-sequence";
 import { prepareScrollHeroVideoSiteHtml } from "./scroll-hero-video";
@@ -35,15 +35,15 @@ export async function prepareLeadSiteHtml(
   return prepareScrollHeroVideoSiteHtml(html);
 }
 
-function shouldPersistCompactedHtml(originalHtml: string, preparedHtml: string): boolean {
+function shouldPersistPreparedHtml(
+  originalHtml: string,
+  preparedHtml: string,
+): boolean {
   if (!hasScrollHeroSequence(originalHtml)) {
     return false;
   }
 
-  return (
-    hasInlineSequenceFrames(originalHtml) ||
-    preparedHtml.length < originalHtml.length - 5000
-  );
+  return originalHtml !== preparedHtml;
 }
 
 export async function prepareAndPersistLeadSiteHtml(
@@ -54,13 +54,20 @@ export async function prepareAndPersistLeadSiteHtml(
 ): Promise<string> {
   const prepared = await prepareLeadSiteHtml(html, metadata, industry);
 
-  if (!shouldPersistCompactedHtml(html, prepared) || prepared === html) {
+  if (!shouldPersistPreparedHtml(html, prepared)) {
     return prepared;
   }
 
   const sequenceId =
     extractScrollHeroSequenceId(prepared) ??
     getScrollHeroSequenceIdFromMetadata(metadata);
+
+  console.log(`[prepare-lead-site-html] Persisting repaired sequence HTML for ${siteSlug}`, {
+    beforeLength: html.length,
+    afterLength: prepared.length,
+    staleInitScript: hasStaleSequenceInitScript(html),
+    sequenceId: sequenceId ?? null,
+  });
 
   const supabase = createAdminClient();
   const nextMetadata: SiteMetadata = {

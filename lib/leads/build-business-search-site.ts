@@ -1,5 +1,6 @@
 import { buildSite } from "@/lib/agents/buildSite";
 import type { BusinessProfile } from "@/lib/agents/scrapeBusinessData";
+import { extractScrollHeroSequenceId } from "@/lib/agents/scroll-hero-sequence";
 import { uploadLogo } from "@/lib/agents/upload-logo";
 import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
 import { withScrollHeroSequenceMetadata } from "@/lib/site-editor/scroll-hero-metadata";
@@ -126,6 +127,10 @@ export async function buildBusinessSearchSite(
     cardHoverEffect: options?.cardHoverEffect ?? false,
   });
 
+  if (!html?.trim()) {
+    throw new Error("Site build produced empty HTML.");
+  }
+
   const siteBuiltAt = new Date().toISOString();
   const supabase = createAdminClient();
   const siteContent = extractSiteContent(html, {
@@ -173,6 +178,20 @@ export async function buildBusinessSearchSite(
     leadRow,
     { onConflict: "site_slug" },
   );
+
+  console.log("[business-search] Supabase save attempt:", {
+    businessName: result.businessName,
+    city: result.city,
+    siteSlug,
+    siteHtmlLength: html.length,
+    scrollHeroSequencePresetId: options?.scrollHeroSequencePresetId ?? null,
+    hasSequenceCanvas: html.includes('data-webme-scroll-hero="sequence"'),
+    sequenceIdInHtml: extractScrollHeroSequenceId(html),
+    siteMetadataSequenceId:
+      (leadRow.site_metadata as { scrollHeroSequenceId?: string })
+        .scrollHeroSequenceId ?? null,
+    saveError: leadSaveError?.message ?? null,
+  });
 
   if (leadSaveError) {
     const {

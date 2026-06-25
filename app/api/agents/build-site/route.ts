@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
+import { extractScrollHeroSequenceId } from "@/lib/agents/scroll-hero-sequence";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
@@ -278,6 +279,19 @@ export async function POST(request: Request) {
 
     const { html, siteSlug } = await buildSite(buildInput);
 
+    if (!html?.trim()) {
+      console.error("[build-site] Build returned empty site_html:", {
+        businessName,
+        city,
+        scrollHeroMediaType,
+        scrollHeroSequencePresetId,
+      });
+      return NextResponse.json(
+        { error: "Site build produced empty HTML. Please try again." },
+        { status: 500 },
+      );
+    }
+
     const siteBuiltAt = new Date().toISOString();
 
     const supabase = createAdminClient();
@@ -326,20 +340,40 @@ export async function POST(request: Request) {
       { onConflict: "site_slug" },
     );
 
+    console.log("[build-site] Supabase save attempt:", {
+      businessName,
+      city,
+      siteSlug,
+      siteHtmlLength: html.length,
+      scrollHeroMediaType,
+      scrollHeroSequencePresetId,
+      hasSequenceCanvas: html.includes('data-webme-scroll-hero="sequence"'),
+      sequenceIdInHtml: extractScrollHeroSequenceId(html),
+      siteMetadataSequenceId: siteMetadata.scrollHeroSequenceId ?? null,
+      saveError: leadSaveError?.message ?? null,
+    });
+
     if (leadSaveError) {
       console.error(
         "[build-site] Failed to save lead in Supabase:",
         leadSaveError.message,
       );
-    } else {
-      console.log("[build-site] Saved lead to Supabase:", {
-        businessName,
-        city,
-        siteSlug,
-        ownerEmail: businessProfile.ownerEmail,
-        ownerName: businessProfile.ownerName,
-      });
+      return NextResponse.json(
+        {
+          error: "Site was generated but could not be saved. Please try again.",
+        },
+        { status: 500 },
+      );
     }
+
+    console.log("[build-site] Saved lead to Supabase:", {
+      businessName,
+      city,
+      siteSlug,
+      siteHtmlLength: html.length,
+      ownerEmail: businessProfile.ownerEmail,
+      ownerName: businessProfile.ownerName,
+    });
 
     return NextResponse.json({
       html,

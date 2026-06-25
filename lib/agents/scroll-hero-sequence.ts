@@ -257,7 +257,72 @@ export function hasScrollHeroSequence(html: string): boolean {
 }
 
 export function hasInlineSequenceFrames(html: string): boolean {
-  return html.includes('id="webme-scroll-hero-frames"');
+  return /<script[^>]*\bid=["']webme-scroll-hero-frames["'][^>]*>/i.test(html);
+}
+
+/** True when baked-in init script predates lazy frame loading (causes iframe OOM crashes). */
+export function hasStaleSequenceInitScript(html: string): boolean {
+  if (!hasScrollHeroSequence(html)) {
+    return false;
+  }
+
+  return (
+    html.includes("function preloadFrames") ||
+    html.includes('getElementById("webme-scroll-hero-frames")')
+  );
+}
+
+function isTrustBarSection($: cheerio.CheerioAPI, element: AnyNode): boolean {
+  const className = $(element).attr("class") ?? "";
+  return /trust-bar/i.test(className);
+}
+
+function findScrollHeroTargetSection(
+  $: cheerio.CheerioAPI,
+): cheerio.Cheerio<AnyNode> {
+  const byId = $("#hero").first();
+  if (byId.length) {
+    return byId;
+  }
+
+  const byHeadline = $('[data-webme="headline"]').closest("section").first();
+  if (byHeadline.length) {
+    return byHeadline;
+  }
+
+  const byHeroImage = $('[data-webme="hero-image"]').closest("section").first();
+  if (byHeroImage.length) {
+    return byHeroImage;
+  }
+
+  const byHeroContent = $(".hero-content").closest("section").first();
+  if (byHeroContent.length) {
+    return byHeroContent;
+  }
+
+  const byHeroClass = $("section.hero").first();
+  if (byHeroClass.length) {
+    return byHeroClass;
+  }
+
+  const sections = $("section").filter((_index, element) => {
+    if (isTrustBarSection($, element)) {
+      return false;
+    }
+
+    const $section = $(element);
+    const id = ($section.attr("id") ?? "").toLowerCase();
+    const className = ($section.attr("class") ?? "").toLowerCase();
+    return id === "hero" || className.includes("hero");
+  });
+
+  if (sections.length) {
+    return sections.first();
+  }
+
+  return $("section")
+    .filter((_index, element) => !isTrustBarSection($, element))
+    .first();
 }
 
 export function hasScrollHeroAnimation(html: string): boolean {
@@ -478,7 +543,7 @@ export function applyScrollHeroSequence(
     $('[data-webme="hero-image"]').remove();
     $('video[data-webme="hero-image"]').remove();
 
-    const $heroSection = $("section").first();
+    const $heroSection = findScrollHeroTargetSection($);
     if (!$heroSection.length) {
       return html;
     }
@@ -498,7 +563,7 @@ export function applyScrollHeroSequence(
   const $heroSection =
     $canvas.closest("section").length > 0
       ? $canvas.closest("section")
-      : $("section").first();
+      : findScrollHeroTargetSection($);
 
   if (!$heroSection.length) {
     return html;
