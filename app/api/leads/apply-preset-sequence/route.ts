@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 
-import {
-  hasScrollHeroSequence,
-  replaceScrollHeroSequenceId,
-} from "@/lib/agents/scroll-hero-sequence";
+import { getScrollHeroSequenceIdFromMetadata } from "@/lib/agents/prepare-lead-site-html";
+import { hasScrollHeroSequence } from "@/lib/agents/scroll-hero-sequence";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getImageSequenceById } from "@/lib/image-sequences/queries";
+import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 
 export async function POST(request: Request) {
@@ -51,7 +50,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Lead not found." }, { status: 404 });
     }
 
-    if (!hasScrollHeroSequence(lead.site_html)) {
+    const existingMetadata = (lead.site_metadata as SiteMetadata | null) ?? {};
+    const hasSequenceHero =
+      Boolean(getScrollHeroSequenceIdFromMetadata(existingMetadata)) ||
+      hasScrollHeroSequence(lead.site_html);
+
+    if (!hasSequenceHero) {
       return NextResponse.json(
         { error: "This site does not use an image sequence scroll hero." },
         { status: 400 },
@@ -67,17 +71,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const updatedHtml = replaceScrollHeroSequenceId(lead.site_html, sequence.id);
-
-    if (!updatedHtml) {
-      return NextResponse.json(
-        { error: "No scroll hero sequence found in site HTML." },
-        { status: 400 },
-      );
-    }
-
-    const existingMetadata =
-      (lead.site_metadata as SiteMetadata | null) ?? {};
+    const stripped = stripSequenceHeroFromSiteHtml(lead.site_html);
     const nextMetadata: SiteMetadata = {
       ...existingMetadata,
       scrollHeroSequenceId: sequence.id,
@@ -86,7 +80,7 @@ export async function POST(request: Request) {
     const { error: updateError } = await supabase
       .from("leads")
       .update({
-        site_html: updatedHtml,
+        site_html: stripped.html,
         site_metadata: nextMetadata,
       })
       .eq("site_slug", siteSlug);
@@ -99,7 +93,7 @@ export async function POST(request: Request) {
       success: true,
       sequenceId: sequence.id,
       frameCount: sequence.frame_count,
-      siteHtml: updatedHtml,
+      siteHtml: stripped.html,
     });
   } catch (error) {
     const message =

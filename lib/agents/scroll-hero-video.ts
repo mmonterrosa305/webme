@@ -488,9 +488,9 @@ export function prepareScrollHeroVideoSiteHtml(html: string): string {
 
 export function prepareScrollHeroSiteHtml(html: string): string {
   if (html.includes('data-webme-scroll-hero="sequence"')) {
-    const { prepareScrollHeroSequenceSiteHtml } =
-      require("./scroll-hero-sequence") as typeof import("./scroll-hero-sequence");
-    return prepareScrollHeroSequenceSiteHtml(html);
+    const { stripSequenceHeroFromSiteHtml } =
+      require("@/lib/scroll-hero/strip-sequence-hero-html") as typeof import("@/lib/scroll-hero/strip-sequence-hero-html");
+    return stripSequenceHeroFromSiteHtml(html).html;
   }
 
   return prepareScrollHeroVideoSiteHtml(html);

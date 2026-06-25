@@ -8,15 +8,12 @@ import {
   hasScrollHeroVideo,
   matchPresetIdFromVideoUrl,
 } from "@/lib/agents/scroll-hero-video";
-import {
-  extractScrollHeroSequenceId,
-  hasScrollHeroSequence,
-} from "@/lib/agents/scroll-hero-sequence";
 import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
 
 import { PresetVideoPicker } from "@/app/(dashboard)/_components/preset-video-picker";
 import { PresetImageSequencePicker } from "@/app/(dashboard)/_components/preset-image-sequence-picker";
+import { ScrollHeroSequenceHero } from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero";
 
 type Modal = "packages" | "declined" | "edits-exhausted" | "pick-preset" | "pick-sequence" | null;
 
@@ -140,7 +137,19 @@ function ModalBackdrop({
   );
 }
 
-export function PreviewShell({ lead }: { lead: LeadPreview }) {
+export function PreviewShell({
+  lead,
+  scrollHeroSequenceId = null,
+  sequenceHero = null,
+}: {
+  lead: LeadPreview;
+  scrollHeroSequenceId?: string | null;
+  sequenceHero?: {
+    headline?: string;
+    tagline?: string;
+    posterUrl?: string;
+  } | null;
+}) {
   const pricingRef = useRef<HTMLElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [modal, setModal] = useState<Modal>(null);
@@ -169,13 +178,19 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     null,
   );
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [activeSequenceId, setActiveSequenceId] = useState<string | null>(null);
+  const [scrollSequenceId, setScrollSequenceId] = useState<string | null>(
+    scrollHeroSequenceId,
+  );
+  const [heroOverlay, setHeroOverlay] = useState(sequenceHero);
+  const [activeSequenceId, setActiveSequenceId] = useState<string | null>(
+    scrollHeroSequenceId,
+  );
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const hasScrollHero = hasScrollHeroVideo(siteHtml);
-  const hasScrollSequence = hasScrollHeroSequence(siteHtml);
+  const hasScrollSequence = Boolean(scrollSequenceId);
   const scrollVideoControlsDisabled =
     shufflingVideo ||
     uploadingVideo ||
@@ -888,6 +903,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
           setSiteHtml(data.siteHtml);
         }
 
+        setScrollSequenceId(sequenceId);
         setActiveSequenceId(sequenceId);
         setModal(null);
       } catch (error) {
@@ -907,7 +923,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
     setActiveSequenceId(null);
     setModal("pick-sequence");
 
-    const currentSequenceId = extractScrollHeroSequenceId(siteHtml);
+    const currentSequenceId = scrollSequenceId;
     if (currentSequenceId) {
       setActiveSequenceId(currentSequenceId);
       return;
@@ -955,7 +971,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
 
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!iframe) return;
+    if (!iframe || scrollSequenceId) return;
 
     const timeout = window.setTimeout(() => {
       injectHeroVideoOverlay();
@@ -971,7 +987,7 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         doc.getElementById("webme-hero-shuffle-script")?.remove();
       }
     };
-  }, [siteHtml, shufflingVideo]);
+  }, [siteHtml, shufflingVideo, scrollSequenceId]);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -1183,6 +1199,16 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         </p>
       </div>
 
+      {scrollSequenceId ? (
+        <ScrollHeroSequenceHero
+          key={scrollSequenceId}
+          sequenceId={scrollSequenceId}
+          posterUrl={heroOverlay?.posterUrl || lead.site_metadata?.heroImageUrl}
+          headline={heroOverlay?.headline || fields.headline}
+          tagline={heroOverlay?.tagline || fields.tagline}
+        />
+      ) : null}
+
       <iframe
         ref={iframeRef}
         title={`Website preview for ${lead.business_name}`}
@@ -1191,7 +1217,9 @@ export function PreviewShell({ lead }: { lead: LeadPreview }) {
         srcDoc={siteHtml}
         onLoad={() => {
           injectTextEditors();
-          injectHeroVideoOverlay();
+          if (!scrollSequenceId) {
+            injectHeroVideoOverlay();
+          }
           if (photoEditMode) {
             injectPhotoOverlays();
           }

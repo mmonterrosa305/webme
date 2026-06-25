@@ -14,7 +14,7 @@ import {
   applyScrollHeroVideo,
   fetchScrollHeroVideoFromPexels,
 } from "./scroll-hero-video";
-import { applyScrollHeroSequence } from "./scroll-hero-sequence";
+import { prepareSiteHtmlForSequenceBuild } from "./scroll-hero-sequence";
 import type { ScrollHeroMediaType } from "./scroll-build-options";
 import {
   buildIndustryHeroListForPrompt,
@@ -488,11 +488,7 @@ export async function buildSite(
   let html = normalizeHeroVideoAttributes(extractHtml(textBlock.text));
 
   if (useImageSequence && input.scrollHeroSequencePresetId) {
-    html = applyScrollHeroSequence(
-      html,
-      input.scrollHeroSequencePresetId,
-      heroUrl,
-    );
+    html = prepareSiteHtmlForSequenceBuild(html);
   } else if (input.scrollAnimationEffect && heroVideoUrl) {
     html = applyScrollHeroVideo(html, heroVideoUrl, heroUrl);
   }

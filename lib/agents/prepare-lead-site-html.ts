@@ -1,11 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SiteMetadata } from "@/lib/site-editor/types";
+import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
 import {
-  extractScrollHeroSequenceId,
   hasScrollHeroSequence,
   hasStaleSequenceInitScript,
-  prepareScrollHeroSequenceSiteHtmlAsync,
 } from "./scroll-hero-sequence";
 import { prepareScrollHeroVideoSiteHtml } from "./scroll-hero-video";
 
@@ -25,25 +24,14 @@ export async function prepareLeadSiteHtml(
   metadata?: Record<string, unknown> | SiteMetadata | null,
   industry?: string | null,
 ): Promise<string> {
-  if (hasScrollHeroSequence(html)) {
-    return prepareScrollHeroSequenceSiteHtmlAsync(html, {
-      sequenceId: getScrollHeroSequenceIdFromMetadata(metadata),
-      industry,
-    });
+  void industry;
+
+  const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
+  if (sequenceId || hasScrollHeroSequence(html) || hasStaleSequenceInitScript(html)) {
+    return stripSequenceHeroFromSiteHtml(html).html;
   }
 
   return prepareScrollHeroVideoSiteHtml(html);
-}
-
-function shouldPersistPreparedHtml(
-  originalHtml: string,
-  preparedHtml: string,
-): boolean {
-  if (!hasScrollHeroSequence(originalHtml)) {
-    return false;
-  }
-
-  return originalHtml !== preparedHtml;
 }
 
 export async function prepareAndPersistLeadSiteHtml(
@@ -54,15 +42,13 @@ export async function prepareAndPersistLeadSiteHtml(
 ): Promise<string> {
   const prepared = await prepareLeadSiteHtml(html, metadata, industry);
 
-  if (!shouldPersistPreparedHtml(html, prepared)) {
+  if (prepared === html) {
     return prepared;
   }
 
-  const sequenceId =
-    extractScrollHeroSequenceId(prepared) ??
-    getScrollHeroSequenceIdFromMetadata(metadata);
+  const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
 
-  console.log(`[prepare-lead-site-html] Persisting repaired sequence HTML for ${siteSlug}`, {
+  console.log(`[prepare-lead-site-html] Persisting cleaned HTML for ${siteSlug}`, {
     beforeLength: html.length,
     afterLength: prepared.length,
     staleInitScript: hasStaleSequenceInitScript(html),
@@ -85,7 +71,7 @@ export async function prepareAndPersistLeadSiteHtml(
 
   if (error) {
     console.error(
-      `[prepare-lead-site-html] Failed to persist compacted HTML for ${siteSlug}:`,
+      `[prepare-lead-site-html] Failed to persist cleaned HTML for ${siteSlug}:`,
       error.message,
     );
   }
