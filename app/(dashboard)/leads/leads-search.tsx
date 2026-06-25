@@ -251,6 +251,7 @@ export function LeadsSearch() {
           businessName: lead.businessName,
           city: lead.city,
           industry: lead.industry,
+          placeId: lead.placeId,
           address: lead.address,
           existingWebsiteUrl: lead.website,
           hasWebsite: lead.websiteStatus === "has_site",

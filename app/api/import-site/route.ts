@@ -8,6 +8,7 @@ import {
 } from "@/lib/agents/scrape-import-site";
 import { uploadLogo } from "@/lib/agents/upload-logo";
 import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
+import { enrichBuiltSiteWithGoogleReviews } from "@/lib/leads/enrich-built-site-with-google-reviews";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_SECTIONS,
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
       scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
     }
 
-    const { html, siteSlug } = await buildSite({
+    const { html: builtHtml, siteSlug } = await buildSite({
       city: imported.city,
       industry: imported.industry,
       tagline,
@@ -160,11 +161,25 @@ export async function POST(request: Request) {
 
     const siteBuiltAt = new Date().toISOString();
     const supabase = createAdminClient();
-    const siteContent = extractSiteContent(html, {
+    const siteContent = extractSiteContent(builtHtml, {
       businessName: imported.businessName,
       phone: imported.phone ?? "",
       address: imported.address ?? "",
     });
+
+    let siteMetadata = withScrollHeroSequenceMetadata(
+      contentToMetadata(siteContent),
+      scrollHeroSequencePresetId,
+    );
+
+    const enriched = await enrichBuiltSiteWithGoogleReviews({
+      html: builtHtml,
+      metadata: siteMetadata,
+      businessName: imported.businessName,
+      city: imported.city,
+    });
+    const html = enriched.html;
+    siteMetadata = enriched.metadata;
 
     const leadRow = {
       business_name: imported.businessName,
@@ -181,10 +196,7 @@ export async function POST(request: Request) {
       site_built_at: siteBuiltAt,
       status: "pending_review",
       site_version: "A",
-      site_metadata: withScrollHeroSequenceMetadata(
-        contentToMetadata(siteContent),
-        scrollHeroSequencePresetId,
-      ),
+      site_metadata: siteMetadata,
       preview_edits_used: 0,
     };
 

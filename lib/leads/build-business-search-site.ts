@@ -8,6 +8,7 @@ import {
   contentToMetadata,
   extractSiteContent,
 } from "@/lib/site-editor/extract-content";
+import { enrichBuiltSiteWithGoogleReviews } from "@/lib/leads/enrich-built-site-with-google-reviews";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
@@ -110,7 +111,7 @@ export async function buildBusinessSearchSite(
     logoUrl = storedLogoUrl ?? scrapedLogo;
   }
 
-  const { html, siteSlug } = await buildSite({
+  const { html: builtHtml, siteSlug } = await buildSite({
     city: result.city,
     industry: result.industry,
     tagline,
@@ -127,17 +128,32 @@ export async function buildBusinessSearchSite(
     cardHoverEffect: options?.cardHoverEffect ?? false,
   });
 
-  if (!html?.trim()) {
+  if (!builtHtml?.trim()) {
     throw new Error("Site build produced empty HTML.");
   }
 
   const siteBuiltAt = new Date().toISOString();
   const supabase = createAdminClient();
-  const siteContent = extractSiteContent(html, {
+  const siteContent = extractSiteContent(builtHtml, {
     businessName: result.businessName,
     phone: result.phone ?? "",
     address: result.address ?? "",
   });
+
+  let siteMetadata = withScrollHeroSequenceMetadata(
+    contentToMetadata(siteContent),
+    options?.scrollHeroSequencePresetId,
+  );
+
+  const enriched = await enrichBuiltSiteWithGoogleReviews({
+    html: builtHtml,
+    metadata: siteMetadata,
+    businessName: result.businessName,
+    city: result.city,
+    placeId: result.placeId,
+  });
+  const html = enriched.html;
+  siteMetadata = enriched.metadata;
 
   const leadRow = {
     business_name: result.businessName,
@@ -154,10 +170,7 @@ export async function buildBusinessSearchSite(
     site_built_at: siteBuiltAt,
     status: "pending_review",
     site_version: "A",
-    site_metadata: withScrollHeroSequenceMetadata(
-      contentToMetadata(siteContent),
-      options?.scrollHeroSequencePresetId,
-    ),
+    site_metadata: siteMetadata,
     preview_edits_used: 0,
   };
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
 import { extractScrollHeroSequenceId } from "@/lib/agents/scroll-hero-sequence";
+import { enrichBuiltSiteWithGoogleReviews } from "@/lib/leads/enrich-built-site-with-google-reviews";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
@@ -251,6 +252,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const googlePlaceId =
+      typeof body.googlePlaceId === "string"
+        ? body.googlePlaceId.trim()
+        : typeof body.placeId === "string"
+          ? body.placeId.trim()
+          : null;
+
     const businessProfile = await scrapeBusinessData({ businessName, city });
 
     if (phone) {
@@ -277,9 +285,9 @@ export async function POST(request: Request) {
       cardHoverEffect,
     };
 
-    const { html, siteSlug } = await buildSite(buildInput);
+    const { html: builtHtml, siteSlug } = await buildSite(buildInput);
 
-    if (!html?.trim()) {
+    if (!builtHtml?.trim()) {
       console.error("[build-site] Build returned empty site_html:", {
         businessName,
         city,
@@ -295,15 +303,25 @@ export async function POST(request: Request) {
     const siteBuiltAt = new Date().toISOString();
 
     const supabase = createAdminClient();
-    const siteContent = extractSiteContent(html, {
+    const siteContent = extractSiteContent(builtHtml, {
       businessName,
       phone: phone ?? businessProfile.phone ?? "",
       address: address ?? businessProfile.address ?? "",
     });
-    const siteMetadata = withScrollHeroSequenceMetadata(
+    let siteMetadata = withScrollHeroSequenceMetadata(
       contentToMetadata(siteContent),
       scrollHeroSequencePresetId,
     );
+
+    const enriched = await enrichBuiltSiteWithGoogleReviews({
+      html: builtHtml,
+      metadata: siteMetadata,
+      businessName,
+      city,
+      placeId: googlePlaceId,
+    });
+    const html = enriched.html;
+    siteMetadata = enriched.metadata;
 
     const leadRow = {
       business_name: businessName,

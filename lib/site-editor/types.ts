@@ -1,3 +1,5 @@
+import type { GoogleReview } from "@/lib/google-places/fetch-google-reviews";
+
 export type SiteImageSlot =
   | "hero"
   | "about"
@@ -31,6 +33,8 @@ export type SiteMetadata = {
   serviceImageUrls?: string[];
   galleryImageUrls?: string[];
   scrollHeroSequenceId?: string;
+  googlePlaceId?: string;
+  googleReviews?: GoogleReview[];
 };
 
 export type ClientSiteData = {

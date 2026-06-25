@@ -1,3 +1,4 @@
+import { applyStoredGoogleReviewsToHtml } from "@/lib/leads/enrich-built-site-with-google-reviews";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
@@ -27,11 +28,18 @@ export async function prepareLeadSiteHtml(
   void industry;
 
   const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
+  let prepared: string;
+
   if (sequenceId || hasScrollHeroSequence(html) || hasStaleSequenceInitScript(html)) {
-    return stripSequenceHeroFromSiteHtml(html).html;
+    prepared = stripSequenceHeroFromSiteHtml(html).html;
+  } else {
+    prepared = prepareScrollHeroVideoSiteHtml(html);
   }
 
-  return prepareScrollHeroVideoSiteHtml(html);
+  return applyStoredGoogleReviewsToHtml(
+    prepared,
+    metadata as SiteMetadata | null,
+  );
 }
 
 export async function prepareAndPersistLeadSiteHtml(
