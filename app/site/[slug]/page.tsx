@@ -8,6 +8,7 @@ import {
   prepareLeadSiteHtml,
 } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
+import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 import { injectAnalyticsScript } from "@/lib/site/inject-analytics";
 
@@ -38,6 +39,11 @@ export default async function SitePage({ params }: PageProps) {
   const metadata = lead.site_metadata;
 
   if (sequenceId) {
+    const heroCopy = resolveSequenceHeroCopy({
+      html: lead.site_html,
+      metadata,
+      businessName: lead.business_name,
+    });
     const stripped = stripSequenceHeroFromSiteHtml(lead.site_html);
     const bodyHtml = injectAnalyticsScript(stripped.html);
 
@@ -45,9 +51,10 @@ export default async function SitePage({ params }: PageProps) {
       <div className="bg-white">
         <ScrollHeroSequenceHero
           sequenceId={sequenceId}
-          posterUrl={stripped.posterUrl || metadata?.heroImageUrl}
-          headline={stripped.headline || metadata?.headline}
-          tagline={stripped.tagline || metadata?.tagline}
+          businessName={lead.business_name}
+          posterUrl={heroCopy.posterUrl}
+          headline={heroCopy.headline}
+          tagline={heroCopy.tagline}
         />
         <SiteContentFrame html={bodyHtml} title={lead.business_name} />
       </div>

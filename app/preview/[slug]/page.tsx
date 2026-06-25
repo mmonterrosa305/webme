@@ -6,7 +6,7 @@ import {
   prepareAndPersistLeadSiteHtml,
 } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
-import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
+import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
 
 import { PreviewShell } from "./preview-shell";
 
@@ -37,9 +37,12 @@ export default async function PreviewPage({ params }: PageProps) {
 
   const sequenceId = getScrollHeroSequenceIdFromMetadata(lead.site_metadata);
   const sequenceHero = sequenceId
-    ? stripSequenceHeroFromSiteHtml(lead.site_html)
+    ? resolveSequenceHeroCopy({
+        html: lead.site_html,
+        metadata: lead.site_metadata,
+        businessName: lead.business_name,
+      })
     : null;
-  const metadata = lead.site_metadata;
 
   const siteHtml = await prepareAndPersistLeadSiteHtml(
     lead.site_slug,
@@ -55,15 +58,7 @@ export default async function PreviewPage({ params }: PageProps) {
         site_html: siteHtml,
       }}
       scrollHeroSequenceId={sequenceId}
-      sequenceHero={
-        sequenceHero
-          ? {
-              headline: sequenceHero.headline || metadata?.headline,
-              tagline: sequenceHero.tagline || metadata?.tagline,
-              posterUrl: sequenceHero.posterUrl || metadata?.heroImageUrl,
-            }
-          : null
-      }
+      sequenceHero={sequenceHero}
     />
   );
 }

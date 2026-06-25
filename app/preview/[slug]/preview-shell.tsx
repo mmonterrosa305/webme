@@ -1203,8 +1203,11 @@ export function PreviewShell({
         <ScrollHeroSequenceHero
           key={scrollSequenceId}
           sequenceId={scrollSequenceId}
+          businessName={lead.business_name}
           posterUrl={heroOverlay?.posterUrl || lead.site_metadata?.heroImageUrl}
-          headline={heroOverlay?.headline || fields.headline}
+          headline={
+            heroOverlay?.headline || fields.headline || lead.business_name
+          }
           tagline={heroOverlay?.tagline || fields.tagline}
         />
       ) : null}

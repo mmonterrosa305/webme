@@ -8,6 +8,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 type ScrollHeroSequenceHeroProps = {
   sequenceId: string;
+  businessName?: string;
   posterUrl?: string;
   headline?: string;
   tagline?: string;
@@ -16,21 +17,43 @@ type ScrollHeroSequenceHeroProps = {
 };
 
 const TEXT_SCROLL_TRIGGER_ID = "webme-scroll-hero-text";
+const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
 
 export function ScrollHeroSequenceHero({
   sequenceId,
+  businessName = "",
   posterUrl = "",
   headline = "",
   tagline = "",
   ctaLabel = "Contact Us",
   ctaHref = "#contact",
 }: ScrollHeroSequenceHeroProps) {
+  const resolvedHeadline = headline.trim() || businessName.trim();
+  const resolvedTagline = tagline.trim();
   const sectionRef = useRef<HTMLElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    console.log("[ScrollHeroSequenceHero] hero copy received:", {
+      headline,
+      tagline,
+      businessName,
+      resolvedHeadline,
+      resolvedTagline,
+      sequenceId,
+    });
+  }, [
+    headline,
+    tagline,
+    businessName,
+    resolvedHeadline,
+    resolvedTagline,
+    sequenceId,
+  ]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -80,7 +103,7 @@ export function ScrollHeroSequenceHero({
     return () => {
       ctx.revert();
     };
-  }, [headline, tagline, ctaLabel]);
+  }, [resolvedHeadline, resolvedTagline, ctaLabel]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -310,7 +333,7 @@ export function ScrollHeroSequenceHero({
     };
   }, [sequenceId, posterUrl]);
 
-  const showOverlay = Boolean(headline || tagline || ctaLabel);
+  const showOverlay = Boolean(resolvedHeadline || resolvedTagline || ctaLabel);
 
   return (
     <section
@@ -328,21 +351,23 @@ export function ScrollHeroSequenceHero({
           aria-hidden
         />
         {showOverlay ? (
-          <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center px-6 pt-24 text-center text-white">
-            {headline ? (
+          <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 text-center text-white">
+            {resolvedHeadline ? (
               <h1
                 ref={headlineRef}
-                className="font-serif text-4xl font-bold md:text-6xl"
+                className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
+                style={{ textShadow: HERO_TEXT_SHADOW }}
               >
-                {headline}
+                {resolvedHeadline}
               </h1>
             ) : null}
-            {tagline ? (
+            {resolvedTagline ? (
               <p
                 ref={taglineRef}
-                className="mt-4 text-lg text-white/90 md:text-xl"
+                className="mt-4 max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
+                style={{ textShadow: HERO_TEXT_SHADOW }}
               >
-                {tagline}
+                {resolvedTagline}
               </p>
             ) : null}
             {ctaLabel ? (
@@ -353,6 +378,7 @@ export function ScrollHeroSequenceHero({
                 style={{
                   background: "#ffffff",
                   border: "2px solid #ffffff",
+                  boxShadow: HERO_TEXT_SHADOW,
                 }}
               >
                 {ctaLabel}
