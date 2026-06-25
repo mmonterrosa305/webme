@@ -33,6 +33,53 @@ function extractHeroCopy($: cheerio.CheerioAPI): {
   return { headline, tagline, posterUrl };
 }
 
+const NAV_CLEARANCE_PADDING = "80px";
+
+function mergePaddingTop(style: string, paddingTop: string): string {
+  const trimmed = style.trim().replace(/;+\s*$/, "");
+  if (/padding-top\s*:/i.test(trimmed)) {
+    const updated = trimmed.replace(
+      /padding-top\s*:\s*[^;]+/i,
+      `padding-top: ${paddingTop}`,
+    );
+    return updated.endsWith(";") ? updated : `${updated};`;
+  }
+
+  return trimmed ? `${trimmed}; padding-top: ${paddingTop};` : `padding-top: ${paddingTop};`;
+}
+
+function addNavClearanceToFirstContentBlock($: cheerio.CheerioAPI): void {
+  const skipTags = new Set(["script", "style", "link", "noscript", "header", "nav"]);
+
+  let $target = null;
+
+  for (const child of $("body").children().toArray()) {
+    const tagName = child.tagName?.toLowerCase() ?? "";
+    if (!tagName || skipTags.has(tagName)) {
+      continue;
+    }
+
+    if (tagName === "section" || tagName === "div") {
+      $target = $(child);
+      break;
+    }
+  }
+
+  if (!$target?.length) {
+    $target = $("body section").first();
+  }
+
+  if (!$target?.length) {
+    $target = $("body div").first();
+  }
+
+  if (!$target?.length) {
+    return;
+  }
+
+  $target.attr("style", mergePaddingTop($target.attr("style") ?? "", NAV_CLEARANCE_PADDING));
+}
+
 /** Remove baked-in sequence hero markup/scripts so the hero renders in Next.js instead. */
 export function stripSequenceHeroFromSiteHtml(html: string): StrippedSequenceHero {
   const $ = cheerio.load(html);
@@ -62,6 +109,8 @@ export function stripSequenceHeroFromSiteHtml(html: string): StrippedSequenceHer
       $(element).remove();
     }
   });
+
+  addNavClearanceToFirstContentBlock($);
 
   return {
     html: $.html(),
