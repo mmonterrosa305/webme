@@ -11,17 +11,76 @@ type ScrollHeroSequenceHeroProps = {
   posterUrl?: string;
   headline?: string;
   tagline?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
 };
+
+const TEXT_SCROLL_TRIGGER_ID = "webme-scroll-hero-text";
 
 export function ScrollHeroSequenceHero({
   sequenceId,
   posterUrl = "",
   headline = "",
   tagline = "",
+  ctaLabel = "Contact Us",
+  ctaHref = "#contact",
 }: ScrollHeroSequenceHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
+  const taglineRef = useRef<HTMLParagraphElement>(null);
+  const ctaRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) {
+      return;
+    }
+
+    const headlineEl = headlineRef.current;
+    const taglineEl = taglineRef.current;
+    const ctaEl = ctaRef.current;
+    const textEls = [headlineEl, taglineEl, ctaEl].filter(Boolean) as HTMLElement[];
+
+    if (!textEls.length) {
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      gsap.set(textEls, { opacity: 0, y: 40 });
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          id: TEXT_SCROLL_TRIGGER_ID,
+          trigger: section,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: true,
+        },
+        defaults: { ease: "none" },
+      });
+
+      if (headlineEl) {
+        tl.to(headlineEl, { opacity: 1, y: 0, duration: 0.2 }, 0);
+        tl.to(headlineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.6);
+      }
+
+      if (taglineEl) {
+        tl.to(taglineEl, { opacity: 1, y: 0, duration: 0.15 }, 0.65);
+        tl.to(taglineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
+      }
+
+      if (ctaEl) {
+        tl.to(ctaEl, { opacity: 1, y: 0, duration: 0.15 }, 0.68);
+        tl.to(ctaEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
+      }
+    }, section);
+
+    return () => {
+      ctx.revert();
+    };
+  }, [headline, tagline, ctaLabel]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -251,6 +310,8 @@ export function ScrollHeroSequenceHero({
     };
   }, [sequenceId, posterUrl]);
 
+  const showOverlay = Boolean(headline || tagline || ctaLabel);
+
   return (
     <section
       ref={sectionRef}
@@ -266,18 +327,39 @@ export function ScrollHeroSequenceHero({
           className="pointer-events-none absolute inset-0 bg-black/50"
           aria-hidden
         />
-        {(headline || tagline) && (
-          <div className="relative z-10 mx-auto max-w-4xl px-6 pt-24 text-center text-white">
+        {showOverlay ? (
+          <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center px-6 pt-24 text-center text-white">
             {headline ? (
-              <h1 className="font-serif text-4xl font-bold md:text-6xl">
+              <h1
+                ref={headlineRef}
+                className="font-serif text-4xl font-bold md:text-6xl"
+              >
                 {headline}
               </h1>
             ) : null}
             {tagline ? (
-              <p className="mt-4 text-lg text-white/90 md:text-xl">{tagline}</p>
+              <p
+                ref={taglineRef}
+                className="mt-4 text-lg text-white/90 md:text-xl"
+              >
+                {tagline}
+              </p>
+            ) : null}
+            {ctaLabel ? (
+              <a
+                ref={ctaRef}
+                href={ctaHref}
+                className="pointer-events-auto mt-8 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
+                style={{
+                  background: "#ffffff",
+                  border: "2px solid #ffffff",
+                }}
+              >
+                {ctaLabel}
+              </a>
             ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   );
