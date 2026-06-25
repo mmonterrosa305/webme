@@ -1,4 +1,5 @@
 import type { SiteMetadata } from "@/lib/site-editor/types";
+import { injectSiteAnimations } from "@/lib/site-editor/inject-site-animations";
 
 import { enrichBuiltSiteWithGoogleMap } from "./enrich-built-site-with-google-map";
 import { applyStoredGoogleMapToHtml } from "./enrich-built-site-with-google-map";
@@ -24,7 +25,7 @@ export async function enrichBuiltSiteHtml(options: {
   });
 
   return enrichBuiltSiteWithGoogleMap({
-    html: withReviews.html,
+    html: injectSiteAnimations(withReviews.html),
     metadata: withReviews.metadata,
     address: options.address,
   });
