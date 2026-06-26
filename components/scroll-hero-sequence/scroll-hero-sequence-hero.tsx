@@ -25,7 +25,7 @@ const SCROLL_VELOCITY_SCALE = 0.012;
 const PLAYBACK_RATE_LERP = 0.1;
 const SCROLL_IDLE_MS = 140;
 const MAX_SPEED_MULTIPLIER = 5;
-const LOOP_FADE_DURATION = 0.8;
+const LOOP_FADE_MS = 800;
 const BOUNDARY_EPSILON = 0.0001;
 
 function lerp(start: number, end: number, amount: number): number {
@@ -139,7 +139,16 @@ export function ScrollHeroSequenceHero({
     let isScrolling = false;
     let allFramesLoaded = false;
     let isLoopTransitioning = false;
-    let loopTimeline: gsap.core.Timeline | null = null;
+
+    const waitMs = (ms: number) =>
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, ms);
+      });
+
+    const setCanvasOpacity = (opacity: "0" | "1") => {
+      canvas.style.transition = "opacity 0.8s ease";
+      canvas.style.opacity = opacity;
+    };
 
     const resizeCanvas = () => {
       const rect = pin.getBoundingClientRect();
@@ -279,44 +288,37 @@ export function ScrollHeroSequenceHero({
       playbackRate = 0;
       targetPlaybackRate = isScrolling ? targetPlaybackRate : baseProgressPerSecond;
 
-      loopTimeline?.kill();
-      gsap.set(canvas, { opacity: 1 });
-
-      loopTimeline = gsap.timeline({
-        onComplete: () => {
-          if (cancelled) {
-            return;
-          }
-
-          gsap.set(canvas, { opacity: 1 });
-          isLoopTransitioning = false;
-
-          if (!isScrolling) {
-            targetPlaybackRate = baseProgressPerSecond;
-          }
-        },
-      });
-
-      loopTimeline
-        .to(canvas, {
-          opacity: 0,
-          duration: LOOP_FADE_DURATION,
-          ease: "power2.inOut",
-        })
-        .call(() => {
-          if (cancelled) {
-            return;
-          }
-
-          frameProgress = newProgress;
-          drawFrameSync(frameProgress);
-          updateTextOverlay(frameProgress);
-        })
-        .to(canvas, {
-          opacity: 1,
-          duration: LOOP_FADE_DURATION,
-          ease: "power2.inOut",
+      void (async () => {
+        setCanvasOpacity("1");
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
         });
+
+        if (cancelled) {
+          return;
+        }
+
+        setCanvasOpacity("0");
+        await waitMs(LOOP_FADE_MS);
+        if (cancelled) {
+          return;
+        }
+
+        frameProgress = newProgress;
+        drawFrameSync(frameProgress);
+        updateTextOverlay(frameProgress);
+
+        setCanvasOpacity("1");
+        await waitMs(LOOP_FADE_MS);
+        if (cancelled) {
+          return;
+        }
+
+        isLoopTransitioning = false;
+        if (!isScrolling) {
+          targetPlaybackRate = baseProgressPerSecond;
+        }
+      })();
     };
 
     const tick = (now: number) => {
@@ -424,6 +426,7 @@ export function ScrollHeroSequenceHero({
       updateTextOverlay(0);
       bindPin();
       drawFrameSync(0);
+      setCanvasOpacity("1");
 
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
       rafId = window.requestAnimationFrame(tick);
@@ -493,7 +496,6 @@ export function ScrollHeroSequenceHero({
       window.removeEventListener("resize", onResize);
       window.clearTimeout(scrollIdleTimer);
       window.cancelAnimationFrame(rafId);
-      loopTimeline?.kill();
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
     };
   }, [sequenceId, posterUrl, resolvedHeadline, resolvedTagline, ctaLabel]);
@@ -512,9 +514,8 @@ export function ScrollHeroSequenceHero({
       >
         <canvas
           ref={canvasRef}
-          className={`absolute inset-0 block h-full w-full transition-opacity duration-700 ${
-            loadState === "ready" ? "opacity-100" : "opacity-0"
-          }`}
+          className="absolute inset-0 block h-full w-full"
+          style={{ opacity: 0, transition: "opacity 0.8s ease" }}
         />
         <div
           className={`pointer-events-none absolute inset-0 bg-black/50 transition-opacity duration-700 ${
