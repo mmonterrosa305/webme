@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -16,8 +16,73 @@ type ScrollHeroSequenceHeroProps = {
   ctaHref?: string;
 };
 
-const TEXT_SCROLL_TRIGGER_ID = "webme-scroll-hero-text";
 const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
+
+const BASE_PLAYBACK_FPS = 24;
+const SCROLL_VELOCITY_SCALE = 0.004;
+const PLAYBACK_RATE_LERP = 0.1;
+const SCROLL_IDLE_MS = 140;
+const MAX_SPEED_MULTIPLIER = 5;
+const REVERSE_SPEED_MULTIPLIER = 0.45;
+
+function lerp(start: number, end: number, amount: number): number {
+  return start + (end - start) * amount;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function segmentProgress(value: number, start: number, end: number): number {
+  if (value <= start) {
+    return 0;
+  }
+  if (value >= end) {
+    return 1;
+  }
+  return (value - start) / (end - start);
+}
+
+function fadeInOut(
+  progress: number,
+  fadeInEnd: number,
+  holdEnd: number,
+  fadeOutEnd: number,
+): number {
+  if (progress <= fadeInEnd) {
+    return segmentProgress(progress, 0, fadeInEnd);
+  }
+  if (progress <= holdEnd) {
+    return 1;
+  }
+  if (progress <= fadeOutEnd) {
+    return 1 - segmentProgress(progress, holdEnd, fadeOutEnd);
+  }
+  return 0;
+}
+
+function slideY(
+  progress: number,
+  fadeInEnd: number,
+  holdEnd: number,
+  fadeOutEnd: number,
+  fromY: number,
+  toY: number,
+): number {
+  const opacity = fadeInOut(progress, fadeInEnd, holdEnd, fadeOutEnd);
+  if (progress <= fadeInEnd) {
+    const t = segmentProgress(progress, 0, fadeInEnd);
+    return lerp(fromY, toY, t);
+  }
+  if (progress <= holdEnd) {
+    return toY;
+  }
+  if (progress <= fadeOutEnd) {
+    const t = segmentProgress(progress, holdEnd, fadeOutEnd);
+    return lerp(toY, -fromY, t);
+  }
+  return -fromY;
+}
 
 export function ScrollHeroSequenceHero({
   sequenceId,
@@ -30,78 +95,14 @@ export function ScrollHeroSequenceHero({
 }: ScrollHeroSequenceHeroProps) {
   const resolvedHeadline = headline.trim() || businessName.trim();
   const resolvedTagline = tagline.trim();
+  const [sequenceComplete, setSequenceComplete] = useState(false);
+
   const sectionRef = useRef<HTMLElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
-
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) {
-      return;
-    }
-
-    const headlineEl = headlineRef.current;
-    const taglineEl = taglineRef.current;
-    const ctaEl = ctaRef.current;
-    const textEls = [headlineEl, taglineEl, ctaEl].filter(Boolean) as HTMLElement[];
-
-    if (!textEls.length) {
-      return;
-    }
-
-    let ctx: gsap.Context | null = null;
-
-    const bindTextScroll = () => {
-      ctx?.revert();
-
-      ctx = gsap.context(() => {
-        gsap.set(textEls, { opacity: 0, y: 40 });
-
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            id: TEXT_SCROLL_TRIGGER_ID,
-            trigger: section,
-            start: "top top",
-            end: "bottom bottom",
-            scrub: true,
-          },
-          defaults: { ease: "none" },
-        });
-
-        if (headlineEl) {
-          tl.to(headlineEl, { opacity: 1, y: 0, duration: 0.2 }, 0);
-          tl.to(headlineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.6);
-        }
-
-        if (taglineEl) {
-          tl.to(taglineEl, { opacity: 1, y: 0, duration: 0.15 }, 0.65);
-          tl.to(taglineEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
-        }
-
-        if (ctaEl) {
-          tl.to(ctaEl, { opacity: 1, y: 0, duration: 0.15 }, 0.68);
-          tl.to(ctaEl, { opacity: 0, y: -40, duration: 0.2 }, 0.8);
-        }
-      }, section);
-
-      ScrollTrigger.refresh();
-    };
-
-    const onHeroReady = () => bindTextScroll();
-    window.addEventListener("webme-sequence-hero-ready", onHeroReady);
-
-    if (ScrollTrigger.getById("webme-scroll-hero-pin")) {
-      bindTextScroll();
-    }
-
-    return () => {
-      window.removeEventListener("webme-sequence-hero-ready", onHeroReady);
-      ctx?.revert();
-    };
-  }, [resolvedHeadline, resolvedTagline, ctaLabel]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -116,11 +117,25 @@ export function ScrollHeroSequenceHero({
       return;
     }
 
+    const headlineEl = headlineRef.current;
+    const taglineEl = taglineRef.current;
+    const ctaEl = ctaRef.current;
+
     let cancelled = false;
     let frameUrls: string[] = [];
     const imageCache: Record<number, HTMLImageElement> = {};
     const pendingLoads: Record<number, Promise<HTMLImageElement | null>> = {};
     const dpr = window.devicePixelRatio || 1;
+
+    let frameProgress = 0;
+    let playbackRate = 0;
+    let targetPlaybackRate = 0;
+    let baseProgressPerSecond = 0;
+    let lastFrameTime = 0;
+    let rafId = 0;
+    let scrollIdleTimer = 0;
+    let lastScrollY = window.scrollY;
+    let finished = false;
 
     const resizeCanvas = () => {
       const rect = pin.getBoundingClientRect();
@@ -203,13 +218,36 @@ export function ScrollHeroSequenceHero({
       img.src = posterUrl;
     };
 
+    const updateTextOverlay = (progress: number) => {
+      if (headlineEl) {
+        gsap.set(headlineEl, {
+          opacity: fadeInOut(progress, 0, 0.55, 0.75),
+          y: slideY(progress, 0.2, 0.55, 0.75, 40, 0),
+        });
+      }
+
+      if (taglineEl) {
+        gsap.set(taglineEl, {
+          opacity: fadeInOut(progress, 0.65, 0.78, 0.88),
+          y: slideY(progress, 0.72, 0.78, 0.88, 40, 0),
+        });
+      }
+
+      if (ctaEl) {
+        gsap.set(ctaEl, {
+          opacity: fadeInOut(progress, 0.68, 0.78, 0.88),
+          y: slideY(progress, 0.74, 0.78, 0.88, 40, 0),
+        });
+      }
+    };
+
     const drawFrame = (progress: number) => {
       if (!frameUrls.length) {
         return;
       }
 
       const maxIndex = frameUrls.length - 1;
-      const exact = progress * maxIndex;
+      const exact = clamp(progress, 0, 1) * maxIndex;
       const idx = Math.floor(exact);
       const next = Math.min(idx + 1, maxIndex);
       const blend = exact - idx;
@@ -241,9 +279,79 @@ export function ScrollHeroSequenceHero({
       });
     };
 
-    const bindScrollHero = () => {
+    const completeSequence = () => {
+      if (finished || cancelled) {
+        return;
+      }
+
+      finished = true;
+      frameProgress = 1;
+      playbackRate = 0;
+      targetPlaybackRate = 0;
+      drawFrame(1);
+      updateTextOverlay(1);
+
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
-      ScrollTrigger.getById("webme-scroll-hero-scrub")?.kill();
+      setSequenceComplete(true);
+      window.cancelAnimationFrame(rafId);
+
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh();
+      });
+    };
+
+    const tick = (now: number) => {
+      if (cancelled || finished) {
+        return;
+      }
+
+      if (!lastFrameTime) {
+        lastFrameTime = now;
+      }
+
+      const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+      lastFrameTime = now;
+
+      playbackRate = lerp(playbackRate, targetPlaybackRate, PLAYBACK_RATE_LERP);
+      frameProgress = clamp(frameProgress + playbackRate * dt, 0, 1);
+
+      drawFrame(frameProgress);
+      updateTextOverlay(frameProgress);
+
+      if (frameProgress >= 1) {
+        completeSequence();
+        return;
+      }
+
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    const onScroll = () => {
+      if (finished || cancelled) {
+        return;
+      }
+
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY;
+      lastScrollY = currentScrollY;
+
+      const velocityBoost = scrollDelta * SCROLL_VELOCITY_SCALE;
+      const minRate = -baseProgressPerSecond * REVERSE_SPEED_MULTIPLIER;
+      const maxRate = baseProgressPerSecond * MAX_SPEED_MULTIPLIER;
+      targetPlaybackRate = clamp(
+        baseProgressPerSecond + velocityBoost,
+        minRate,
+        maxRate,
+      );
+
+      window.clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = window.setTimeout(() => {
+        targetPlaybackRate = baseProgressPerSecond;
+      }, SCROLL_IDLE_MS);
+    };
+
+    const bindPin = () => {
+      ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
 
       ScrollTrigger.create({
         id: "webme-scroll-hero-pin",
@@ -256,20 +364,23 @@ export function ScrollHeroSequenceHero({
         invalidateOnRefresh: true,
       });
 
-      ScrollTrigger.create({
-        id: "webme-scroll-hero-scrub",
-        trigger: section,
-        start: "top top",
-        end: "bottom bottom",
-        scrub: true,
-        onUpdate: (self) => {
-          drawFrame(self.progress);
-        },
-      });
-
-      drawFrame(0);
       ScrollTrigger.refresh();
+    };
+
+    const startPlayback = () => {
+      baseProgressPerSecond =
+        frameUrls.length > 0 ? BASE_PLAYBACK_FPS / frameUrls.length : 0.4;
+      playbackRate = baseProgressPerSecond;
+      targetPlaybackRate = baseProgressPerSecond;
+      lastScrollY = window.scrollY;
+      lastFrameTime = 0;
+
+      updateTextOverlay(0);
+      bindPin();
+      drawFrame(0);
+
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
+      rafId = window.requestAnimationFrame(tick);
     };
 
     const beginSequence = (urls: string[]) => {
@@ -284,7 +395,7 @@ export function ScrollHeroSequenceHero({
           return;
         }
         if (img) {
-          bindScrollHero();
+          startPlayback();
         } else {
           showPosterFallback();
         }
@@ -293,12 +404,12 @@ export function ScrollHeroSequenceHero({
     };
 
     const onResize = () => {
-      const scrub = ScrollTrigger.getById("webme-scroll-hero-scrub");
-      if (scrub) {
-        drawFrame(scrub.progress);
+      if (!finished) {
+        drawFrame(frameProgress);
       }
     };
 
+    window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
 
     void fetch(`/api/image-sequences/${encodeURIComponent(sequenceId)}`)
@@ -326,11 +437,13 @@ export function ScrollHeroSequenceHero({
 
     return () => {
       cancelled = true;
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
+      window.clearTimeout(scrollIdleTimer);
+      window.cancelAnimationFrame(rafId);
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
-      ScrollTrigger.getById("webme-scroll-hero-scrub")?.kill();
     };
-  }, [sequenceId, posterUrl]);
+  }, [sequenceId, posterUrl, resolvedHeadline, resolvedTagline, ctaLabel]);
 
   const showOverlay = Boolean(resolvedHeadline || resolvedTagline || ctaLabel);
 
@@ -338,7 +451,7 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative h-[400vh] w-full"
+      className={`relative w-full ${sequenceComplete ? "h-screen" : "h-[400vh]"}`}
     >
       <div
         ref={pinRef}
@@ -355,7 +468,7 @@ export function ScrollHeroSequenceHero({
               <h1
                 ref={headlineRef}
                 className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
-                style={{ textShadow: HERO_TEXT_SHADOW }}
+                style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
               >
                 {resolvedHeadline}
               </h1>
@@ -364,7 +477,7 @@ export function ScrollHeroSequenceHero({
               <p
                 ref={taglineRef}
                 className="mt-4 max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
-                style={{ textShadow: HERO_TEXT_SHADOW }}
+                style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
               >
                 {resolvedTagline}
               </p>
@@ -378,6 +491,7 @@ export function ScrollHeroSequenceHero({
                   background: "#ffffff",
                   border: "2px solid #ffffff",
                   boxShadow: HERO_TEXT_SHADOW,
+                  opacity: 0,
                 }}
               >
                 {ctaLabel}
