@@ -102,7 +102,6 @@ export function ScrollHeroSequenceHero({
   const sectionRef = useRef<HTMLElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const loopFadeRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
@@ -111,7 +110,6 @@ export function ScrollHeroSequenceHero({
     const section = sectionRef.current;
     const pin = pinRef.current;
     const canvas = canvasRef.current;
-    const loopFade = loopFadeRef.current;
     if (!section || !pin || !canvas) {
       return;
     }
@@ -281,46 +279,41 @@ export function ScrollHeroSequenceHero({
       playbackRate = 0;
       targetPlaybackRate = isScrolling ? targetPlaybackRate : baseProgressPerSecond;
 
-      const completeTransition = () => {
-        if (cancelled) {
-          return;
-        }
-
-        frameProgress = newProgress;
-        drawFrameSync(frameProgress);
-        updateTextOverlay(frameProgress);
-        isLoopTransitioning = false;
-
-        if (!isScrolling) {
-          targetPlaybackRate = baseProgressPerSecond;
-        }
-      };
-
-      if (!loopFade) {
-        completeTransition();
-        return;
-      }
-
       loopTimeline?.kill();
-      gsap.set(loopFade, { opacity: 0 });
+      gsap.set(canvas, { opacity: 1 });
 
       loopTimeline = gsap.timeline({
         onComplete: () => {
-          if (!cancelled) {
-            gsap.set(loopFade, { opacity: 0 });
+          if (cancelled) {
+            return;
+          }
+
+          gsap.set(canvas, { opacity: 1 });
+          isLoopTransitioning = false;
+
+          if (!isScrolling) {
+            targetPlaybackRate = baseProgressPerSecond;
           }
         },
       });
 
       loopTimeline
-        .to(loopFade, {
-          opacity: 1,
+        .to(canvas, {
+          opacity: 0,
           duration: LOOP_FADE_DURATION,
           ease: "power2.inOut",
         })
-        .call(completeTransition)
-        .to(loopFade, {
-          opacity: 0,
+        .call(() => {
+          if (cancelled) {
+            return;
+          }
+
+          frameProgress = newProgress;
+          drawFrameSync(frameProgress);
+          updateTextOverlay(frameProgress);
+        })
+        .to(canvas, {
+          opacity: 1,
           duration: LOOP_FADE_DURATION,
           ease: "power2.inOut",
         });
@@ -527,11 +520,6 @@ export function ScrollHeroSequenceHero({
           className={`pointer-events-none absolute inset-0 bg-black/50 transition-opacity duration-700 ${
             loadState === "ready" ? "opacity-100" : "opacity-60"
           }`}
-          aria-hidden
-        />
-        <div
-          ref={loopFadeRef}
-          className="pointer-events-none absolute inset-0 z-[15] bg-black opacity-0"
           aria-hidden
         />
         {loadState === "loading" ? (
