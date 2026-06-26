@@ -258,8 +258,6 @@ export function stripSequenceHeroFromSiteHtml(html: string): StrippedSequenceHer
   $("#webme-scroll-hero-init").remove();
   $("#webme-scroll-hero-sequence-init").remove();
   $("#webme-scroll-hero-frames").remove();
-  $('script[src*="gsap.min.js"]').remove();
-  $('script[src*="ScrollTrigger"]').remove();
   $("#webme-scroll-hero-styles").remove();
   $("html").removeClass("webme-scroll-hero-page");
   $("header, nav").removeClass("webme-scroll-hero-nav");

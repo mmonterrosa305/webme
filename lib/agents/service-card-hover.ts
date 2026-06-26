@@ -182,7 +182,7 @@ function findServiceCardWrapper(
   return $parent.length ? $parent : null;
 }
 
-function tagServiceCards($: cheerio.CheerioAPI): void {
+export function tagServiceCards($: cheerio.CheerioAPI): void {
   for (let index = 1; index <= 4; index += 1) {
     const $serviceImage = $(`[data-webme="service-image-${index}"]`).first();
     if (!$serviceImage.length) {

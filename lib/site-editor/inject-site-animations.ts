@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 
+import { tagServiceCards } from "@/lib/agents/service-card-hover";
 import {
   GSAP_CDN,
   SCROLL_TRIGGER_CDN,
@@ -260,6 +261,8 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
     document.documentElement.setAttribute("data-webme-animations-init", "true");
     gsap.registerPlugin(ScrollTrigger);
 
+    console.log("[webme-site-animations] initializing scroll animations");
+
     initNavigationFade();
     initHeroHeading();
     var serviceSection = initServiceCards();
@@ -283,7 +286,7 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
   }
 
   function boot() {
-    waitForGsap(initWebmeSiteAnimations, 60);
+    waitForGsap(initWebmeSiteAnimations, 120);
   }
 
   if (document.readyState === "loading") {
@@ -378,18 +381,16 @@ function prepareNavigation($: cheerio.CheerioAPI): void {
 }
 
 function ensureGsapScripts($: cheerio.CheerioAPI): void {
-  const head = $("head");
-  if (head.length === 0) {
+  $(`script[src="${GSAP_CDN}"]`).remove();
+  $(`script[src="${SCROLL_TRIGGER_CDN}"]`).remove();
+
+  const body = $("body");
+  if (body.length === 0) {
     return;
   }
 
-  if (!$(`script[src="${GSAP_CDN}"]`).length) {
-    head.append(`<script src="${GSAP_CDN}"></script>`);
-  }
-
-  if (!$(`script[src="${SCROLL_TRIGGER_CDN}"]`).length) {
-    head.append(`<script src="${SCROLL_TRIGGER_CDN}"></script>`);
-  }
+  body.append(`<script src="${GSAP_CDN}"></script>`);
+  body.append(`<script src="${SCROLL_TRIGGER_CDN}"></script>`);
 }
 
 function ensureAnimationStyles($: cheerio.CheerioAPI): void {
@@ -411,13 +412,21 @@ export function hasSiteAnimations(html: string): boolean {
   return html.includes(`id="${ANIMATIONS_INIT_ID}"`);
 }
 
+function hasCompleteSiteAnimations(html: string): boolean {
+  return (
+    hasSiteAnimations(html) &&
+    html.includes("gsap.min.js") &&
+    html.includes("ScrollTrigger")
+  );
+}
+
 /** Inject premium GSAP scroll animations into generated site HTML. Idempotent. */
 export function injectSiteAnimations(html: string): string {
   if (!html.trim()) {
     return html;
   }
 
-  if (hasSiteAnimations(html)) {
+  if (hasCompleteSiteAnimations(html)) {
     return html;
   }
 
@@ -425,10 +434,22 @@ export function injectSiteAnimations(html: string): string {
 
   prepareNavigation($);
   prepareAboutParallax($);
+  tagServiceCards($);
   tagCounterElements($);
   ensureAnimationStyles($);
   ensureGsapScripts($);
   ensureAnimationInitScript($);
 
-  return $.html();
+  const result = $.html();
+  console.log("[injectSiteAnimations] injected GSAP scroll animations:", {
+    hadInitScript: hasSiteAnimations(html),
+    hadGsap: html.includes("gsap.min.js"),
+    resultHasGsap: result.includes("gsap.min.js"),
+    resultHasScrollTrigger: result.includes("ScrollTrigger"),
+    resultHasInitScript: result.includes(ANIMATIONS_INIT_ID),
+    serviceCards: $('[data-webme="service-card"]').length,
+    counters: $('[data-webme-counter="true"]').length,
+  });
+
+  return result;
 }

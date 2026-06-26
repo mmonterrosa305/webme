@@ -8,8 +8,8 @@ import {
   prepareLeadSiteHtml,
 } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
+import { prepareSequenceIframeHtml } from "@/lib/leads/enrich-built-site-html";
 import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
-import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 import { injectAnalyticsScript } from "@/lib/site/inject-analytics";
 
 type PageProps = {
@@ -44,8 +44,8 @@ export default async function SitePage({ params }: PageProps) {
       metadata,
       businessName: lead.business_name,
     });
-    const stripped = stripSequenceHeroFromSiteHtml(lead.site_html);
-    const bodyHtml = injectAnalyticsScript(stripped.html);
+    const stripped = prepareSequenceIframeHtml(lead.site_html);
+    const bodyHtml = injectAnalyticsScript(stripped);
 
     return (
       <div className="bg-white">
