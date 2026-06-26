@@ -11,7 +11,7 @@ import {
 const HORIZONTAL_SCROLL_SECTION_ID = "webme-horizontal-scroll";
 const HORIZONTAL_SCROLL_STYLE_ID = "webme-horizontal-scroll-styles";
 const HORIZONTAL_SCROLL_INIT_ID = "webme-horizontal-scroll-init";
-const HORIZONTAL_SCROLL_VERSION = "2";
+const HORIZONTAL_SCROLL_VERSION = "3";
 
 type ServiceSlide = {
   title: string;
@@ -68,20 +68,36 @@ const HORIZONTAL_SCROLL_STYLES = `<style id="${HORIZONTAL_SCROLL_STYLE_ID}">
   border-radius: 18px;
   overflow: hidden;
   position: relative;
-  background-size: cover;
-  background-position: center;
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
-  transform: translateZ(0);
+  filter: none;
+  backdrop-filter: none;
+  background: #0a0f18;
+}
+#${HORIZONTAL_SCROLL_SECTION_ID} .webme-hscroll-card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  filter: none;
+  transform: none;
+  pointer-events: none;
+  user-select: none;
 }
 #${HORIZONTAL_SCROLL_SECTION_ID} .webme-hscroll-card-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.88) 0%,
-    rgba(0, 0, 0, 0.35) 42%,
-    rgba(0, 0, 0, 0.05) 100%
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.55) 22%,
+    rgba(0, 0, 0, 0.08) 48%,
+    transparent 62%
   );
+  filter: none;
+  backdrop-filter: none;
+  pointer-events: none;
 }
 #${HORIZONTAL_SCROLL_SECTION_ID} .webme-hscroll-card-content {
   position: absolute;
@@ -211,6 +227,11 @@ const HORIZONTAL_SCROLL_INIT_SCRIPT = `<script id="${HORIZONTAL_SCROLL_INIT_ID}"
         return -getHorizontalScrollDistance(section, track, viewport);
       },
       ease: "none",
+      modifiers: {
+        x: function (x) {
+          return Math.round(parseFloat(x)) + "px";
+        },
+      },
       scrollTrigger: {
         trigger: section,
         start: function () {
@@ -268,40 +289,127 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function escapeCssUrl(url: string): string {
-  return url.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+const BACKGROUND_URL_PATTERN =
+  /url\(\s*['"]?(https?:\/\/[^'")\s]+|data:[^'")\s]+)['"]?\s*\)/gi;
+
+function extractBackgroundUrls(value: string): string[] {
+  const matches: string[] = [];
+  let match: RegExpExecArray | null;
+
+  BACKGROUND_URL_PATTERN.lastIndex = 0;
+
+  while ((match = BACKGROUND_URL_PATTERN.exec(value)) !== null) {
+    matches.push(match[1]);
+  }
+
+  return matches;
 }
 
-function extractBackgroundImageUrl(style: string): string {
-  const match = style.match(/background-image:\s*url\((['"]?)([^'")]+)\1\)/i);
-  return match?.[2]?.trim() ?? "";
+function extractImageUrlFromElement(
+  $: cheerio.CheerioAPI,
+  $element: cheerio.Cheerio<AnyNode>,
+): string {
+  const src = $element.attr("src")?.trim();
+  if (src) {
+    return src;
+  }
+
+  const style = $element.attr("style") ?? "";
+  const fromStyle = extractBackgroundUrls(style)[0];
+  if (fromStyle) {
+    return fromStyle;
+  }
+
+  const childImgSrc = $element.find("img").first().attr("src")?.trim();
+  if (childImgSrc) {
+    return childImgSrc;
+  }
+
+  const childSourceSrc = $element.find("source").first().attr("src")?.trim();
+  if (childSourceSrc) {
+    return childSourceSrc;
+  }
+
+  return "";
+}
+
+function findServiceCardWrapper(
+  $: cheerio.CheerioAPI,
+  $element: cheerio.Cheerio<AnyNode>,
+): cheerio.Cheerio<AnyNode> | null {
+  let $current = $element;
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (!$current.length) {
+      break;
+    }
+
+    if (
+      $current.attr("data-webme") === "service-card" ||
+      $current.hasClass("service-card")
+    ) {
+      return $current;
+    }
+
+    const tagName = ($current.prop("tagName") ?? "").toLowerCase();
+    if (tagName === "section" || tagName === "body" || tagName === "html") {
+      break;
+    }
+
+    $current = $current.parent();
+  }
+
+  return null;
 }
 
 function extractServices($: cheerio.CheerioAPI): ServiceSlide[] {
   const services: ServiceSlide[] = [];
-  const seen = new Set<string>();
+  const $orderedCards = $(
+    '#services [data-webme="service-card"], #services .service-card, section#services [data-webme="service-card"], section#services .service-card, [data-webme="service-card"], .service-card',
+  ).filter((_index, element) => {
+    return !$(element).closest(`#${HORIZONTAL_SCROLL_SECTION_ID}`).length;
+  });
 
-  $('[data-webme="service-card"], .service-card').each((_index, element) => {
-    const $card = $(element);
+  for (let index = 1; index <= 4; index += 1) {
+    const $imageSlot = $(`[data-webme="service-image-${index}"]`).first();
+    let imageUrl = "";
+    let $card: cheerio.Cheerio<AnyNode> | null = null;
+
+    if ($imageSlot.length) {
+      imageUrl = extractImageUrlFromElement($, $imageSlot);
+      $card = findServiceCardWrapper($, $imageSlot);
+    }
+
+    if (!$card?.length) {
+      const $fallbackCard = $orderedCards.eq(index - 1);
+      if ($fallbackCard.length) {
+        $card = $fallbackCard;
+      }
+    }
+
+    if (!$card?.length) {
+      continue;
+    }
+
     const title = $card.find("h3").first().text().trim();
     if (!title) {
-      return;
+      continue;
+    }
+
+    if (!imageUrl) {
+      imageUrl = extractImageUrlFromElement($, $card);
+    }
+
+    if (!imageUrl) {
+      const $nestedImageSlot = $card.find(`[data-webme="service-image-${index}"]`).first();
+      if ($nestedImageSlot.length) {
+        imageUrl = extractImageUrlFromElement($, $nestedImageSlot);
+      }
     }
 
     const description = $card.find("p").first().text().trim();
-    let imageUrl =
-      extractBackgroundImageUrl($card.attr("style") ?? "") ||
-      $card.find("img").first().attr("src")?.trim() ||
-      "";
-
-    const dedupeKey = `${title}|${imageUrl}`;
-    if (seen.has(dedupeKey)) {
-      return;
-    }
-
-    seen.add(dedupeKey);
     services.push({ title, description, imageUrl });
-  });
+  }
 
   return services;
 }
@@ -342,11 +450,12 @@ function buildHorizontalScrollSection(
 ): string {
   const cardsHtml = services
     .map((service) => {
-      const styleAttr = service.imageUrl
-        ? ` style="background-image:url(&quot;${escapeCssUrl(service.imageUrl)}&quot;)"`
+      const imageHtml = service.imageUrl
+        ? `<img class="webme-hscroll-card-image" src="${escapeHtml(service.imageUrl)}" alt="${escapeHtml(service.title)}" decoding="async" />`
         : "";
 
-      return `<article class="webme-hscroll-card"${styleAttr}>
+      return `<article class="webme-hscroll-card">
+${imageHtml}
 <div class="webme-hscroll-card-overlay" aria-hidden="true"></div>
 <div class="webme-hscroll-card-content">
 <h3>${escapeHtml(service.title)}</h3>
@@ -423,6 +532,7 @@ function hasCompleteHorizontalScrollSection(html: string): boolean {
     hasHorizontalScrollSection(html) &&
     html.includes(HORIZONTAL_SCROLL_INIT_ID) &&
     html.includes(INLINE_GSAP_CORE_SCRIPT_ID) &&
+    html.includes("webme-hscroll-card-image") &&
     html.includes(`data-webme-hscroll-version="${HORIZONTAL_SCROLL_VERSION}"`)
   );
 }
@@ -470,6 +580,7 @@ export function injectHorizontalScrollSection(html: string): string {
   console.log("[injectHorizontalScrollSection] injected horizontal scroll section:", {
     services: services.length,
     heading,
+    imageUrls: services.map((service) => service.imageUrl.slice(0, 80)),
     hasGsap: result.includes(INLINE_GSAP_CORE_SCRIPT_ID),
     hasInit: result.includes(HORIZONTAL_SCROLL_INIT_ID),
   });
