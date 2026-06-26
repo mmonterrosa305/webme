@@ -2,12 +2,22 @@ import * as cheerio from "cheerio";
 
 import { tagServiceCards } from "@/lib/agents/service-card-hover";
 import {
-  GSAP_CDN,
-  SCROLL_TRIGGER_CDN,
-} from "@/lib/agents/scroll-hero-video";
+  getInlineGsapCoreSource,
+  getInlineScrollTriggerSource,
+  INLINE_GSAP_CORE_SCRIPT_ID,
+  INLINE_SCROLL_TRIGGER_SCRIPT_ID,
+} from "@/lib/gsap/inline-gsap-scripts";
 
 const ANIMATIONS_STYLE_ID = "webme-site-animations-styles";
 const ANIMATIONS_INIT_ID = "webme-site-animations-init";
+const IFRAME_PROBE_SCRIPT_ID = "webme-iframe-scripts-probe";
+
+const IFRAME_PROBE_SCRIPT = `<script id="${IFRAME_PROBE_SCRIPT_ID}">
+(function () {
+  document.documentElement.setAttribute("data-webme-iframe-scripts", "ok");
+  console.log("[webme-iframe-scripts-probe] inline scripts executing in iframe");
+})();
+</script>`;
 
 const SITE_ANIMATIONS_STYLES = `<style id="${ANIMATIONS_STYLE_ID}">
 header.webme-site-nav,
@@ -82,6 +92,47 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
       .join(" ");
   }
 
+  function configureParentScrollProxy() {
+    try {
+      if (window.parent === window || !window.frameElement) {
+        return false;
+      }
+
+      var parentWin = window.parent;
+
+      ScrollTrigger.scrollerProxy(parentWin, {
+        scrollTop: function (value) {
+          if (arguments.length) {
+            parentWin.scrollTo(parentWin.scrollX, value);
+          }
+          return parentWin.scrollY || parentWin.pageYOffset;
+        },
+        getBoundingClientRect: function () {
+          return {
+            top: 0,
+            left: 0,
+            width: parentWin.innerWidth,
+            height: parentWin.innerHeight,
+          };
+        },
+      });
+
+      parentWin.addEventListener("scroll", function () {
+        ScrollTrigger.update();
+      });
+      window.addEventListener("resize", function () {
+        ScrollTrigger.refresh();
+      });
+
+      ScrollTrigger.defaults({ scroller: parentWin });
+      console.log("[webme-site-animations] parent scroll proxy enabled (iframe mode)");
+      return true;
+    } catch (error) {
+      console.warn("[webme-site-animations] parent scroll proxy unavailable", error);
+      return false;
+    }
+  }
+
   function initNavigationFade() {
     var nav =
       document.querySelector("header.webme-site-nav") ||
@@ -129,7 +180,7 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
   }
 
   function initSectionReveals(serviceSection) {
-    var sections = gsap.utils.toArray("section");
+    var sections = gsap.utils.toArray("section, .trust-bar");
 
     sections.forEach(function (section) {
       if (isScrollHeroSection(section)) return;
@@ -261,7 +312,12 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
     document.documentElement.setAttribute("data-webme-animations-init", "true");
     gsap.registerPlugin(ScrollTrigger);
 
-    console.log("[webme-site-animations] initializing scroll animations");
+    configureParentScrollProxy();
+
+    console.log("[webme-site-animations] initializing scroll animations", {
+      inIframe: window.parent !== window && Boolean(window.frameElement),
+      gsapVersion: gsap.version,
+    });
 
     initNavigationFade();
     initHeroHeading();
@@ -273,20 +329,8 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
     ScrollTrigger.refresh();
   }
 
-  function waitForGsap(callback, attempts) {
-    if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
-      callback();
-      return;
-    }
-
-    if (attempts <= 0) return;
-    setTimeout(function () {
-      waitForGsap(callback, attempts - 1);
-    }, 50);
-  }
-
   function boot() {
-    waitForGsap(initWebmeSiteAnimations, 120);
+    initWebmeSiteAnimations();
   }
 
   if (document.readyState === "loading") {
@@ -381,16 +425,22 @@ function prepareNavigation($: cheerio.CheerioAPI): void {
 }
 
 function ensureGsapScripts($: cheerio.CheerioAPI): void {
-  $(`script[src="${GSAP_CDN}"]`).remove();
-  $(`script[src="${SCROLL_TRIGGER_CDN}"]`).remove();
+  $(`#${INLINE_GSAP_CORE_SCRIPT_ID}`).remove();
+  $(`#${INLINE_SCROLL_TRIGGER_SCRIPT_ID}`).remove();
+  $(`#${IFRAME_PROBE_SCRIPT_ID}`).remove();
 
   const body = $("body");
   if (body.length === 0) {
     return;
   }
 
-  body.append(`<script src="${GSAP_CDN}"></script>`);
-  body.append(`<script src="${SCROLL_TRIGGER_CDN}"></script>`);
+  body.append(IFRAME_PROBE_SCRIPT);
+  body.append(
+    `<script id="${INLINE_GSAP_CORE_SCRIPT_ID}">${getInlineGsapCoreSource()}</script>`,
+  );
+  body.append(
+    `<script id="${INLINE_SCROLL_TRIGGER_SCRIPT_ID}">${getInlineScrollTriggerSource()}</script>`,
+  );
 }
 
 function ensureAnimationStyles($: cheerio.CheerioAPI): void {
@@ -415,8 +465,8 @@ export function hasSiteAnimations(html: string): boolean {
 function hasCompleteSiteAnimations(html: string): boolean {
   return (
     hasSiteAnimations(html) &&
-    html.includes("gsap.min.js") &&
-    html.includes("ScrollTrigger")
+    html.includes(INLINE_GSAP_CORE_SCRIPT_ID) &&
+    html.includes(INLINE_SCROLL_TRIGGER_SCRIPT_ID)
   );
 }
 
@@ -443,10 +493,11 @@ export function injectSiteAnimations(html: string): string {
   const result = $.html();
   console.log("[injectSiteAnimations] injected GSAP scroll animations:", {
     hadInitScript: hasSiteAnimations(html),
-    hadGsap: html.includes("gsap.min.js"),
-    resultHasGsap: result.includes("gsap.min.js"),
-    resultHasScrollTrigger: result.includes("ScrollTrigger"),
+    hadInlineGsap: html.includes(INLINE_GSAP_CORE_SCRIPT_ID),
+    resultHasInlineGsap: result.includes(INLINE_GSAP_CORE_SCRIPT_ID),
+    resultHasInlineScrollTrigger: result.includes(INLINE_SCROLL_TRIGGER_SCRIPT_ID),
     resultHasInitScript: result.includes(ANIMATIONS_INIT_ID),
+    resultHasProbe: result.includes(IFRAME_PROBE_SCRIPT_ID),
     serviceCards: $('[data-webme="service-card"]').length,
     counters: $('[data-webme-counter="true"]').length,
   });

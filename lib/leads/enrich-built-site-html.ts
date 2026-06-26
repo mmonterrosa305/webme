@@ -30,8 +30,8 @@ export async function enrichBuiltSiteHtml(options: {
     businessName: options.businessName,
     beforeLength: withReviews.html.length,
     afterLength: withAnimations.length,
-    hasGsap: withAnimations.includes("gsap.min.js"),
-    hasScrollTrigger: withAnimations.includes("ScrollTrigger"),
+    hasInlineGsap: withAnimations.includes("webme-gsap-inline-core"),
+    hasInlineScrollTrigger: withAnimations.includes("webme-gsap-inline-scrolltrigger"),
     hasInitScript: withAnimations.includes("webme-site-animations-init"),
   });
 
