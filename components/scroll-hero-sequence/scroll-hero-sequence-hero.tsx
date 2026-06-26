@@ -16,14 +16,15 @@ type ScrollHeroSequenceHeroProps = {
   ctaHref?: string;
 };
 
+type LoadState = "loading" | "ready" | "error";
+
 const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
 
 const BASE_PLAYBACK_FPS = 24;
-const SCROLL_VELOCITY_SCALE = 0.004;
+const SCROLL_VELOCITY_SCALE = 0.012;
 const PLAYBACK_RATE_LERP = 0.1;
 const SCROLL_IDLE_MS = 140;
 const MAX_SPEED_MULTIPLIER = 5;
-const REVERSE_SPEED_MULTIPLIER = 0.45;
 
 function lerp(start: number, end: number, amount: number): number {
   return start + (end - start) * amount;
@@ -69,7 +70,6 @@ function slideY(
   fromY: number,
   toY: number,
 ): number {
-  const opacity = fadeInOut(progress, fadeInEnd, holdEnd, fadeOutEnd);
   if (progress <= fadeInEnd) {
     const t = segmentProgress(progress, 0, fadeInEnd);
     return lerp(fromY, toY, t);
@@ -95,7 +95,7 @@ export function ScrollHeroSequenceHero({
 }: ScrollHeroSequenceHeroProps) {
   const resolvedHeadline = headline.trim() || businessName.trim();
   const resolvedTagline = tagline.trim();
-  const [sequenceComplete, setSequenceComplete] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const sectionRef = useRef<HTMLElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
@@ -124,7 +124,6 @@ export function ScrollHeroSequenceHero({
     let cancelled = false;
     let frameUrls: string[] = [];
     const imageCache: Record<number, HTMLImageElement> = {};
-    const pendingLoads: Record<number, Promise<HTMLImageElement | null>> = {};
     const dpr = window.devicePixelRatio || 1;
 
     let frameProgress = 0;
@@ -135,7 +134,8 @@ export function ScrollHeroSequenceHero({
     let rafId = 0;
     let scrollIdleTimer = 0;
     let lastScrollY = window.scrollY;
-    let finished = false;
+    let isScrolling = false;
+    let allFramesLoaded = false;
 
     const resizeCanvas = () => {
       const rect = pin.getBoundingClientRect();
@@ -172,34 +172,26 @@ export function ScrollHeroSequenceHero({
       if (imageCache[index]) {
         return Promise.resolve(imageCache[index]);
       }
-      if (index in pendingLoads) {
-        return pendingLoads[index]!;
-      }
 
-      pendingLoads[index] = new Promise((resolve) => {
+      return new Promise((resolve) => {
         const img = new Image();
         img.decoding = "async";
         img.onload = () => {
           imageCache[index] = img;
-          delete pendingLoads[index];
           resolve(img);
         };
         img.onerror = () => {
-          delete pendingLoads[index];
           resolve(null);
         };
         img.src = frameUrls[index];
       });
-
-      return pendingLoads[index];
     };
 
-    const prefetchWindow = (centerIndex: number) => {
-      const start = Math.max(0, centerIndex - 2);
-      const end = Math.min(frameUrls.length - 1, centerIndex + 4);
-      for (let i = start; i <= end; i++) {
-        void loadImageAt(i);
-      }
+    const preloadAllFrames = async (): Promise<boolean> => {
+      const results = await Promise.all(
+        frameUrls.map((_url, index) => loadImageAt(index)),
+      );
+      return results.every(Boolean);
     };
 
     const showPosterFallback = () => {
@@ -216,6 +208,35 @@ export function ScrollHeroSequenceHero({
         }
       };
       img.src = posterUrl;
+    };
+
+    const drawFrameSync = (progress: number) => {
+      if (!frameUrls.length || !allFramesLoaded) {
+        return;
+      }
+
+      const maxIndex = frameUrls.length - 1;
+      const exact = clamp(progress, 0, 1) * maxIndex;
+      const idx = Math.floor(exact);
+      const next = Math.min(idx + 1, maxIndex);
+      const blend = exact - idx;
+
+      const imgA = imageCache[idx];
+      const imgB = imageCache[next];
+      if (!imgA) {
+        showPosterFallback();
+        return;
+      }
+
+      resizeCanvas();
+      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+      drawCover(imgA);
+
+      if (blend > 0.001 && imgB && next !== idx) {
+        ctx.globalAlpha = blend;
+        drawCover(imgB);
+        ctx.globalAlpha = 1;
+      }
     };
 
     const updateTextOverlay = (progress: number) => {
@@ -241,67 +262,15 @@ export function ScrollHeroSequenceHero({
       }
     };
 
-    const drawFrame = (progress: number) => {
-      if (!frameUrls.length) {
-        return;
+    const getIdlePlaybackRate = (): number => {
+      if (frameProgress >= 1) {
+        return 0;
       }
-
-      const maxIndex = frameUrls.length - 1;
-      const exact = clamp(progress, 0, 1) * maxIndex;
-      const idx = Math.floor(exact);
-      const next = Math.min(idx + 1, maxIndex);
-      const blend = exact - idx;
-      prefetchWindow(idx);
-
-      void loadImageAt(idx).then((imgA) => {
-        if (cancelled) {
-          return;
-        }
-        if (!imgA) {
-          showPosterFallback();
-          return;
-        }
-
-        resizeCanvas();
-        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-        drawCover(imgA);
-
-        if (blend > 0.001 && next !== idx) {
-          void loadImageAt(next).then((imgB) => {
-            if (cancelled || !imgB) {
-              return;
-            }
-            ctx.globalAlpha = blend;
-            drawCover(imgB);
-            ctx.globalAlpha = 1;
-          });
-        }
-      });
-    };
-
-    const completeSequence = () => {
-      if (finished || cancelled) {
-        return;
-      }
-
-      finished = true;
-      frameProgress = 1;
-      playbackRate = 0;
-      targetPlaybackRate = 0;
-      drawFrame(1);
-      updateTextOverlay(1);
-
-      ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
-      setSequenceComplete(true);
-      window.cancelAnimationFrame(rafId);
-
-      requestAnimationFrame(() => {
-        ScrollTrigger.refresh();
-      });
+      return baseProgressPerSecond;
     };
 
     const tick = (now: number) => {
-      if (cancelled || finished) {
+      if (cancelled || !allFramesLoaded) {
         return;
       }
 
@@ -312,41 +281,42 @@ export function ScrollHeroSequenceHero({
       const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
       lastFrameTime = now;
 
+      if (!isScrolling) {
+        targetPlaybackRate = lerp(
+          targetPlaybackRate,
+          getIdlePlaybackRate(),
+          PLAYBACK_RATE_LERP,
+        );
+      }
+
       playbackRate = lerp(playbackRate, targetPlaybackRate, PLAYBACK_RATE_LERP);
       frameProgress = clamp(frameProgress + playbackRate * dt, 0, 1);
 
-      drawFrame(frameProgress);
+      drawFrameSync(frameProgress);
       updateTextOverlay(frameProgress);
-
-      if (frameProgress >= 1) {
-        completeSequence();
-        return;
-      }
 
       rafId = window.requestAnimationFrame(tick);
     };
 
     const onScroll = () => {
-      if (finished || cancelled) {
+      if (cancelled || !allFramesLoaded) {
         return;
       }
 
       const currentScrollY = window.scrollY;
       const scrollDelta = currentScrollY - lastScrollY;
       lastScrollY = currentScrollY;
+      isScrolling = true;
 
       const velocityBoost = scrollDelta * SCROLL_VELOCITY_SCALE;
-      const minRate = -baseProgressPerSecond * REVERSE_SPEED_MULTIPLIER;
+      const minRate = -baseProgressPerSecond * MAX_SPEED_MULTIPLIER;
       const maxRate = baseProgressPerSecond * MAX_SPEED_MULTIPLIER;
-      targetPlaybackRate = clamp(
-        baseProgressPerSecond + velocityBoost,
-        minRate,
-        maxRate,
-      );
+      targetPlaybackRate = clamp(velocityBoost, minRate, maxRate);
 
       window.clearTimeout(scrollIdleTimer);
       scrollIdleTimer = window.setTimeout(() => {
-        targetPlaybackRate = baseProgressPerSecond;
+        isScrolling = false;
+        targetPlaybackRate = getIdlePlaybackRate();
       }, SCROLL_IDLE_MS);
     };
 
@@ -370,42 +340,47 @@ export function ScrollHeroSequenceHero({
     const startPlayback = () => {
       baseProgressPerSecond =
         frameUrls.length > 0 ? BASE_PLAYBACK_FPS / frameUrls.length : 0.4;
-      playbackRate = baseProgressPerSecond;
+      playbackRate = 0;
       targetPlaybackRate = baseProgressPerSecond;
       lastScrollY = window.scrollY;
       lastFrameTime = 0;
+      isScrolling = false;
 
       updateTextOverlay(0);
       bindPin();
-      drawFrame(0);
+      drawFrameSync(0);
 
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
       rafId = window.requestAnimationFrame(tick);
     };
 
-    const beginSequence = (urls: string[]) => {
+    const beginSequence = async (urls: string[]) => {
       frameUrls = urls;
       if (!frameUrls.length) {
+        setLoadState("error");
         showPosterFallback();
         return;
       }
 
-      void loadImageAt(0).then((img) => {
-        if (cancelled) {
-          return;
-        }
-        if (img) {
-          startPlayback();
-        } else {
-          showPosterFallback();
-        }
-      });
-      prefetchWindow(0);
+      const loaded = await preloadAllFrames();
+      if (cancelled) {
+        return;
+      }
+
+      if (!loaded) {
+        setLoadState("error");
+        showPosterFallback();
+        return;
+      }
+
+      allFramesLoaded = true;
+      setLoadState("ready");
+      startPlayback();
     };
 
     const onResize = () => {
-      if (!finished) {
-        drawFrame(frameProgress);
+      if (allFramesLoaded) {
+        drawFrameSync(frameProgress);
       }
     };
 
@@ -424,13 +399,15 @@ export function ScrollHeroSequenceHero({
           return;
         }
         if (data.frames_urls?.length) {
-          beginSequence(data.frames_urls);
+          void beginSequence(data.frames_urls);
         } else {
+          setLoadState("error");
           showPosterFallback();
         }
       })
       .catch(() => {
         if (!cancelled) {
+          setLoadState("error");
           showPosterFallback();
         }
       });
@@ -451,19 +428,44 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className={`relative w-full ${sequenceComplete ? "h-screen" : "h-[400vh]"}`}
+      className="relative h-[400vh] w-full"
     >
       <div
         ref={pinRef}
         className="relative flex h-screen w-full items-center justify-center overflow-hidden"
       >
-        <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" />
+        <canvas
+          ref={canvasRef}
+          className={`absolute inset-0 block h-full w-full transition-opacity duration-700 ${
+            loadState === "ready" ? "opacity-100" : "opacity-0"
+          }`}
+        />
         <div
-          className="pointer-events-none absolute inset-0 bg-black/50"
+          className={`pointer-events-none absolute inset-0 bg-black/50 transition-opacity duration-700 ${
+            loadState === "ready" ? "opacity-100" : "opacity-60"
+          }`}
           aria-hidden
         />
+        {loadState === "loading" ? (
+          <div
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+              <span className="text-sm font-medium tracking-wide text-white/80">
+                Loading sequence…
+              </span>
+            </div>
+          </div>
+        ) : null}
         {showOverlay ? (
-          <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 pt-24 text-center text-white">
+          <div
+            className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 pt-24 text-center text-white transition-opacity duration-700 ${
+              loadState === "ready" ? "opacity-100" : "opacity-0"
+            }`}
+          >
             {resolvedHeadline ? (
               <h1
                 ref={headlineRef}
