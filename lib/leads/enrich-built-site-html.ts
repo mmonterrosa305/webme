@@ -28,18 +28,16 @@ export async function enrichBuiltSiteHtml(options: {
 
   const withHorizontalScroll = injectHorizontalScrollSection(withReviews.html);
   const withAnimations = injectSiteAnimations(withHorizontalScroll);
-  const withHorizontalScrollAssets = injectHorizontalScrollSection(withAnimations);
   console.log("[enrichBuiltSiteHtml] enrichments:", {
     businessName: options.businessName,
     beforeLength: withReviews.html.length,
-    afterHorizontalScroll: withHorizontalScroll.length,
-    afterLength: withHorizontalScrollAssets.length,
-    hasHorizontalScroll: withHorizontalScrollAssets.includes("webme-horizontal-scroll"),
-    hasInitScript: withHorizontalScrollAssets.includes("webme-site-animations-init"),
+    afterLength: withAnimations.length,
+    hasHorizontalScroll: withAnimations.includes("webme-horizontal-scroll"),
+    hasInitScript: withAnimations.includes("webme-site-animations-init"),
   });
 
   return enrichBuiltSiteWithGoogleMap({
-    html: withHorizontalScrollAssets,
+    html: withAnimations,
     metadata: withReviews.metadata,
     address: options.address,
   });
@@ -51,8 +49,8 @@ export function applyStoredSiteEnrichmentsToHtml(
 ): string {
   let prepared = applyStoredGoogleReviewsToHtml(html, metadata);
   prepared = applyStoredGoogleMapToHtml(prepared, metadata);
-  prepared = injectSiteAnimations(prepared);
   prepared = injectHorizontalScrollSection(prepared);
+  prepared = injectSiteAnimations(prepared);
   return prepared;
 }
 
@@ -62,6 +60,5 @@ export { applyStoredGoogleMapToHtml, applyStoredGoogleReviewsToHtml };
 export function prepareSequenceIframeHtml(html: string): string {
   const stripped = stripSequenceHeroFromSiteHtml(html);
   const withHorizontalScroll = injectHorizontalScrollSection(stripped.html);
-  const withAnimations = injectSiteAnimations(withHorizontalScroll);
-  return injectHorizontalScrollSection(withAnimations);
+  return injectSiteAnimations(withHorizontalScroll);
 }
