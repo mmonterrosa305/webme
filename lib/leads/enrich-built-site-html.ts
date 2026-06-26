@@ -1,6 +1,6 @@
 import type { SiteMetadata } from "@/lib/site-editor/types";
-import { injectHorizontalScrollSection } from "@/lib/site-editor/inject-horizontal-scroll-section";
 import { injectSiteAnimations } from "@/lib/site-editor/inject-site-animations";
+import { stripHorizontalScrollSection } from "@/lib/site-editor/strip-horizontal-scroll-section";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
 import { enrichBuiltSiteWithGoogleMap } from "./enrich-built-site-with-google-map";
@@ -26,8 +26,8 @@ export async function enrichBuiltSiteHtml(options: {
     placeId: options.placeId,
   });
 
-  const withHorizontalScroll = injectHorizontalScrollSection(withReviews.html);
-  const withAnimations = injectSiteAnimations(withHorizontalScroll);
+  const withoutHorizontalScroll = stripHorizontalScrollSection(withReviews.html);
+  const withAnimations = injectSiteAnimations(withoutHorizontalScroll);
   console.log("[enrichBuiltSiteHtml] enrichments:", {
     businessName: options.businessName,
     beforeLength: withReviews.html.length,
@@ -49,7 +49,7 @@ export function applyStoredSiteEnrichmentsToHtml(
 ): string {
   let prepared = applyStoredGoogleReviewsToHtml(html, metadata);
   prepared = applyStoredGoogleMapToHtml(prepared, metadata);
-  prepared = injectHorizontalScrollSection(prepared);
+  prepared = stripHorizontalScrollSection(prepared);
   prepared = injectSiteAnimations(prepared);
   return prepared;
 }
@@ -59,6 +59,6 @@ export { applyStoredGoogleMapToHtml, applyStoredGoogleReviewsToHtml };
 /** Prepare iframe HTML for external sequence hero sites (strip hero + ensure animations). */
 export function prepareSequenceIframeHtml(html: string): string {
   const stripped = stripSequenceHeroFromSiteHtml(html);
-  const withHorizontalScroll = injectHorizontalScrollSection(stripped.html);
-  return injectSiteAnimations(withHorizontalScroll);
+  const withoutHorizontalScroll = stripHorizontalScrollSection(stripped.html);
+  return injectSiteAnimations(withoutHorizontalScroll);
 }

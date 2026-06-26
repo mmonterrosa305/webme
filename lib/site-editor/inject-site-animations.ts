@@ -188,15 +188,15 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
   }
 
   function boot() {
-    document.querySelectorAll("section:not(#webme-horizontal-scroll) h2").forEach(function (heading) {
+    document.querySelectorAll("section h2").forEach(function (heading) {
       prepareHeading(heading);
     });
 
-    document.querySelectorAll("section:not(#webme-horizontal-scroll) img").forEach(function (el) {
+    document.querySelectorAll("section img").forEach(function (el) {
       el.classList.add("webme-image-animate");
     });
 
-    document.querySelectorAll("section:not(#webme-horizontal-scroll)").forEach(function (el) {
+    document.querySelectorAll("section").forEach(function (el) {
       el.classList.add("webme-section-animate");
     });
 
