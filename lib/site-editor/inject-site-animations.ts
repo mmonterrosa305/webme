@@ -5,15 +5,46 @@ import { tagServiceCards } from "@/lib/agents/service-card-hover";
 const ANIMATIONS_STYLE_ID = "webme-site-animations-styles";
 const ANIMATIONS_INIT_ID = "webme-site-animations-init";
 
+const REVEAL_EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
+
 const SITE_ANIMATIONS_STYLES = `<style id="${ANIMATIONS_STYLE_ID}">
 .webme-animate {
   opacity: 0;
-  transform: translateY(40px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transform: translateY(80px) scale(0.95);
+  transition:
+    opacity 0.9s ${REVEAL_EASING},
+    transform 0.9s ${REVEAL_EASING};
+  will-change: opacity, transform;
 }
 .webme-animate.visible {
   opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.webme-service-card.webme-animate {
+  transition-delay: var(--webme-stagger, 0ms);
+}
+.webme-service-card.webme-animate.visible {
+  transition-delay: var(--webme-stagger, 0ms);
+}
+.webme-heading-animate {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity 0.7s ${REVEAL_EASING},
+    transform 0.7s ${REVEAL_EASING};
+  will-change: opacity, transform;
+}
+.webme-heading-animate.visible {
+  opacity: 1;
   transform: translateY(0);
+}
+.webme-image-animate {
+  opacity: 0;
+  transition: opacity 1.2s ${REVEAL_EASING};
+  will-change: opacity;
+}
+.webme-image-animate.visible {
+  opacity: 1;
 }
 </style>`;
 
@@ -25,13 +56,25 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
   document.documentElement.setAttribute("data-webme-animations-init", "true");
 
   function boot() {
-    document
-      .querySelectorAll('section, [data-webme="service-card"]')
-      .forEach(function (el) {
-        el.classList.add("webme-animate");
-      });
+    document.querySelectorAll("section h2").forEach(function (el) {
+      el.classList.add("webme-heading-animate");
+    });
 
-    var observer = new IntersectionObserver(
+    document.querySelectorAll("section img").forEach(function (el) {
+      el.classList.add("webme-image-animate");
+    });
+
+    document.querySelectorAll("section").forEach(function (el) {
+      el.classList.add("webme-animate");
+    });
+
+    document.querySelectorAll('[data-webme="service-card"]').forEach(function (el, index) {
+      el.classList.add("webme-animate", "webme-service-card");
+      var delay = Math.min(index, 2) * 150;
+      el.style.setProperty("--webme-stagger", delay + "ms");
+    });
+
+    var sectionObserver = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (e) {
           if (e.isIntersecting) {
@@ -42,12 +85,42 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
       { threshold: 0.1 },
     );
 
+    var headingObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.add("visible");
+          }
+        });
+      },
+      { threshold: 0, rootMargin: "100px 0px 0px 0px" },
+    );
+
+    var imageObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.add("visible");
+          }
+        });
+      },
+      { threshold: 0.05 },
+    );
+
     document.querySelectorAll(".webme-animate").forEach(function (el) {
-      observer.observe(el);
+      sectionObserver.observe(el);
+    });
+    document.querySelectorAll(".webme-heading-animate").forEach(function (el) {
+      headingObserver.observe(el);
+    });
+    document.querySelectorAll(".webme-image-animate").forEach(function (el) {
+      imageObserver.observe(el);
     });
 
-    console.log("[webme-site-animations] IntersectionObserver reveal initialized", {
-      targets: document.querySelectorAll(".webme-animate").length,
+    console.log("[webme-site-animations] cinematic scroll reveals initialized", {
+      sections: document.querySelectorAll(".webme-animate").length,
+      headings: document.querySelectorAll(".webme-heading-animate").length,
+      images: document.querySelectorAll(".webme-image-animate").length,
     });
   }
 
@@ -93,8 +166,9 @@ export function hasSiteAnimations(html: string): boolean {
 function hasCompleteSiteAnimations(html: string): boolean {
   return (
     hasSiteAnimations(html) &&
-    html.includes(".webme-animate") &&
-    html.includes("IntersectionObserver")
+    html.includes("webme-heading-animate") &&
+    html.includes("webme-image-animate") &&
+    html.includes("scale(0.95)")
   );
 }
 
@@ -116,12 +190,14 @@ export function injectSiteAnimations(html: string): string {
   ensureAnimationInitScript($);
 
   const result = $.html();
-  console.log("[injectSiteAnimations] injected IntersectionObserver scroll animations:", {
+  console.log("[injectSiteAnimations] injected cinematic scroll animations:", {
     hadInitScript: hasSiteAnimations(html),
     resultHasStyles: result.includes(ANIMATIONS_STYLE_ID),
     resultHasInitScript: result.includes(ANIMATIONS_INIT_ID),
     serviceCards: $('[data-webme="service-card"]').length,
     sections: $("section").length,
+    headings: $("section h2").length,
+    images: $("section img").length,
   });
 
   return result;
