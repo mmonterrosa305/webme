@@ -188,15 +188,15 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
   }
 
   function boot() {
-    document.querySelectorAll("section h2").forEach(function (heading) {
+    document.querySelectorAll("section:not(#webme-horizontal-scroll) h2").forEach(function (heading) {
       prepareHeading(heading);
     });
 
-    document.querySelectorAll("section img").forEach(function (el) {
+    document.querySelectorAll("section:not(#webme-horizontal-scroll) img").forEach(function (el) {
       el.classList.add("webme-image-animate");
     });
 
-    document.querySelectorAll("section").forEach(function (el) {
+    document.querySelectorAll("section:not(#webme-horizontal-scroll)").forEach(function (el) {
       el.classList.add("webme-section-animate");
     });
 
@@ -318,16 +318,10 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
 })();
 </script>`;
 
-const LEGACY_GSAP_SCRIPT_IDS = [
-  "webme-gsap-inline-core",
-  "webme-gsap-inline-scrolltrigger",
-  "webme-iframe-scripts-probe",
-];
+const LEGACY_PROBE_SCRIPT_ID = "webme-iframe-scripts-probe";
 
-function removeLegacyGsapScripts($: cheerio.CheerioAPI): void {
-  for (const id of LEGACY_GSAP_SCRIPT_IDS) {
-    $(`#${id}`).remove();
-  }
+function removeLegacyProbeScript($: cheerio.CheerioAPI): void {
+  $(`#${LEGACY_PROBE_SCRIPT_ID}`).remove();
 }
 
 function ensureAnimationStyles($: cheerio.CheerioAPI): void {
@@ -372,7 +366,7 @@ export function injectSiteAnimations(html: string): string {
   const $ = cheerio.load(html);
 
   tagServiceCards($);
-  removeLegacyGsapScripts($);
+  removeLegacyProbeScript($);
   ensureAnimationStyles($);
   ensureAnimationInitScript($);
 

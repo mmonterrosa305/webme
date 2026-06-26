@@ -1,4 +1,5 @@
 import type { SiteMetadata } from "@/lib/site-editor/types";
+import { injectHorizontalScrollSection } from "@/lib/site-editor/inject-horizontal-scroll-section";
 import { injectSiteAnimations } from "@/lib/site-editor/inject-site-animations";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
@@ -25,17 +26,20 @@ export async function enrichBuiltSiteHtml(options: {
     placeId: options.placeId,
   });
 
-  const withAnimations = injectSiteAnimations(withReviews.html);
-  console.log("[enrichBuiltSiteHtml] injectSiteAnimations:", {
+  const withHorizontalScroll = injectHorizontalScrollSection(withReviews.html);
+  const withAnimations = injectSiteAnimations(withHorizontalScroll);
+  const withHorizontalScrollAssets = injectHorizontalScrollSection(withAnimations);
+  console.log("[enrichBuiltSiteHtml] enrichments:", {
     businessName: options.businessName,
     beforeLength: withReviews.html.length,
-    afterLength: withAnimations.length,
-    hasAnimateStyles: withAnimations.includes(".webme-animate"),
-    hasInitScript: withAnimations.includes("webme-site-animations-init"),
+    afterHorizontalScroll: withHorizontalScroll.length,
+    afterLength: withHorizontalScrollAssets.length,
+    hasHorizontalScroll: withHorizontalScrollAssets.includes("webme-horizontal-scroll"),
+    hasInitScript: withHorizontalScrollAssets.includes("webme-site-animations-init"),
   });
 
   return enrichBuiltSiteWithGoogleMap({
-    html: withAnimations,
+    html: withHorizontalScrollAssets,
     metadata: withReviews.metadata,
     address: options.address,
   });
@@ -48,6 +52,7 @@ export function applyStoredSiteEnrichmentsToHtml(
   let prepared = applyStoredGoogleReviewsToHtml(html, metadata);
   prepared = applyStoredGoogleMapToHtml(prepared, metadata);
   prepared = injectSiteAnimations(prepared);
+  prepared = injectHorizontalScrollSection(prepared);
   return prepared;
 }
 
@@ -56,5 +61,7 @@ export { applyStoredGoogleMapToHtml, applyStoredGoogleReviewsToHtml };
 /** Prepare iframe HTML for external sequence hero sites (strip hero + ensure animations). */
 export function prepareSequenceIframeHtml(html: string): string {
   const stripped = stripSequenceHeroFromSiteHtml(html);
-  return injectSiteAnimations(stripped.html);
+  const withHorizontalScroll = injectHorizontalScrollSection(stripped.html);
+  const withAnimations = injectSiteAnimations(withHorizontalScroll);
+  return injectHorizontalScrollSection(withAnimations);
 }
