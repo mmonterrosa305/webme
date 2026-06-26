@@ -211,13 +211,46 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
       el.style.setProperty("--webme-stat-delay", index * 200 + "ms");
     });
 
+    function setHeadingVisible(heading, visible) {
+      if (visible) {
+        heading.classList.add("visible");
+        var line = heading.previousElementSibling;
+        if (line && line.classList.contains("webme-heading-line")) {
+          line.classList.add("visible");
+        }
+        return;
+      }
+
+      heading.classList.remove("visible");
+      var hiddenLine = heading.previousElementSibling;
+      if (hiddenLine && hiddenLine.classList.contains("webme-heading-line")) {
+        hiddenLine.classList.remove("visible");
+      }
+    }
+
+    function handleRevealEntry(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        return;
+      }
+
+      entry.target.classList.remove("visible");
+    }
+
+    function handleStatRevealEntry(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.remove("visible");
+        void entry.target.offsetWidth;
+        entry.target.classList.add("visible");
+        return;
+      }
+
+      entry.target.classList.remove("visible");
+    }
+
     var sectionObserver = new IntersectionObserver(
       function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            e.target.classList.add("visible");
-          }
-        });
+        entries.forEach(handleRevealEntry);
       },
       { threshold: 0.08 },
     );
@@ -225,14 +258,7 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
     var headingObserver = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (e) {
-          if (!e.isIntersecting) {
-            return;
-          }
-          e.target.classList.add("visible");
-          var line = e.target.previousElementSibling;
-          if (line && line.classList.contains("webme-heading-line")) {
-            line.classList.add("visible");
-          }
+          setHeadingVisible(e.target, e.isIntersecting);
         });
       },
       { threshold: 0, rootMargin: "120px 0px 0px 0px" },
@@ -240,33 +266,21 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
 
     var imageObserver = new IntersectionObserver(
       function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            e.target.classList.add("visible");
-          }
-        });
+        entries.forEach(handleRevealEntry);
       },
       { threshold: 0.05, rootMargin: "40px 0px 0px 0px" },
     );
 
     var cardObserver = new IntersectionObserver(
       function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            e.target.classList.add("visible");
-          }
-        });
+        entries.forEach(handleRevealEntry);
       },
       { threshold: 0.12 },
     );
 
     var statObserver = new IntersectionObserver(
       function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            e.target.classList.add("visible");
-          }
-        });
+        entries.forEach(handleStatRevealEntry);
       },
       { threshold: 0.2 },
     );
@@ -340,7 +354,8 @@ function hasCompleteSiteAnimations(html: string): boolean {
     hasSiteAnimations(html) &&
     html.includes("webme-section-animate") &&
     html.includes("webme-stat-slam") &&
-    html.includes("rotateX(8deg)")
+    html.includes("rotateX(8deg)") &&
+    html.includes('classList.remove("visible")')
   );
 }
 
