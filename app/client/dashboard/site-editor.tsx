@@ -17,7 +17,6 @@ import type { SiteContent, SiteImageSlot } from "@/lib/site-editor/types";
 import { IMAGE_SLOT_LABELS, IMAGE_SLOTS } from "@/lib/site-editor/types";
 
 import { DomainClaimSection } from "./domain-claim-section";
-import { UpgradeSuccessBanner } from "./upgrade-success-banner";
 
 type SiteEditorProps = {
   initialContent: SiteContent;
@@ -27,7 +26,6 @@ type SiteEditorProps = {
   previewUrl: string;
   domainRequested?: string | null;
   domainStatus?: string | null;
-  showUpgradeSuccess?: boolean;
   editQuota: ClientEditQuota;
 };
 
@@ -53,7 +51,6 @@ export function SiteEditor({
   previewUrl,
   domainRequested = null,
   domainStatus = null,
-  showUpgradeSuccess = false,
   editQuota: initialEditQuota,
 }: SiteEditorProps) {
   const showDomainClaimSection =
@@ -357,8 +354,6 @@ export function SiteEditor({
         </div>
       </div>
 
-      {showUpgradeSuccess ? <UpgradeSuccessBanner /> : null}
-
       {(message || error) && (
         <div
           style={{
@@ -413,8 +408,14 @@ export function SiteEditor({
               </p>
               {editQuota.remaining <= 0 ? (
                 <p className="mt-2 text-sm text-amber-800">
-                  Upgrade to Pro for unlimited editing, photo uploads, and a
-                  custom domain.
+                  You&apos;ve used your monthly edit. Contact{" "}
+                  <a
+                    href="mailto:sites@mywebme.com"
+                    className="font-medium underline"
+                  >
+                    sites@mywebme.com
+                  </a>{" "}
+                  if you need more changes.
                 </p>
               ) : null}
             </div>

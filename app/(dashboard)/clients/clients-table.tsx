@@ -10,7 +10,7 @@ import {
 } from "../_components/dashboard-ui";
 import type { Client } from "@/lib/clients/types";
 
-const PLAN_OPTIONS = ["all", "monthly", "starter", "premium"] as const;
+const PLAN_OPTIONS = ["all", "standard", "monthly", "starter", "premium"] as const;
 const STATUS_OPTIONS = ["all", "active", "payment_failed"] as const;
 
 type PlanFilter = (typeof PLAN_OPTIONS)[number];
@@ -18,12 +18,14 @@ type StatusFilter = (typeof STATUS_OPTIONS)[number];
 
 function formatPlanLabel(plan: string): string {
   switch (plan) {
+    case "standard":
+      return "WebMe";
     case "monthly":
-      return "Monthly";
+      return "Basic (legacy)";
     case "starter":
-      return "Starter";
+      return "Pro (legacy)";
     case "premium":
-      return "Premium";
+      return "Elite (legacy)";
     default:
       return plan;
   }
@@ -178,9 +180,10 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
               className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200"
             >
               <option value="all">All plans</option>
-              <option value="monthly">Monthly</option>
-              <option value="starter">Starter</option>
-              <option value="premium">Premium</option>
+              <option value="standard">WebMe</option>
+              <option value="monthly">Basic (legacy)</option>
+              <option value="starter">Pro (legacy)</option>
+              <option value="premium">Elite (legacy)</option>
             </select>
             <select
               value={statusFilter}

@@ -120,7 +120,7 @@ export function buildWeeklyReportEmail({
         </div>
 
         <p style="margin: 0; text-align: center; font-size: 13px; font-weight: 400; color: #94a3b8;">
-          Sent every Monday to Elite members
+          Sent every Monday to WebMe clients
         </p>
       </div>
     </div>
@@ -142,7 +142,7 @@ ${content.tip_body}
 
 View your dashboard: https://mywebme.com/client/login
 
-Sent every Monday to Elite members`;
+Sent every Monday to WebMe clients`;
 
   return { subject, html, text };
 }

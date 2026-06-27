@@ -1,11 +1,13 @@
 import type { ClientPlan } from "@/lib/clients/types";
+import { STANDARD_PLAN_ID } from "@/lib/plans/pricing";
 
 /** Client OTP validity — must match Supabase Auth → Email OTP Expiration (seconds). */
 export const CLIENT_MAGIC_LINK_EXPIRY_SECONDS = 600;
 export const CLIENT_OTP_EXPIRY_SECONDS = CLIENT_MAGIC_LINK_EXPIRY_SECONDS;
 
-/** Pro, Elite, and Basic plans can access the client dashboard. */
+/** All paying WebMe clients can access the client dashboard. */
 export const PORTAL_ELIGIBLE_PLANS = new Set<ClientPlan>([
+  STANDARD_PLAN_ID,
   "starter",
   "premium",
   "monthly",
@@ -17,14 +19,16 @@ export function isPortalEligiblePlan(plan: string | null | undefined): boolean {
 
 export function getPlanDisplayName(plan: string): string {
   switch (plan) {
+    case STANDARD_PLAN_ID:
+      return "WebMe";
     case "starter":
-      return "Pro";
+      return "Pro (legacy)";
     case "premium":
-      return "Elite";
+      return "Elite (legacy)";
     case "monthly":
-      return "Basic";
+      return "Basic (legacy)";
     default:
-      return plan;
+      return "WebMe";
   }
 }
 

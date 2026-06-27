@@ -14,13 +14,7 @@ export const metadata: Metadata = {
   title: "Client Dashboard — MyWebMe",
 };
 
-export default async function ClientDashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ upgraded?: string }>;
-}) {
-  const { upgraded } = await searchParams;
-  const showUpgradeSuccess = upgraded === "true";
+export default async function ClientDashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -78,7 +72,6 @@ export default async function ClientDashboardPage({
       previewUrl={`/preview/${siteData.siteSlug}`}
       domainRequested={client.domain_requested ?? null}
       domainStatus={client.domain_status ?? null}
-      showUpgradeSuccess={showUpgradeSuccess}
       editQuota={editQuota}
     />
   );

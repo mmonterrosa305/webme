@@ -27,61 +27,24 @@ const STEPS = [
     step: "Step 3",
     title: "You go live",
     description:
-      "Pick a plan, claim your site, and start getting found by new customers online.",
+      "Claim your site and start getting found by new customers online.",
   },
 ] as const;
 
-const PLANS = [
-  {
-    name: "Basic",
-    price: "$99/mo",
-    priceNote: "no setup fee",
-    features: [
-      "Professional 1-page website",
-      "Hosted on our domain",
-      "Mobile-friendly design",
-      "Contact form included",
-      "Cancel anytime",
-    ],
-    featured: false,
-  },
-  {
-    name: "Pro",
-    price: "$199 one-time + first month free, then $29/mo",
-    priceNote: null,
-    badge: "Most popular",
-    features: [
-      "Everything in Basic",
-      "You own the website",
-      "Custom domain name",
-      "1 fully designed page",
-      "Google-ready setup",
-      "Site stays live if you cancel",
-      "Edit your website anytime",
-      "First month of hosting free",
-    ],
-    featured: true,
-  },
-  {
-    name: "Elite",
-    priceIntro: "$599 one-time + first month free, then",
-    priceStrikethrough: "$59/mo",
-    pricePromo: "$10/mo",
-    offerExpires: "Offer expires 7/1",
-    priceNote: null,
-    features: [
-      "Everything in Pro",
-      "6 fully designed pages",
-      "SEO optimization",
-      "E-commerce ready",
-      "Custom logo design",
-      "Priority support",
-      "Edit your website anytime",
-      "First month of hosting free",
-    ],
-    featured: false,
-  },
-] as const;
+const PLAN = {
+  price: "$299 + $9.99/mo hosting",
+  priceNote: "$299 one-time site build · $9.99/mo hosting",
+  features: [
+    "Professional website built for your business",
+    "Custom domain included",
+    "Mobile-friendly design",
+    "Contact form included",
+    "Unlimited editing in your dashboard",
+    "Photo & logo uploads",
+    "Hosted and maintained by WebMe",
+    "Cancel hosting anytime",
+  ],
+} as const;
 
 const TESTIMONIALS = [
   {
@@ -255,87 +218,33 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-                Select your plan
+                Simple, transparent pricing
               </h2>
               <p className="mt-4 text-lg text-neutral-600">
-                No hidden fees. Cancel anytime.
+                One price. No tiers. No hidden fees.
               </p>
             </div>
-            <div className="mt-12 flex flex-col gap-6 md:flex-row md:items-start">
-              {PLANS.map((plan) => (
-                <article
-                  key={plan.name}
-                  className={`flex min-w-0 flex-1 flex-col rounded-2xl border bg-white p-6 sm:p-8 ${
-                    plan.featured
-                      ? "border-2 border-neutral-900"
-                      : "border border-neutral-200"
-                  }`}
-                >
-                  <div className="mb-4 min-h-7">
-                    {"badge" in plan && plan.badge ? (
-                      <span className="inline-flex rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white">
-                        {plan.badge}
-                      </span>
-                    ) : null}
-                  </div>
-                  <h3 className="text-xl font-semibold text-neutral-900">
-                    {plan.name}
-                  </h3>
-                  {"priceIntro" in plan ? (
-                    <div className="mt-3">
-                      <p className="text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
-                        {plan.priceIntro}
-                      </p>
-                      <p className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">
-                        <span
-                          className="text-neutral-400"
-                          style={{ textDecoration: "line-through" }}
-                        >
-                          {plan.priceStrikethrough}
-                        </span>{" "}
-                        <span
-                          className="font-bold"
-                          style={{ color: "#16a34a" }}
-                        >
-                          {plan.pricePromo}
-                        </span>
-                      </p>
-                      <p className="mt-2 text-xs text-orange-600">
-                        {plan.offerExpires}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="mt-3 text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
-                      {plan.price}
-                    </p>
-                  )}
-                  {plan.priceNote ? (
-                    <p className="mt-1 text-sm text-neutral-500">
-                      {plan.priceNote}
-                    </p>
-                  ) : null}
-                  <ul className="mt-6 flex-1 space-y-3 text-sm text-neutral-700">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex gap-2">
-                        <span className="text-neutral-400">•</span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {plan.featured ? (
-                    <PrimaryButton href={CONTACT_EMAIL} className="mt-8 w-full">
-                      Get started
-                    </PrimaryButton>
-                  ) : (
-                    <a
-                      href={CONTACT_EMAIL}
-                      className="mt-8 inline-flex w-full items-center justify-center rounded-lg border border-neutral-900 bg-white px-5 py-2.5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
-                    >
-                      Get started
-                    </a>
-                  )}
-                </article>
-              ))}
+            <div className="mx-auto mt-12 max-w-md">
+              <article className="flex flex-col rounded-2xl border-2 border-neutral-900 bg-white p-6 sm:p-8">
+                <h3 className="text-xl font-semibold text-neutral-900">
+                  WebMe
+                </h3>
+                <p className="mt-3 text-xl font-semibold leading-snug text-neutral-900 sm:text-2xl">
+                  {PLAN.price}
+                </p>
+                <p className="mt-1 text-sm text-neutral-500">{PLAN.priceNote}</p>
+                <ul className="mt-6 flex-1 space-y-3 text-sm text-neutral-700">
+                  {PLAN.features.map((feature) => (
+                    <li key={feature} className="flex gap-2">
+                      <span className="text-neutral-400">•</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <PrimaryButton href={CONTACT_EMAIL} className="mt-8 w-full">
+                  Get started
+                </PrimaryButton>
+              </article>
             </div>
           </div>
         </section>

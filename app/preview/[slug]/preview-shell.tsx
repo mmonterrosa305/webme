@@ -10,14 +10,17 @@ import {
 } from "@/lib/agents/scroll-hero-video";
 import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
+import {
+  PLAN_FEATURES,
+  PRICING_HEADLINE,
+  PRICING_SUBLINE,
+} from "@/lib/plans/pricing";
 
 import { PresetVideoPicker } from "@/app/(dashboard)/_components/preset-video-picker";
 import { PresetImageSequencePicker } from "@/app/(dashboard)/_components/preset-image-sequence-picker";
 import { ScrollHeroSequenceHero } from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero";
 
 type Modal = "packages" | "declined" | "edits-exhausted" | "pick-preset" | "pick-sequence" | null;
-
-type PlanId = "starter" | "monthly" | "premium";
 
 type PreviewFields = {
   businessName: string;
@@ -26,79 +29,6 @@ type PreviewFields = {
   tagline: string;
   logoUrl: string;
 };
-
-const PACKAGES = [
-  {
-    id: "monthly" as const,
-    name: "Basic",
-    setup: "$0 setup",
-    monthly: "$99/mo",
-    features: [
-      "Site on webme subdomain",
-      "1 page · 1 edit per month",
-      "Cancel anytime",
-    ],
-  },
-  {
-    id: "starter" as const,
-    name: "Pro",
-    setup: "$199",
-    monthly: "$29/mo",
-    features: [
-      "You own the website",
-      "Custom domain included",
-      "Unlimited editing",
-      "Photo & logo uploads",
-      "First month free",
-    ],
-    highlighted: true,
-    badge: "Most popular",
-  },
-  {
-    id: "premium" as const,
-    name: "Elite",
-    setup: "$599",
-    monthly: "$59/mo",
-    monthlyStrikethrough: "$59/mo",
-    monthlyPromo: "$10/mo",
-    offerExpires: "Offer expires 7/1",
-    features: [
-      "Everything in Pro",
-      "Up to 6 pages",
-      "SEO + e-commerce ready",
-      "Domain checker included",
-      "First month free",
-    ],
-  },
-];
-
-function PackagePrice({ pkg }: { pkg: (typeof PACKAGES)[number] }) {
-  if ("monthlyPromo" in pkg && pkg.monthlyPromo) {
-    return (
-      <div className="mt-1">
-        <p className="text-2xl font-bold text-neutral-900">{pkg.setup}</p>
-        <p className="mt-1 text-base">
-          <span className="text-neutral-400 line-through">
-            {pkg.monthlyStrikethrough}
-          </span>{" "}
-          <span className="font-bold text-green-600">{pkg.monthlyPromo}</span>
-        </p>
-        <p className="mt-1 text-xs text-orange-600">{pkg.offerExpires}</p>
-      </div>
-    );
-  }
-
-  return (
-    <p className="mt-1 text-2xl font-bold text-neutral-900">
-      {pkg.setup}
-      <span className="text-base font-normal text-neutral-500">
-        {" "}
-        + {pkg.monthly}
-      </span>
-    </p>
-  );
-}
-
 
 function toPreviewFields(
   fields: Partial<PreviewFields> | undefined,
@@ -153,7 +83,7 @@ export function PreviewShell({
   const pricingRef = useRef<HTMLElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [modal, setModal] = useState<Modal>(null);
-  const [payingPlan, setPayingPlan] = useState<PlanId | null>(null);
+  const [paying, setPaying] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [siteHtml, setSiteHtml] = useState(lead.site_html);
   const [fields, setFields] = useState<PreviewFields>({
@@ -347,7 +277,7 @@ export function PreviewShell({
 
   useEffect(() => {
     function resetPaymentState() {
-      setPayingPlan(null);
+      setPaying(false);
     }
 
     window.addEventListener("focus", resetPaymentState);
@@ -361,15 +291,15 @@ export function PreviewShell({
       fields.headline !== savedFields.headline ||
       fields.tagline !== savedFields.tagline);
 
-  async function handlePayNow(plan: PlanId) {
+  async function handlePayNow() {
     setCheckoutError(null);
-    setPayingPlan(plan);
+    setPaying(true);
 
     try {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: lead.site_slug, plan }),
+        body: JSON.stringify({ slug: lead.site_slug }),
       });
 
       const data = (await response.json()) as { url?: string; error?: string };
@@ -383,8 +313,35 @@ export function PreviewShell({
       setCheckoutError(
         error instanceof Error ? error.message : "Checkout failed.",
       );
-      setPayingPlan(null);
+      setPaying(false);
     }
+  }
+
+  function PricingCard({ className = "" }: { className?: string }) {
+    return (
+      <div
+        className={`mx-auto max-w-md rounded-xl border-2 border-neutral-900 p-5 ${className}`}
+      >
+        <h3 className="font-semibold text-neutral-900">WebMe</h3>
+        <p className="mt-1 text-2xl font-bold text-neutral-900">
+          {PRICING_HEADLINE}
+        </p>
+        <p className="mt-1 text-sm text-neutral-500">{PRICING_SUBLINE}</p>
+        <ul className="mt-3 space-y-1 text-sm text-neutral-600">
+          {PLAN_FEATURES.map((feature) => (
+            <li key={feature}>• {feature}</li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={() => void handlePayNow()}
+          disabled={paying}
+          className="mt-4 w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {paying ? "Redirecting…" : "Pay Now"}
+        </button>
+      </div>
+    );
   }
 
   async function handleSaveEdit() {
@@ -1270,44 +1227,12 @@ export function PreviewShell({
             Claim your site
           </h2>
           <p className="mt-2 text-center text-sm text-neutral-600">
-            Choose a plan to launch {fields.businessName || lead.business_name}{" "}
-            — setup fee plus monthly hosting.
+            Launch {fields.businessName || lead.business_name} for{" "}
+            {PRICING_HEADLINE}.
           </p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {PACKAGES.map((pkg) => (
-              <div
-                key={pkg.id}
-                className={`rounded-xl border p-5 ${
-                  pkg.highlighted
-                    ? "border-neutral-900 ring-2 ring-neutral-900"
-                    : "border-neutral-200"
-                }`}
-              >
-                <div className="mb-2 min-h-6">
-                  {"badge" in pkg && pkg.badge ? (
-                    <span className="inline-flex rounded-full bg-neutral-900 px-2.5 py-1 text-xs font-semibold text-white">
-                      {pkg.badge}
-                    </span>
-                  ) : null}
-                </div>
-                <h3 className="font-semibold text-neutral-900">{pkg.name}</h3>
-                <PackagePrice pkg={pkg} />
-                <ul className="mt-3 space-y-1 text-sm text-neutral-600">
-                  {pkg.features.map((feature) => (
-                    <li key={feature}>• {feature}</li>
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  onClick={() => handlePayNow(pkg.id)}
-                  disabled={payingPlan !== null}
-                  className="mt-4 w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {payingPlan === pkg.id ? "Redirecting…" : "Pay Now"}
-                </button>
-              </div>
-            ))}
+          <div className="mt-8">
+            <PricingCard />
           </div>
 
           {checkoutError ? (
@@ -1322,46 +1247,15 @@ export function PreviewShell({
         <ModalBackdrop onClose={() => setModal(null)}>
           <div className="p-6 sm:p-8">
             <h2 className="text-xl font-semibold text-neutral-900">
-              Choose your package
+              Claim your site
             </h2>
             <p className="mt-1 text-sm text-neutral-600">
-              Launch {fields.businessName || lead.business_name} with WebMe.
+              Launch {fields.businessName || lead.business_name} with WebMe for{" "}
+              {PRICING_HEADLINE}.
             </p>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {PACKAGES.map((pkg) => (
-                <div
-                  key={pkg.id}
-                  className={`rounded-xl border p-5 ${
-                    pkg.highlighted
-                      ? "border-neutral-900 ring-2 ring-neutral-900"
-                      : "border-neutral-200"
-                  }`}
-                >
-                  <div className="mb-2 min-h-6">
-                    {"badge" in pkg && pkg.badge ? (
-                      <span className="inline-flex rounded-full bg-neutral-900 px-2.5 py-1 text-xs font-semibold text-white">
-                        {pkg.badge}
-                      </span>
-                    ) : null}
-                  </div>
-                  <h3 className="font-semibold text-neutral-900">{pkg.name}</h3>
-                  <PackagePrice pkg={pkg} />
-                  <ul className="mt-3 space-y-1 text-sm text-neutral-600">
-                    {pkg.features.map((feature) => (
-                      <li key={feature}>• {feature}</li>
-                    ))}
-                  </ul>
-                  <button
-                    type="button"
-                    onClick={() => handlePayNow(pkg.id)}
-                    disabled={payingPlan !== null}
-                    className="mt-4 w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {payingPlan === pkg.id ? "Redirecting…" : "Pay Now"}
-                  </button>
-                </div>
-              ))}
+            <div className="mt-6">
+              <PricingCard />
             </div>
 
             {checkoutError ? (
@@ -1388,8 +1282,8 @@ export function PreviewShell({
               You&apos;ve used your 3 free edits
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-neutral-600">
-              Claim your site to keep editing — choose a plan below and make
-              unlimited updates on Pro or Elite.
+              Claim your site to keep editing — pay {PRICING_HEADLINE} and make
+              unlimited updates anytime.
             </p>
             <button
               type="button"

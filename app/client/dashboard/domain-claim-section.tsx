@@ -35,69 +35,16 @@ function formatPrice(price: number | null): string | null {
   return `$${Math.round(price)}/yr`;
 }
 
-function EliteUpsellCard({
-  domain,
-  pricePerYear,
-  upgrading,
-  upgradeError,
-  onUpgrade,
-}: {
-  domain: string;
-  pricePerYear: number;
-  upgrading: boolean;
-  upgradeError: string | null;
-  onUpgrade: () => void;
-}) {
-  const priceLabel = formatPrice(pricePerYear);
-
-  return (
-    <li
-      className={`${RESULTS_CARD} border-l-4 border-l-amber-400 pl-3.5 text-center`}
-    >
-      <p className="text-[1.75rem] font-bold leading-tight text-neutral-900">
-        {domain}
-        {priceLabel ? (
-          <span className="font-normal text-neutral-500"> · {priceLabel}</span>
-        ) : null}
-      </p>
-      <p className="mt-1.5 text-2xl leading-tight text-neutral-600">
-        Available on Elite plan
-      </p>
-      {upgradeError ? (
-        <p className="mt-2 text-[1.75rem] leading-tight text-red-600" role="alert">
-          {upgradeError}
-        </p>
-      ) : null}
-      <button
-        type="button"
-        disabled={upgrading}
-        onClick={onUpgrade}
-        className="mx-auto mt-3 inline-flex rounded-full bg-neutral-900 px-5 py-2.5 text-2xl font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {upgrading ? "Redirecting…" : "Upgrade to Elite"}
-      </button>
-    </li>
-  );
-}
-
 function DomainResultRow({
   result,
-  plan,
   priceLimit,
   claimingDomain,
-  upgrading,
-  upgradeError,
   onClaim,
-  onUpgrade,
 }: {
   result: DomainResult;
-  plan: string;
   priceLimit: number;
   claimingDomain: string | null;
-  upgrading: boolean;
-  upgradeError: string | null;
   onClaim: (result: DomainResult) => void;
-  onUpgrade: () => void;
 }) {
   const priceLabel = formatPrice(result.pricePerYear);
   const overPlanLimit =
@@ -107,18 +54,6 @@ function DomainResultRow({
     result.pricePerYear !== null &&
     !overPlanLimit &&
     claimingDomain === null;
-
-  if (result.available && overPlanLimit && plan === "starter") {
-    return (
-      <EliteUpsellCard
-        domain={result.domain}
-        pricePerYear={result.pricePerYear!}
-        upgrading={upgrading}
-        upgradeError={upgradeError}
-        onUpgrade={onUpgrade}
-      />
-    );
-  }
 
   return (
     <li
@@ -177,22 +112,14 @@ function DomainResultRow({
 
 function ResultList({
   items,
-  plan,
   priceLimit,
   claimingDomain,
-  upgrading,
-  upgradeError,
   onClaim,
-  onUpgrade,
 }: {
   items: DomainResult[];
-  plan: string;
   priceLimit: number;
   claimingDomain: string | null;
-  upgrading: boolean;
-  upgradeError: string | null;
   onClaim: (result: DomainResult) => void;
-  onUpgrade: () => void;
 }) {
   return (
     <ul className="mx-auto flex w-full max-w-[700px] flex-col items-center gap-4">
@@ -200,13 +127,9 @@ function ResultList({
         <DomainResultRow
           key={result.domain}
           result={result}
-          plan={plan}
           priceLimit={priceLimit}
           claimingDomain={claimingDomain}
-          upgrading={upgrading}
-          upgradeError={upgradeError}
           onClaim={onClaim}
-          onUpgrade={onUpgrade}
         />
       ))}
     </ul>
@@ -224,8 +147,6 @@ export function DomainClaimSection({
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [claimingDomain, setClaimingDomain] = useState<string | null>(null);
-  const [upgrading, setUpgrading] = useState(false);
-  const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [submittedDomain, setSubmittedDomain] = useState(domainRequested);
   const [submittedStatus, setSubmittedStatus] = useState(domainStatus);
@@ -273,30 +194,6 @@ export function DomainClaimSection({
       );
     } finally {
       setSearching(false);
-    }
-  }
-
-  async function handleUpgradeToElite() {
-    setUpgrading(true);
-    setUpgradeError(null);
-
-    try {
-      const response = await fetch("/api/stripe/upgrade-checkout", {
-        method: "POST",
-      });
-
-      const data = (await response.json()) as { url?: string; error?: string };
-
-      if (!response.ok || !data.url) {
-        throw new Error(data.error ?? "Could not start checkout.");
-      }
-
-      window.location.href = data.url;
-    } catch (error) {
-      setUpgradeError(
-        error instanceof Error ? error.message : "Checkout failed.",
-      );
-      setUpgrading(false);
     }
   }
 
@@ -405,13 +302,9 @@ export function DomainClaimSection({
           {results.length > 0 ? (
             <ResultList
               items={results}
-              plan={plan}
               priceLimit={priceLimit}
               claimingDomain={claimingDomain}
-              upgrading={upgrading}
-              upgradeError={upgradeError}
               onClaim={(item) => void handleClaim(item)}
-              onUpgrade={() => void handleUpgradeToElite()}
             />
           ) : null}
 
@@ -424,13 +317,9 @@ export function DomainClaimSection({
               </p>
               <ResultList
                 items={suggestions}
-                plan={plan}
                 priceLimit={priceLimit}
                 claimingDomain={claimingDomain}
-                upgrading={upgrading}
-                upgradeError={upgradeError}
                 onClaim={(item) => void handleClaim(item)}
-                onUpgrade={() => void handleUpgradeToElite()}
               />
             </div>
           ) : null}

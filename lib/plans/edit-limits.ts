@@ -1,10 +1,13 @@
 import type { ClientPlan } from "@/lib/clients/types";
+import { STANDARD_PLAN_ID } from "@/lib/plans/pricing";
 
 export const PREVIEW_FREE_EDITS = 3;
 export const BASIC_EDITS_PER_MONTH = 1;
 
 export function isUnlimitedEditsPlan(plan: string): boolean {
-  return plan === "starter" || plan === "premium";
+  return (
+    plan === STANDARD_PLAN_ID || plan === "starter" || plan === "premium"
+  );
 }
 
 export function isLimitedDashboardPlan(plan: string): boolean {
@@ -12,7 +15,9 @@ export function isLimitedDashboardPlan(plan: string): boolean {
 }
 
 export function isFullEditorPlan(plan: string): boolean {
-  return plan === "starter" || plan === "premium";
+  return (
+    plan === STANDARD_PLAN_ID || plan === "starter" || plan === "premium"
+  );
 }
 
 export function getMonthYear(date: Date = new Date()): string {
@@ -35,5 +40,7 @@ export function formatResetDate(date: Date): string {
 }
 
 export function planSupportsDomainClaim(plan: string): plan is ClientPlan {
-  return plan === "premium";
+  return (
+    plan === STANDARD_PLAN_ID || plan === "premium" || plan === "starter"
+  );
 }

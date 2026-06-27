@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message:
-        "If your email is registered on a Pro or Elite plan, we sent you a 6-digit sign-in code.",
+        "If your email is registered as a WebMe client, we sent you a 6-digit sign-in code.",
     });
   } catch (error) {
     const message =

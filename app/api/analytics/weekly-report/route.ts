@@ -58,8 +58,8 @@ export async function GET(request: Request) {
 
     const { data: clients, error: clientsError } = await supabase
       .from("clients")
-      .select("id, business_name, owner_email, site_slug, site_url, lead_id")
-      .eq("plan", "elite");
+      .select("id, business_name, owner_email, site_slug, site_url, lead_id, package")
+      .eq("subscription_status", "active");
 
     if (clientsError) {
       throw new Error(clientsError.message);

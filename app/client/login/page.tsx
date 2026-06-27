@@ -45,7 +45,7 @@ function ClientLoginForm() {
       setOtp("");
       setMessage(
         data.message ??
-          "If your email is registered on a Pro or Elite plan, we sent you a 6-digit code.",
+          "If your email is registered as a WebMe client, we sent you a 6-digit code.",
       );
     } catch (submitError) {
       setError(
@@ -116,8 +116,7 @@ function ClientLoginForm() {
             Client portal
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-neutral-600">
-            Pro and Elite clients sign in with a 6-digit code sent to their
-            email.
+            WebMe clients sign in with a 6-digit code sent to their email.
           </p>
         </div>
 

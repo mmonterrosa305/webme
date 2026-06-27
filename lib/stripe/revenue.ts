@@ -1,6 +1,11 @@
 import type Stripe from "stripe";
 
 import type { ClientPlan } from "@/lib/clients/types";
+import {
+  getStripePriceToPlanMap,
+  isActiveClientPlan,
+  STANDARD_PLAN_ID,
+} from "@/lib/plans/pricing";
 import { getStripe } from "@/lib/stripe";
 
 export type PlanBreakdown = {
@@ -37,28 +42,11 @@ export type RevenueData = {
 };
 
 const PLAN_LABELS: Record<ClientPlan, string> = {
-  monthly: "Monthly",
-  starter: "Starter",
-  premium: "Premium",
+  standard: "WebMe",
+  monthly: "Basic (legacy)",
+  starter: "Pro (legacy)",
+  premium: "Elite (legacy)",
 };
-
-function isClientPlan(value: string | undefined | null): value is ClientPlan {
-  return value === "monthly" || value === "starter" || value === "premium";
-}
-
-function getPriceToPlanMap(): Record<string, ClientPlan> {
-  const entries: Array<[string | undefined, ClientPlan]> = [
-    [process.env.STRIPE_MONTHLY_PRICE_ID?.trim(), "monthly"],
-    [process.env.STRIPE_STARTER_SUB_PRICE_ID?.trim(), "starter"],
-    [process.env.STRIPE_STARTER_PRICE_ID?.trim(), "starter"],
-    [process.env.STRIPE_PREMIUM_SUB_PRICE_ID?.trim(), "premium"],
-    [process.env.STRIPE_PREMIUM_PRICE_ID?.trim(), "premium"],
-  ];
-
-  return Object.fromEntries(
-    entries.flatMap(([priceId, plan]) => (priceId ? [[priceId, plan]] : [])),
-  );
-}
 
 function priceToMonthlyCents(price: Stripe.Price, quantity = 1): number {
   if (!price.recurring) {
@@ -108,11 +96,11 @@ function inferPlanFromSubscription(
 ): ClientPlan | "unknown" {
   const metadataPlan = subscription.metadata?.plan?.trim();
 
-  if (isClientPlan(metadataPlan)) {
+  if (metadataPlan && isActiveClientPlan(metadataPlan)) {
     return metadataPlan;
   }
 
-  const priceToPlan = getPriceToPlanMap();
+  const priceToPlan = getStripePriceToPlanMap();
 
   for (const item of subscription.items.data) {
     const price = item.price;
@@ -247,6 +235,7 @@ export async function getRevenueData(): Promise<RevenueData> {
     ClientPlan | "unknown",
     { count: number; mrr: number }
   >([
+    [STANDARD_PLAN_ID, { count: 0, mrr: 0 }],
     ["monthly", { count: 0, mrr: 0 }],
     ["starter", { count: 0, mrr: 0 }],
     ["premium", { count: 0, mrr: 0 }],
@@ -265,7 +254,9 @@ export async function getRevenueData(): Promise<RevenueData> {
     entry.mrr += monthlyCents;
   }
 
-  const mrrByPlan: PlanBreakdown[] = (["monthly", "starter", "premium"] as const)
+  const mrrByPlan: PlanBreakdown[] = (
+    [STANDARD_PLAN_ID, "monthly", "starter", "premium"] as const
+  )
     .map((plan) => {
       const entry = planMap.get(plan)!;
 

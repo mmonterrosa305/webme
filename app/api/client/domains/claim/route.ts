@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         {
           error:
             client.package === "starter"
-              ? "Upgrade to Elite to claim this domain."
+              ? "This domain exceeds your legacy plan limit. Contact support."
               : "This domain exceeds your plan limit. Contact support.",
         },
         { status: 403 },

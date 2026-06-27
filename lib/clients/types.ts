@@ -1,4 +1,4 @@
-export type ClientPlan = "starter" | "monthly" | "premium";
+export type ClientPlan = "standard" | "starter" | "monthly" | "premium";
 
 export type ClientStatus = "active" | "payment_failed";
 

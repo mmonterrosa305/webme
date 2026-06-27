@@ -1,24 +1,25 @@
 import type { ClientPlan } from "@/lib/clients/types";
+import { STANDARD_PLAN_ID } from "@/lib/plans/pricing";
 
 export const DOMAIN_SEARCH_TLDS = ["com", "net", "org", "io"] as const;
 
 export type DomainTld = (typeof DOMAIN_SEARCH_TLDS)[number];
 
-export const DOMAIN_PRICE_LIMITS: Record<"starter" | "premium", number> = {
-  starter: 15,
-  premium: 50,
-};
+export const DOMAIN_PRICE_LIMIT_STANDARD = 50;
+export const DOMAIN_PRICE_LIMIT_LEGACY_STARTER = 15;
 
 export function getDomainPriceLimit(plan: string): number {
-  if (plan === "premium") {
-    return DOMAIN_PRICE_LIMITS.premium;
+  if (plan === "starter") {
+    return DOMAIN_PRICE_LIMIT_LEGACY_STARTER;
   }
 
-  return DOMAIN_PRICE_LIMITS.starter;
+  return DOMAIN_PRICE_LIMIT_STANDARD;
 }
 
 export function isDomainClaimEligiblePlan(plan: string): plan is ClientPlan {
-  return plan === "premium";
+  return (
+    plan === STANDARD_PLAN_ID || plan === "premium" || plan === "starter"
+  );
 }
 
 export function normalizeDomainQuery(value: string): string {

@@ -2,17 +2,14 @@ import type Stripe from "stripe";
 
 import type { ClientPlan } from "@/lib/clients/types";
 import { sendClientPortalOtpIfEligible } from "@/lib/client-auth/send-client-otp";
+import {
+  getPlanAmounts,
+  getStripePriceToPlanMap,
+  isActiveClientPlan,
+  STANDARD_PLAN_ID,
+} from "@/lib/plans/pricing";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const PLAN_AMOUNTS: Record<
-  ClientPlan,
-  { oneTimeAmount: number; monthlyAmount: number }
-> = {
-  monthly: { oneTimeAmount: 0, monthlyAmount: 99 },
-  starter: { oneTimeAmount: 199, monthlyAmount: 29 },
-  premium: { oneTimeAmount: 599, monthlyAmount: 59 },
-};
 
 type CheckoutContext = {
   leadId: string;
@@ -51,14 +48,6 @@ function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   return null;
 }
 
-function getPlanAmounts(plan: ClientPlan) {
-  return PLAN_AMOUNTS[plan] ?? PLAN_AMOUNTS.monthly;
-}
-
-function isClientPlan(value: string | undefined): value is ClientPlan {
-  return value === "starter" || value === "monthly" || value === "premium";
-}
-
 function getMetadataValue(
   metadata: Stripe.Metadata | null | undefined,
   key: string,
@@ -67,27 +56,13 @@ function getMetadataValue(
   return value || undefined;
 }
 
-function getPriceToPlanMap(): Record<string, ClientPlan> {
-  const entries: Array<[string | undefined, ClientPlan]> = [
-    [process.env.STRIPE_MONTHLY_PRICE_ID?.trim(), "monthly"],
-    [process.env.STRIPE_STARTER_SUB_PRICE_ID?.trim(), "starter"],
-    [process.env.STRIPE_STARTER_PRICE_ID?.trim(), "starter"],
-    [process.env.STRIPE_PREMIUM_SUB_PRICE_ID?.trim(), "premium"],
-    [process.env.STRIPE_PREMIUM_PRICE_ID?.trim(), "premium"],
-  ];
-
-  return Object.fromEntries(
-    entries.flatMap(([priceId, plan]) => (priceId ? [[priceId, plan]] : [])),
-  );
-}
-
 function inferPlanFromSession(session: Stripe.Checkout.Session): ClientPlan | null {
   const metadataPlan = getMetadataValue(session.metadata, "plan");
-  if (isClientPlan(metadataPlan)) {
+  if (metadataPlan && isActiveClientPlan(metadataPlan)) {
     return metadataPlan;
   }
 
-  const priceToPlan = getPriceToPlanMap();
+  const priceToPlan = getStripePriceToPlanMap();
   const lineItems = session.line_items?.data ?? [];
 
   for (const item of lineItems) {
@@ -97,7 +72,7 @@ function inferPlanFromSession(session: Stripe.Checkout.Session): ClientPlan | nu
     }
   }
 
-  return null;
+  return STANDARD_PLAN_ID;
 }
 
 async function getLeadBySiteSlug(siteSlug: string) {
