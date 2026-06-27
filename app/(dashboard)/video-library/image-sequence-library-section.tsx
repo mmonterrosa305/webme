@@ -21,6 +21,7 @@ export function ImageSequenceLibrarySection() {
   const [uploadIndustry, setUploadIndustry] = useState<string>(INDUSTRIES[0]);
   const [uploadLabel, setUploadLabel] = useState("");
   const [uploadZipFile, setUploadZipFile] = useState<File | null>(null);
+  const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export function ImageSequenceLibrarySection() {
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!uploadZipFile) {
+    if (!uploadZipFile && !uploadVideoFile) {
       return;
     }
 
@@ -80,7 +81,11 @@ export function ImageSequenceLibrarySection() {
       const formData = new FormData();
       formData.append("industry", uploadIndustry);
       formData.append("label", uploadLabel.trim() || suggestedLabel);
-      formData.append("zipFile", uploadZipFile);
+      if (uploadVideoFile) {
+        formData.append("videoFile", uploadVideoFile);
+      } else if (uploadZipFile) {
+        formData.append("zipFile", uploadZipFile);
+      }
 
       const response = await fetch("/api/image-sequences", {
         method: "POST",
@@ -101,6 +106,7 @@ export function ImageSequenceLibrarySection() {
       );
       setUploadLabel("");
       setUploadZipFile(null);
+      setUploadVideoFile(null);
       await loadSequences();
     } catch (uploadError) {
       setError(
@@ -144,7 +150,7 @@ export function ImageSequenceLibrarySection() {
     <div className="space-y-6">
       <Panel
         title="Upload image sequence"
-        subtitle={`ZIP of sequential JPG/PNG frames (e.g. frame001.jpg). Up to ${MAX_SEQUENCES_PER_INDUSTRY} per industry.`}
+        subtitle={`ZIP of sequential JPG/PNG frames, or an MP4/WebM/MOV video to extract frames (1920px wide, max JPG quality). Up to ${MAX_SEQUENCES_PER_INDUSTRY} per industry.`}
       >
         <form onSubmit={(event) => void handleUpload(event)} className="space-y-4 px-5 py-5">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -203,9 +209,16 @@ export function ImageSequenceLibrarySection() {
               id="sequenceZip"
               type="file"
               accept=".zip,application/zip,application/x-zip-compressed"
-              disabled={uploading || industryCount >= MAX_SEQUENCES_PER_INDUSTRY}
+              disabled={
+                uploading ||
+                industryCount >= MAX_SEQUENCES_PER_INDUSTRY ||
+                uploadVideoFile !== null
+              }
               onChange={(event) => {
                 setUploadZipFile(event.target.files?.[0] ?? null);
+                if (event.target.files?.[0]) {
+                  setUploadVideoFile(null);
+                }
               }}
               className="block w-full text-sm text-neutral-700 file:mr-3 file:rounded-md file:border file:border-neutral-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-neutral-700 hover:file:bg-neutral-50"
             />
@@ -214,11 +227,40 @@ export function ImageSequenceLibrarySection() {
             ) : null}
           </div>
 
+          <div>
+            <label
+              htmlFor="sequenceVideo"
+              className="mb-2 block text-sm font-medium text-neutral-700"
+            >
+              Or video file
+            </label>
+            <input
+              id="sequenceVideo"
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+              disabled={
+                uploading ||
+                industryCount >= MAX_SEQUENCES_PER_INDUSTRY ||
+                uploadZipFile !== null
+              }
+              onChange={(event) => {
+                setUploadVideoFile(event.target.files?.[0] ?? null);
+                if (event.target.files?.[0]) {
+                  setUploadZipFile(null);
+                }
+              }}
+              className="block w-full text-sm text-neutral-700 file:mr-3 file:rounded-md file:border file:border-neutral-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-neutral-700 hover:file:bg-neutral-50"
+            />
+            {uploadVideoFile ? (
+              <p className="mt-1 text-xs text-neutral-600">{uploadVideoFile.name}</p>
+            ) : null}
+          </div>
+
           <button
             type="submit"
             disabled={
               uploading ||
-              !uploadZipFile ||
+              (!uploadZipFile && !uploadVideoFile) ||
               industryCount >= MAX_SEQUENCES_PER_INDUSTRY
             }
             className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseUrl } from "@/lib/supabase/env";
 import { slugifyIndustry } from "@/lib/video-presets/upload-preset";
 
+import { extractVideoFramesFromBuffer } from "./ffmpeg-frame-extraction";
 import {
   MAX_SEQUENCE_FRAMES,
   MAX_SEQUENCE_ZIP_BYTES,
@@ -12,10 +13,6 @@ import {
 } from "./types";
 
 const FRAME_FILE_PATTERN = /\.(jpe?g|png)$/i;
-
-function sanitizeFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80);
-}
 
 function naturalSort(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
@@ -36,12 +33,62 @@ function getPublicStorageUrl(objectPath: string): string {
   return url;
 }
 
-function contentTypeForFrame(fileName: string): string {
-  if (/\.png$/i.test(fileName)) {
-    return "image/png";
+async function uploadFrameBuffers(
+  frameBuffers: Buffer[],
+  industry: string,
+  extension: ".jpg" | ".png" = ".jpg",
+): Promise<{ framesUrls: string[]; thumbnailUrl: string }> {
+  const industrySlug = slugifyIndustry(industry) || "industry";
+  const sequencePrefix = `hero-sequences/presets/${industrySlug}/${Date.now()}`;
+  const supabase = createAdminClient();
+  const framesUrls: string[] = [];
+  const contentType = extension === ".png" ? "image/png" : "image/jpeg";
+
+  for (let index = 0; index < frameBuffers.length; index++) {
+    const frameBuffer = frameBuffers[index];
+    const paddedIndex = String(index + 1).padStart(4, "0");
+    const objectPath = `${sequencePrefix}/frame-${paddedIndex}${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(SEQUENCE_STORAGE_BUCKET)
+      .upload(objectPath, frameBuffer, {
+        contentType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    framesUrls.push(getPublicStorageUrl(objectPath));
   }
 
-  return "image/jpeg";
+  return {
+    framesUrls,
+    thumbnailUrl: framesUrls[0] ?? "",
+  };
+}
+
+export async function extractAndUploadImageSequenceFromVideo(
+  videoBuffer: Buffer,
+  industry: string,
+  fileName: string,
+): Promise<{ framesUrls: string[]; thumbnailUrl: string }> {
+  const extension = fileName.includes(".")
+    ? fileName.slice(fileName.lastIndexOf("."))
+    : ".mp4";
+
+  const frameBuffers = await extractVideoFramesFromBuffer(videoBuffer, extension, {
+    maxFrames: MAX_SEQUENCE_FRAMES,
+  });
+
+  if (frameBuffers.length < MIN_SEQUENCE_FRAMES) {
+    throw new Error(
+      `Video must yield at least ${MIN_SEQUENCE_FRAMES} frames after extraction.`,
+    );
+  }
+
+  return uploadFrameBuffers(frameBuffers, industry);
 }
 
 export async function extractAndUploadImageSequence(
@@ -67,34 +114,15 @@ export async function extractAndUploadImageSequence(
     throw new Error(`ZIP can contain at most ${MAX_SEQUENCE_FRAMES} frames.`);
   }
 
-  const industrySlug = slugifyIndustry(industry) || "industry";
-  const sequencePrefix = `hero-sequences/presets/${industrySlug}/${Date.now()}`;
-  const supabase = createAdminClient();
-  const framesUrls: string[] = [];
+  const frameBuffers: Buffer[] = [];
+  let extension: ".jpg" | ".png" = ".jpg";
 
-  for (let index = 0; index < frameEntries.length; index++) {
-    const [fileName, entry] = frameEntries[index];
-    const frameBuffer = Buffer.from(await entry.async("nodebuffer"));
-    const paddedIndex = String(index + 1).padStart(4, "0");
-    const extension = /\.png$/i.test(fileName) ? ".png" : ".jpg";
-    const objectPath = `${sequencePrefix}/frame-${paddedIndex}${extension}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(SEQUENCE_STORAGE_BUCKET)
-      .upload(objectPath, frameBuffer, {
-        contentType: contentTypeForFrame(fileName),
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(uploadError.message);
+  for (const [fileName, entry] of frameEntries) {
+    frameBuffers.push(Buffer.from(await entry.async("nodebuffer")));
+    if (/\.png$/i.test(fileName)) {
+      extension = ".png";
     }
-
-    framesUrls.push(getPublicStorageUrl(objectPath));
   }
 
-  return {
-    framesUrls,
-    thumbnailUrl: framesUrls[0] ?? "",
-  };
+  return uploadFrameBuffers(frameBuffers, industry, extension);
 }
