@@ -103,7 +103,6 @@ export function ScrollHeroSequenceHero({
   const sectionRef = useRef<HTMLElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const loopFadeOverlayRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
@@ -112,7 +111,6 @@ export function ScrollHeroSequenceHero({
     const section = sectionRef.current;
     const pin = pinRef.current;
     const canvas = canvasRef.current;
-    const loopOverlay = loopFadeOverlayRef.current;
     if (!section || !pin || !canvas) {
       return;
     }
@@ -144,36 +142,34 @@ export function ScrollHeroSequenceHero({
     let isLoopTransitioning = false;
     let fadeIntervalId = 0;
 
-    const setOverlayOpacity = (opacity: number) => {
-      if (loopOverlay) {
-        loopOverlay.style.opacity = String(opacity);
-      }
+    const setCanvasOpacity = (opacity: number) => {
+      canvas.style.opacity = String(opacity);
     };
 
-    const animateOverlayTo = (target: number): Promise<void> => {
+    const animateCanvasTo = (target: number): Promise<void> => {
       return new Promise((resolve) => {
-        if (cancelled || !loopOverlay) {
+        if (cancelled) {
           resolve();
           return;
         }
 
         window.clearInterval(fadeIntervalId);
 
-        const current = Number.parseFloat(loopOverlay.style.opacity || "0");
+        const current = Number.parseFloat(canvas.style.opacity || "1");
         if (Math.abs(current - target) < 0.001) {
-          setOverlayOpacity(target);
+          setCanvasOpacity(target);
           resolve();
           return;
         }
 
         fadeIntervalId = window.setInterval(() => {
-          if (cancelled || !loopOverlay) {
+          if (cancelled) {
             window.clearInterval(fadeIntervalId);
             resolve();
             return;
           }
 
-          const value = Number.parseFloat(loopOverlay.style.opacity || "0");
+          const value = Number.parseFloat(canvas.style.opacity || "1");
           const direction = target > value ? LOOP_FADE_STEP : -LOOP_FADE_STEP;
           let next = value + direction;
 
@@ -181,13 +177,13 @@ export function ScrollHeroSequenceHero({
             (direction > 0 && next >= target) ||
             (direction < 0 && next <= target)
           ) {
-            setOverlayOpacity(target);
+            setCanvasOpacity(target);
             window.clearInterval(fadeIntervalId);
             resolve();
             return;
           }
 
-          setOverlayOpacity(Math.round(next * 100) / 100);
+          setCanvasOpacity(Math.round(next * 100) / 100);
         }, LOOP_FADE_INTERVAL_MS);
       });
     };
@@ -331,7 +327,7 @@ export function ScrollHeroSequenceHero({
       targetPlaybackRate = isScrolling ? targetPlaybackRate : baseProgressPerSecond;
 
       void (async () => {
-        await animateOverlayTo(1);
+        await animateCanvasTo(0);
         if (cancelled) {
           return;
         }
@@ -340,7 +336,7 @@ export function ScrollHeroSequenceHero({
         drawFrameSync(frameProgress);
         updateTextOverlay(frameProgress);
 
-        await animateOverlayTo(0);
+        await animateCanvasTo(1);
         if (cancelled) {
           return;
         }
@@ -457,7 +453,7 @@ export function ScrollHeroSequenceHero({
       updateTextOverlay(0);
       bindPin();
       drawFrameSync(0);
-      setOverlayOpacity(0);
+      setCanvasOpacity(1);
 
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
       rafId = window.requestAnimationFrame(tick);
@@ -544,18 +540,16 @@ export function ScrollHeroSequenceHero({
         ref={pinRef}
         className="relative flex h-screen w-full items-center justify-center overflow-hidden"
       >
-        <canvas ref={canvasRef} className="absolute inset-0 z-0 block h-full w-full" />
         <div
-          ref={loopFadeOverlayRef}
-          className="pointer-events-none absolute inset-0 z-[5]"
-          style={{ background: "rgba(0, 0, 0, 0.95)", opacity: 0 }}
-          aria-hidden
-        />
-        <div
-          className={`pointer-events-none absolute inset-0 z-[6] bg-black/50 transition-opacity duration-700 ${
+          className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
             loadState === "ready" ? "opacity-100" : "opacity-60"
           }`}
           aria-hidden
+        />
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 z-[1] block h-full w-full"
+          style={{ opacity: 1 }}
         />
         {loadState === "loading" ? (
           <div
