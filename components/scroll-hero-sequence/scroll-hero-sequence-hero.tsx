@@ -25,11 +25,9 @@ const SCROLL_VELOCITY_SCALE = 0.012;
 const PLAYBACK_RATE_LERP = 0.1;
 const SCROLL_IDLE_MS = 140;
 const MAX_SPEED_MULTIPLIER = 5;
-const LOOP_FADE_STEP = 0.05;
-const LOOP_FADE_INTERVAL_MS = 60;
+const LOOP_FADE_FRAME_COUNT = 15;
 const LOOP_FADE_MIN_OPACITY = 0;
 const LOOP_FADE_MAX_OPACITY = 1;
-const BOUNDARY_EPSILON = 0.0001;
 
 function lerp(start: number, end: number, amount: number): number {
   return start + (end - start) * amount;
@@ -89,6 +87,49 @@ function slideY(
   return -fromY;
 }
 
+function wrapProgress(progress: number): number {
+  let wrapped = progress % 1;
+  if (wrapped < 0) {
+    wrapped += 1;
+  }
+  return wrapped;
+}
+
+function getLoopFadeOpacity(frameProgress: number, frameCount: number): number {
+  if (frameCount <= 1) {
+    return LOOP_FADE_MAX_OPACITY;
+  }
+
+  const maxIndex = frameCount - 1;
+  const fadeFrames = Math.min(
+    LOOP_FADE_FRAME_COUNT,
+    Math.max(1, Math.floor(frameCount / 2)),
+  );
+  const exactFrame = clamp(frameProgress, 0, 1) * maxIndex;
+
+  if (exactFrame <= fadeFrames - 1) {
+    if (fadeFrames <= 1) {
+      return LOOP_FADE_MAX_OPACITY;
+    }
+    return lerp(
+      LOOP_FADE_MIN_OPACITY,
+      LOOP_FADE_MAX_OPACITY,
+      exactFrame / (fadeFrames - 1),
+    );
+  }
+
+  const fadeOutStart = maxIndex - fadeFrames + 1;
+  if (exactFrame >= fadeOutStart) {
+    if (fadeFrames <= 1) {
+      return LOOP_FADE_MIN_OPACITY;
+    }
+    const t = (exactFrame - fadeOutStart) / (fadeFrames - 1);
+    return lerp(LOOP_FADE_MAX_OPACITY, LOOP_FADE_MIN_OPACITY, t);
+  }
+
+  return LOOP_FADE_MAX_OPACITY;
+}
+
 export function ScrollHeroSequenceHero({
   sequenceId,
   businessName = "",
@@ -141,57 +182,13 @@ export function ScrollHeroSequenceHero({
     let lastScrollY = window.scrollY;
     let isScrolling = false;
     let allFramesLoaded = false;
-    let isLoopTransitioning = false;
-    let fadeIntervalId = 0;
 
     const setCanvasOpacity = (opacity: number) => {
       canvas.style.opacity = String(opacity);
     };
 
-    const animateCanvasTo = (target: number): Promise<void> => {
-      return new Promise((resolve) => {
-        if (cancelled) {
-          resolve();
-          return;
-        }
-
-        window.clearInterval(fadeIntervalId);
-
-        const current = Number.parseFloat(
-          canvas.style.opacity || String(LOOP_FADE_MAX_OPACITY),
-        );
-        if (Math.abs(current - target) < 0.001) {
-          setCanvasOpacity(target);
-          resolve();
-          return;
-        }
-
-        fadeIntervalId = window.setInterval(() => {
-          if (cancelled) {
-            window.clearInterval(fadeIntervalId);
-            resolve();
-            return;
-          }
-
-          const value = Number.parseFloat(
-            canvas.style.opacity || String(LOOP_FADE_MAX_OPACITY),
-          );
-          const direction = target > value ? LOOP_FADE_STEP : -LOOP_FADE_STEP;
-          let next = value + direction;
-
-          if (
-            (direction > 0 && next >= target) ||
-            (direction < 0 && next <= target)
-          ) {
-            setCanvasOpacity(target);
-            window.clearInterval(fadeIntervalId);
-            resolve();
-            return;
-          }
-
-          setCanvasOpacity(Math.round(next * 100) / 100);
-        }, LOOP_FADE_INTERVAL_MS);
-      });
+    const updateCanvasLoopFade = () => {
+      setCanvasOpacity(getLoopFadeOpacity(frameProgress, frameUrls.length));
     };
 
     const resizeCanvas = () => {
@@ -323,44 +320,8 @@ export function ScrollHeroSequenceHero({
       return baseProgressPerSecond;
     };
 
-    const runLoopTransition = (newProgress: number) => {
-      if (isLoopTransitioning || cancelled) {
-        return;
-      }
-
-      isLoopTransitioning = true;
-      playbackRate = 0;
-      targetPlaybackRate = isScrolling ? targetPlaybackRate : baseProgressPerSecond;
-
-      void (async () => {
-        await animateCanvasTo(LOOP_FADE_MIN_OPACITY);
-        if (cancelled) {
-          return;
-        }
-
-        frameProgress = newProgress;
-        drawFrameSync(frameProgress);
-        updateTextOverlay(frameProgress);
-
-        await animateCanvasTo(LOOP_FADE_MAX_OPACITY);
-        if (cancelled) {
-          return;
-        }
-
-        isLoopTransitioning = false;
-        if (!isScrolling) {
-          targetPlaybackRate = baseProgressPerSecond;
-        }
-      })();
-    };
-
     const tick = (now: number) => {
       if (cancelled || !allFramesLoaded) {
-        return;
-      }
-
-      if (isLoopTransitioning) {
-        rafId = window.requestAnimationFrame(tick);
         return;
       }
 
@@ -381,35 +342,16 @@ export function ScrollHeroSequenceHero({
 
       playbackRate = lerp(playbackRate, targetPlaybackRate, PLAYBACK_RATE_LERP);
 
-      const nextProgress = frameProgress + playbackRate * dt;
-
-      if (nextProgress >= 1 && playbackRate > BOUNDARY_EPSILON) {
-        frameProgress = 1;
-        drawFrameSync(frameProgress);
-        updateTextOverlay(frameProgress);
-        runLoopTransition(0);
-        rafId = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      if (nextProgress <= 0 && playbackRate < -BOUNDARY_EPSILON) {
-        frameProgress = 0;
-        drawFrameSync(frameProgress);
-        updateTextOverlay(frameProgress);
-        runLoopTransition(1);
-        rafId = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      frameProgress = clamp(nextProgress, 0, 1);
+      frameProgress = wrapProgress(frameProgress + playbackRate * dt);
       drawFrameSync(frameProgress);
       updateTextOverlay(frameProgress);
+      updateCanvasLoopFade();
 
       rafId = window.requestAnimationFrame(tick);
     };
 
     const onScroll = () => {
-      if (cancelled || !allFramesLoaded || isLoopTransitioning) {
+      if (cancelled || !allFramesLoaded) {
         return;
       }
 
@@ -459,7 +401,7 @@ export function ScrollHeroSequenceHero({
       updateTextOverlay(0);
       bindPin();
       drawFrameSync(0);
-      setCanvasOpacity(LOOP_FADE_MAX_OPACITY);
+      updateCanvasLoopFade();
 
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
       rafId = window.requestAnimationFrame(tick);
@@ -528,7 +470,6 @@ export function ScrollHeroSequenceHero({
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       window.clearTimeout(scrollIdleTimer);
-      window.clearInterval(fadeIntervalId);
       window.cancelAnimationFrame(rafId);
       ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
     };
