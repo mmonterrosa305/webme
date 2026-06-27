@@ -173,7 +173,9 @@ export function ScrollHeroSequenceHero({
             return;
           }
 
-          const value = Number.parseFloat(canvas.style.opacity || "1");
+          const value = Number.parseFloat(
+            canvas.style.opacity || String(LOOP_FADE_MAX_OPACITY),
+          );
           const direction = target > value ? LOOP_FADE_STEP : -LOOP_FADE_STEP;
           let next = value + direction;
 
