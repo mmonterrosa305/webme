@@ -27,6 +27,8 @@ const SCROLL_IDLE_MS = 140;
 const MAX_SPEED_MULTIPLIER = 5;
 const LOOP_FADE_STEP = 0.05;
 const LOOP_FADE_INTERVAL_MS = 60;
+const LOOP_FADE_MIN_OPACITY = 0.15;
+const LOOP_FADE_MAX_OPACITY = 1;
 const BOUNDARY_EPSILON = 0.0001;
 
 function lerp(start: number, end: number, amount: number): number {
@@ -155,7 +157,9 @@ export function ScrollHeroSequenceHero({
 
         window.clearInterval(fadeIntervalId);
 
-        const current = Number.parseFloat(canvas.style.opacity || "1");
+        const current = Number.parseFloat(
+          canvas.style.opacity || String(LOOP_FADE_MAX_OPACITY),
+        );
         if (Math.abs(current - target) < 0.001) {
           setCanvasOpacity(target);
           resolve();
@@ -327,7 +331,7 @@ export function ScrollHeroSequenceHero({
       targetPlaybackRate = isScrolling ? targetPlaybackRate : baseProgressPerSecond;
 
       void (async () => {
-        await animateCanvasTo(0);
+        await animateCanvasTo(LOOP_FADE_MIN_OPACITY);
         if (cancelled) {
           return;
         }
@@ -336,7 +340,7 @@ export function ScrollHeroSequenceHero({
         drawFrameSync(frameProgress);
         updateTextOverlay(frameProgress);
 
-        await animateCanvasTo(1);
+        await animateCanvasTo(LOOP_FADE_MAX_OPACITY);
         if (cancelled) {
           return;
         }
@@ -453,7 +457,7 @@ export function ScrollHeroSequenceHero({
       updateTextOverlay(0);
       bindPin();
       drawFrameSync(0);
-      setCanvasOpacity(1);
+      setCanvasOpacity(LOOP_FADE_MAX_OPACITY);
 
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
       rafId = window.requestAnimationFrame(tick);
@@ -534,32 +538,28 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative h-[400vh] w-full"
+      className="relative h-[400vh] w-full bg-transparent"
+      style={{ background: "transparent" }}
     >
       <div
         ref={pinRef}
-        className="relative flex h-screen w-full items-center justify-center overflow-hidden"
+        className="relative flex h-screen w-full items-center justify-center overflow-hidden bg-transparent"
+        style={{ background: "transparent" }}
       >
-        <div
-          className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
-            loadState === "ready" ? "opacity-100" : "opacity-60"
-          }`}
-          aria-hidden
-        />
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 z-[1] block h-full w-full"
-          style={{ opacity: 1 }}
+          className="absolute inset-0 z-[1] block h-full w-full bg-transparent"
+          style={{ opacity: LOOP_FADE_MAX_OPACITY, background: "transparent" }}
         />
         {loadState === "loading" ? (
           <div
-            className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
+            className="absolute inset-0 z-20 flex items-center justify-center bg-transparent"
             aria-live="polite"
             aria-busy="true"
           >
             <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-              <span className="text-sm font-medium tracking-wide text-white/80">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
+              <span className="text-sm font-medium tracking-wide text-neutral-600">
                 Loading sequence…
               </span>
             </div>
