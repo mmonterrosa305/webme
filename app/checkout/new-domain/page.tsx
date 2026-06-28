@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 import {
@@ -18,20 +19,23 @@ const REGISTRARS = [
   {
     name: "GoDaddy",
     href: "https://www.godaddy.com/",
-    initials: "GD",
-    color: "bg-emerald-600",
+    logoSrc: "/registrars/godaddy.svg",
+    logoWidth: 160,
+    logoHeight: 33,
   },
   {
     name: "Namecheap",
     href: "https://www.namecheap.com/",
-    initials: "NC",
-    color: "bg-orange-500",
+    logoSrc: "/registrars/namecheap.svg",
+    logoWidth: 160,
+    logoHeight: 89,
   },
   {
     name: "HostGator",
     href: "https://www.hostgator.com/",
-    initials: "HG",
-    color: "bg-blue-600",
+    logoSrc: "/registrars/hostgator.svg",
+    logoWidth: 160,
+    logoHeight: 29,
   },
 ] as const;
 
@@ -77,21 +81,25 @@ function NewDomainContent() {
       title="Choose a domain registrar"
       subtitle="Purchase your domain at any registrar below. Affiliate links coming soon — these open the registrar homepage for now."
     >
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         {REGISTRARS.map((registrar) => (
           <a
             key={registrar.name}
             href={registrar.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col items-center rounded-xl border border-neutral-200 bg-white p-4 text-center transition hover:border-neutral-900 hover:shadow-sm"
+            className="group flex flex-col items-center rounded-2xl border border-neutral-200 bg-white px-6 py-8 text-center shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md"
           >
-            <span
-              className={`flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white ${registrar.color}`}
-            >
-              {registrar.initials}
-            </span>
-            <span className="mt-3 text-sm font-semibold text-neutral-900">
+            <div className="flex h-20 w-full items-center justify-center">
+              <Image
+                src={registrar.logoSrc}
+                alt={`${registrar.name} logo`}
+                width={registrar.logoWidth}
+                height={registrar.logoHeight}
+                className="h-auto max-h-16 w-auto max-w-[160px] object-contain transition duration-200 group-hover:scale-[1.02]"
+              />
+            </div>
+            <span className="mt-5 text-sm font-semibold text-neutral-900">
               {registrar.name}
             </span>
           </a>
