@@ -4,52 +4,62 @@ import {
   resolveRenderServiceId,
   triggerRenderDeploy,
   updateRenderServiceEnvVar,
+  validateRenderApiKey,
 } from "@/lib/render/client";
-import {
-  createFlatPricingPrices,
-  getStripeModeFromSecretKey,
-} from "@/lib/stripe/create-flat-pricing-prices";
 import {
   STRIPE_HOSTING_SUB_PRICE_ENV,
   STRIPE_SITE_BUILD_PRICE_ENV,
 } from "@/lib/plans/pricing";
+import {
+  createFlatPricingPrices,
+  getStripeModeFromSecretKey,
+} from "@/lib/stripe/create-flat-pricing-prices";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-function isAuthorized(request: Request): boolean {
+function getQueryParam(request: Request, name: string): string | undefined {
+  return new URL(request.url).searchParams.get(name)?.trim() || undefined;
+}
+
+async function resolveAuthorizedRenderApiKey(
+  request: Request,
+): Promise<string | null> {
+  const envRenderKey = process.env.RENDER_API_KEY?.trim();
   const cronSecret = process.env.CRON_SECRET?.trim();
-  const renderApiKey = process.env.RENDER_API_KEY?.trim();
-  const url = new URL(request.url);
-  const querySecret = url.searchParams.get("secret")?.trim();
-  const queryKey = url.searchParams.get("key")?.trim();
+  const queryKey = getQueryParam(request, "key");
+  const querySecret = getQueryParam(request, "secret");
   const authHeader = request.headers.get("authorization")?.trim();
 
-  if (cronSecret && querySecret === cronSecret) {
-    return true;
+  if (cronSecret && (querySecret === cronSecret || authHeader === `Bearer ${cronSecret}`)) {
+    return envRenderKey ?? queryKey ?? null;
   }
 
-  if (renderApiKey && queryKey === renderApiKey) {
-    return true;
+  if (queryKey) {
+    if (envRenderKey && queryKey === envRenderKey) {
+      return queryKey;
+    }
+
+    if (await validateRenderApiKey(queryKey)) {
+      return queryKey;
+    }
   }
 
-  if (renderApiKey && authHeader === `Bearer ${renderApiKey}`) {
-    return true;
+  if (envRenderKey && authHeader === `Bearer ${envRenderKey}`) {
+    return envRenderKey;
   }
 
-  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-    return true;
-  }
-
-  return false;
+  return null;
 }
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  const renderApiKey = await resolveAuthorizedRenderApiKey(request);
+
+  if (!renderApiKey) {
     return NextResponse.json(
       {
         error:
-          "Unauthorized. Visit with ?secret=CRON_SECRET or ?key=RENDER_API_KEY.",
+          "Unauthorized. Visit with ?key=YOUR_RENDER_API_KEY or ?secret=CRON_SECRET.",
       },
       { status: 401 },
     );
@@ -69,23 +79,25 @@ export async function GET(request: Request) {
     const { siteBuildPriceId, hostingSubPriceId } =
       await createFlatPricingPrices();
 
-    const serviceId = await resolveRenderServiceId();
+    const serviceId = await resolveRenderServiceId(renderApiKey);
 
     await updateRenderServiceEnvVar(
       serviceId,
       STRIPE_SITE_BUILD_PRICE_ENV,
       siteBuildPriceId,
+      renderApiKey,
     );
     await updateRenderServiceEnvVar(
       serviceId,
       STRIPE_HOSTING_SUB_PRICE_ENV,
       hostingSubPriceId,
+      renderApiKey,
     );
 
     let deployId: string | null = null;
 
     try {
-      deployId = await triggerRenderDeploy(serviceId);
+      deployId = await triggerRenderDeploy(serviceId, renderApiKey);
     } catch (deployError) {
       console.warn("[admin/setup-stripe] Render deploy trigger failed:", deployError);
     }
