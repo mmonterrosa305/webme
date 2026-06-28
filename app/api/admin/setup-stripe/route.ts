@@ -4,7 +4,6 @@ import {
   resolveRenderServiceId,
   triggerRenderDeploy,
   updateRenderServiceEnvVar,
-  validateRenderApiKey,
 } from "@/lib/render/client";
 import {
   STRIPE_HOSTING_SUB_PRICE_ENV,
@@ -18,54 +17,27 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-function getQueryParam(request: Request, name: string): string | undefined {
-  return new URL(request.url).searchParams.get(name)?.trim() || undefined;
-}
+function resolveRenderApiKey(request: Request): string | undefined {
+  const queryKey = new URL(request.url).searchParams.get("key")?.trim();
+  const envKey = process.env.RENDER_API_KEY?.trim();
 
-async function resolveAuthorizedRenderApiKey(
-  request: Request,
-): Promise<string | null> {
-  const envRenderKey = process.env.RENDER_API_KEY?.trim();
-  const cronSecret = process.env.CRON_SECRET?.trim();
-  const queryKey = getQueryParam(request, "key");
-  const querySecret = getQueryParam(request, "secret");
-  const authHeader = request.headers.get("authorization")?.trim();
-
-  if (cronSecret && (querySecret === cronSecret || authHeader === `Bearer ${cronSecret}`)) {
-    return envRenderKey ?? queryKey ?? null;
-  }
-
-  if (queryKey) {
-    if (envRenderKey && queryKey === envRenderKey) {
-      return queryKey;
-    }
-
-    if (await validateRenderApiKey(queryKey)) {
-      return queryKey;
-    }
-  }
-
-  if (envRenderKey && authHeader === `Bearer ${envRenderKey}`) {
-    return envRenderKey;
-  }
-
-  return null;
+  return queryKey || envKey;
 }
 
 export async function GET(request: Request) {
-  const renderApiKey = await resolveAuthorizedRenderApiKey(request);
-
-  if (!renderApiKey) {
-    return NextResponse.json(
-      {
-        error:
-          "Unauthorized. Visit with ?key=YOUR_RENDER_API_KEY or ?secret=CRON_SECRET.",
-      },
-      { status: 401 },
-    );
-  }
-
   try {
+    const renderApiKey = resolveRenderApiKey(request);
+
+    if (!renderApiKey) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing Render API key. Pass ?key=YOUR_RENDER_API_KEY or set RENDER_API_KEY on the server.",
+        },
+        { status: 400 },
+      );
+    }
+
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
 
     if (!stripeSecretKey) {
