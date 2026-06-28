@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
-import { STANDARD_PLAN_ID } from "@/lib/plans/pricing";
+import { STANDARD_PLAN_ID, HOSTING_TRIAL_DAYS } from "@/lib/plans/pricing";
 import { getAppUrl, getStripe } from "@/lib/stripe";
 import { getStripeCheckoutPriceIds } from "@/lib/stripe/price-env";
 
@@ -44,7 +44,10 @@ export async function POST(request: Request) {
         plan: STANDARD_PLAN_ID,
         business_name: lead.business_name,
       },
-      subscription_data: { metadata: subscriptionMetadata },
+      subscription_data: {
+        trial_period_days: HOSTING_TRIAL_DAYS,
+        metadata: subscriptionMetadata,
+      },
       success_url: `${appUrl}/preview/${slug}?checkout=success`,
       cancel_url: `${appUrl}/preview/${slug}?checkout=canceled`,
     });

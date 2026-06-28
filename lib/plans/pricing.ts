@@ -8,8 +8,10 @@ export const HOSTING_MONTHLY_FEE = 9.99;
 
 export const SITE_BUILD_FEE_DISPLAY = "$299";
 export const HOSTING_MONTHLY_FEE_DISPLAY = "$9.99/mo";
-export const PRICING_HEADLINE = "$299 + $9.99/mo hosting";
-export const PRICING_SUBLINE = "$299 one-time site build + $9.99/mo hosting";
+export const PRICING_HEADLINE = "$299 + first month free, then $9.99/mo hosting";
+export const PRICING_SUBLINE = "$299 one-time site build · first month of hosting free";
+
+export const HOSTING_TRIAL_DAYS = 30;
 
 export const PLAN_AMOUNTS = {
   oneTimeAmount: SITE_BUILD_FEE,
