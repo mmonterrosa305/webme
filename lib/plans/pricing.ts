@@ -48,9 +48,12 @@ export function isActiveClientPlan(plan: string): plan is ClientPlan {
 }
 
 export function getStripePriceToPlanMap(): Record<string, ClientPlan> {
+  const siteBuildPriceId = process.env.STRIPE_SITE_BUILD_PRICE_ID?.trim();
+  const hostingSubPriceId = process.env.STRIPE_HOSTING_SUB_PRICE_ID?.trim();
+
   const entries: Array<[string | undefined, ClientPlan]> = [
-    [process.env[STRIPE_HOSTING_SUB_PRICE_ENV]?.trim(), STANDARD_PLAN_ID],
-    [process.env[STRIPE_SITE_BUILD_PRICE_ENV]?.trim(), STANDARD_PLAN_ID],
+    [hostingSubPriceId, STANDARD_PLAN_ID],
+    [siteBuildPriceId, STANDARD_PLAN_ID],
     // Legacy price IDs — keep for existing subscriptions and webhooks
     [process.env.STRIPE_MONTHLY_PRICE_ID?.trim(), "monthly"],
     [process.env.STRIPE_STARTER_SUB_PRICE_ID?.trim(), "starter"],
