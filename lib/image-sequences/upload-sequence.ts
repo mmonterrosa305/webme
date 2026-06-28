@@ -12,7 +12,9 @@ import {
   SEQUENCE_STORAGE_BUCKET,
 } from "./types";
 
-const FRAME_FILE_PATTERN = /\.(jpe?g|png)$/i;
+const FRAME_FILE_PATTERN = /\.(jpe?g|png|webp)$/i;
+
+type FrameExtension = ".jpg" | ".png" | ".webp";
 
 function naturalSort(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
@@ -33,16 +35,39 @@ function getPublicStorageUrl(objectPath: string): string {
   return url;
 }
 
+function frameContentType(extension: FrameExtension): string {
+  if (extension === ".png") {
+    return "image/png";
+  }
+  if (extension === ".webp") {
+    return "image/webp";
+  }
+  return "image/jpeg";
+}
+
+function extensionFromFileName(fileName: string): FrameExtension | null {
+  if (/\.png$/i.test(fileName)) {
+    return ".png";
+  }
+  if (/\.webp$/i.test(fileName)) {
+    return ".webp";
+  }
+  if (/\.jpe?g$/i.test(fileName)) {
+    return ".jpg";
+  }
+  return null;
+}
+
 async function uploadFrameBuffers(
   frameBuffers: Buffer[],
   industry: string,
-  extension: ".jpg" | ".png" = ".jpg",
+  extension: FrameExtension = ".webp",
 ): Promise<{ framesUrls: string[]; thumbnailUrl: string }> {
   const industrySlug = slugifyIndustry(industry) || "industry";
   const sequencePrefix = `hero-sequences/presets/${industrySlug}/${Date.now()}`;
   const supabase = createAdminClient();
   const framesUrls: string[] = [];
-  const contentType = extension === ".png" ? "image/png" : "image/jpeg";
+  const contentType = frameContentType(extension);
 
   for (let index = 0; index < frameBuffers.length; index++) {
     const frameBuffer = frameBuffers[index];
@@ -88,7 +113,7 @@ export async function extractAndUploadImageSequenceFromVideo(
     );
   }
 
-  return uploadFrameBuffers(frameBuffers, industry);
+  return uploadFrameBuffers(frameBuffers, industry, ".webp");
 }
 
 export async function extractAndUploadImageSequence(
@@ -106,7 +131,7 @@ export async function extractAndUploadImageSequence(
 
   if (frameEntries.length < MIN_SEQUENCE_FRAMES) {
     throw new Error(
-      `ZIP must contain at least ${MIN_SEQUENCE_FRAMES} JPG/PNG frames.`,
+      `ZIP must contain at least ${MIN_SEQUENCE_FRAMES} JPG, PNG, or WebP frames.`,
     );
   }
 
@@ -115,11 +140,14 @@ export async function extractAndUploadImageSequence(
   }
 
   const frameBuffers: Buffer[] = [];
-  let extension: ".jpg" | ".png" = ".jpg";
+  let extension: FrameExtension = ".jpg";
 
   for (const [fileName, entry] of frameEntries) {
     frameBuffers.push(Buffer.from(await entry.async("nodebuffer")));
-    if (/\.png$/i.test(fileName)) {
+    const entryExtension = extensionFromFileName(fileName);
+    if (entryExtension === ".webp") {
+      extension = ".webp";
+    } else if (entryExtension === ".png" && extension !== ".webp") {
       extension = ".png";
     }
   }

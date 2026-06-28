@@ -5,7 +5,7 @@ import {
   DEFAULT_EXTRACT_FPS,
   extractVideoFramesFromFile,
   FFMPEG_FRAME_SCALE,
-  FFMPEG_JPEG_QUALITY,
+  FFMPEG_WEBP_QUALITY,
 } from "../lib/image-sequences/ffmpeg-frame-extraction";
 
 async function main() {
@@ -21,7 +21,7 @@ async function main() {
 
   console.log("Extracting frames with defaults:", {
     scale: FFMPEG_FRAME_SCALE,
-    jpegQuality: FFMPEG_JPEG_QUALITY,
+    webpQuality: FFMPEG_WEBP_QUALITY,
     fps: DEFAULT_EXTRACT_FPS,
   });
 
@@ -32,7 +32,7 @@ async function main() {
     const paddedIndex = String(index + 1).padStart(4, "0");
     const outputPath = join(
       outputDir,
-      `${basename(videoPath, extname(videoPath))}-frame-${paddedIndex}.jpg`,
+      `${basename(videoPath, extname(videoPath))}-frame-${paddedIndex}.webp`,
     );
     await writeFile(outputPath, frames[index]);
   }

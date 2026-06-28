@@ -21,7 +21,7 @@ export default function VideoLibraryPage() {
         <PageHeader
           eyebrow="Scroll animation"
           title="Image Sequences"
-          description="Upload ZIP files of sequential frames for canvas-based scroll scrubbing on generated sites."
+          description="Accepts ZIP of JPG, PNG, or WebP frames for canvas-based scroll scrubbing on generated sites."
         />
         <ImageSequenceLibrarySection />
       </div>

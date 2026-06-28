@@ -7,8 +7,8 @@ import { promisify } from "node:util";
 /** Default ffmpeg scale filter: 1920px wide, preserve aspect ratio. */
 export const FFMPEG_FRAME_SCALE = "1920:-1";
 
-/** Default ffmpeg JPEG quality (-q:v 1 is maximum quality). */
-export const FFMPEG_JPEG_QUALITY = 1;
+/** Default ffmpeg WebP quality (-q:v 90 is high quality). */
+export const FFMPEG_WEBP_QUALITY = 90;
 
 export const DEFAULT_EXTRACT_FPS = 24;
 
@@ -21,7 +21,7 @@ function naturalSort(a: string, b: string): number {
 export type ExtractVideoFramesOptions = {
   fps?: number;
   scale?: string;
-  jpegQuality?: number;
+  webpQuality?: number;
   maxFrames?: number;
 };
 
@@ -31,7 +31,7 @@ function buildFfmpegExtractArgs(
   options: ExtractVideoFramesOptions = {},
 ): string[] {
   const scale = options.scale ?? FFMPEG_FRAME_SCALE;
-  const jpegQuality = options.jpegQuality ?? FFMPEG_JPEG_QUALITY;
+  const webpQuality = options.webpQuality ?? FFMPEG_WEBP_QUALITY;
   const fps = options.fps ?? DEFAULT_EXTRACT_FPS;
 
   const args = [
@@ -42,8 +42,10 @@ function buildFfmpegExtractArgs(
     videoPath,
     "-vf",
     `fps=${fps},scale=${scale}`,
+    "-c:v",
+    "libwebp",
     "-q:v",
-    String(jpegQuality),
+    String(webpQuality),
   ];
 
   if (options.maxFrames !== undefined) {
@@ -61,13 +63,13 @@ export async function extractVideoFramesFromFile(
   const outputDir = await mkdtemp(join(tmpdir(), "webme-seq-frames-"));
 
   try {
-    const outputPattern = join(outputDir, "frame-%04d.jpg");
+    const outputPattern = join(outputDir, "frame-%04d.webp");
     await execFileAsync("ffmpeg", buildFfmpegExtractArgs(videoPath, outputPattern, options), {
       maxBuffer: 50 * 1024 * 1024,
     });
 
     const files = (await readdir(outputDir))
-      .filter((name) => /^frame-\d+\.jpg$/i.test(name))
+      .filter((name) => /^frame-\d+\.webp$/i.test(name))
       .sort((a, b) => naturalSort(a, b));
 
     const buffers: Buffer[] = [];

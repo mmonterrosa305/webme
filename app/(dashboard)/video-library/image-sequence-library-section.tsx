@@ -150,7 +150,7 @@ export function ImageSequenceLibrarySection() {
     <div className="space-y-6">
       <Panel
         title="Upload image sequence"
-        subtitle={`ZIP of sequential JPG/PNG frames, or an MP4/WebM/MOV video to extract frames (1920px wide, max JPG quality). Up to ${MAX_SEQUENCES_PER_INDUSTRY} per industry.`}
+        subtitle={`Accepts ZIP of JPG, PNG, or WebP frames, or an MP4/WebM/MOV video to extract WebP frames (1920px wide, quality 90). Up to ${MAX_SEQUENCES_PER_INDUSTRY} per industry.`}
       >
         <form onSubmit={(event) => void handleUpload(event)} className="space-y-4 px-5 py-5">
           <div className="grid gap-4 sm:grid-cols-2">

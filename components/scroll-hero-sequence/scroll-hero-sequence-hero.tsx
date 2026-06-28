@@ -95,6 +95,49 @@ function wrapProgress(progress: number): number {
   return wrapped;
 }
 
+function isWebpFrameUrl(url: string): boolean {
+  return /\.webp(?:$|\?)/i.test(url);
+}
+
+function loadImageElement(
+  src: string,
+  crossOrigin?: "anonymous",
+): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.decoding = "async";
+    if (crossOrigin) {
+      img.crossOrigin = crossOrigin;
+    }
+    img.onload = () => {
+      void img.decode?.().then(() => resolve(img)).catch(() => resolve(img));
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+async function loadFrameImage(url: string): Promise<HTMLImageElement | null> {
+  if (!isWebpFrameUrl(url)) {
+    return loadImageElement(url, "anonymous");
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return loadImageElement(url, "anonymous");
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const img = await loadImageElement(objectUrl);
+    URL.revokeObjectURL(objectUrl);
+    return img;
+  } catch {
+    return loadImageElement(url, "anonymous");
+  }
+}
+
 function getLoopFadeOpacity(frameProgress: number, frameCount: number): number {
   if (frameCount <= 1) {
     return LOOP_FADE_MAX_OPACITY;
@@ -219,26 +262,19 @@ export function ScrollHeroSequenceHero({
       ctx.drawImage(img, dx, dy, dw, dh);
     };
 
-    const loadImageAt = (index: number): Promise<HTMLImageElement | null> => {
+    const loadImageAt = async (index: number): Promise<HTMLImageElement | null> => {
       if (index < 0 || index >= frameUrls.length) {
-        return Promise.resolve(null);
+        return null;
       }
       if (imageCache[index]) {
-        return Promise.resolve(imageCache[index]);
+        return imageCache[index];
       }
 
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.decoding = "async";
-        img.onload = () => {
-          imageCache[index] = img;
-          resolve(img);
-        };
-        img.onerror = () => {
-          resolve(null);
-        };
-        img.src = frameUrls[index];
-      });
+      const img = await loadFrameImage(frameUrls[index]);
+      if (img) {
+        imageCache[index] = img;
+      }
+      return img;
     };
 
     const preloadAllFrames = async (): Promise<boolean> => {
