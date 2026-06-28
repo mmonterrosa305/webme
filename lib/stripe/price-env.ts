@@ -1,20 +1,23 @@
-function getRequiredEnv(name: "STRIPE_SITE_BUILD_PRICE_ID" | "STRIPE_HOSTING_SUB_PRICE_ID"): string {
-  // Bracket access so Next.js does not inline stale values at build time.
+const LIVE_SITE_BUILD_PRICE_ID = "price_1Tn74SCmxMwUNkLyegoeNttP";
+const LIVE_HOSTING_SUB_PRICE_ID = "price_1Tn74SCmxMwUNkLypO8tBXwk";
+
+function getEnvOrFallback(
+  name: "STRIPE_SITE_BUILD_PRICE_ID" | "STRIPE_HOSTING_SUB_PRICE_ID",
+  fallback: string,
+): string {
   const value = process.env[name]?.trim();
-
-  if (!value) {
-    throw new Error(`Missing ${name} environment variable.`);
-  }
-
-  return value;
+  return value || fallback;
 }
 
 export function getStripeSiteBuildPriceId(): string {
-  return getRequiredEnv("STRIPE_SITE_BUILD_PRICE_ID");
+  return getEnvOrFallback("STRIPE_SITE_BUILD_PRICE_ID", LIVE_SITE_BUILD_PRICE_ID);
 }
 
 export function getStripeHostingSubPriceId(): string {
-  return getRequiredEnv("STRIPE_HOSTING_SUB_PRICE_ID");
+  return getEnvOrFallback(
+    "STRIPE_HOSTING_SUB_PRICE_ID",
+    LIVE_HOSTING_SUB_PRICE_ID,
+  );
 }
 
 export function getStripeCheckoutPriceIds(): {
