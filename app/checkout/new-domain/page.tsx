@@ -15,27 +15,32 @@ import {
   useCheckoutRouter,
 } from "../_components/checkout-flow";
 
+const LOGO_SIZE = {
+  width: 160,
+  height: 33,
+} as const;
+
 const REGISTRARS = [
   {
     name: "GoDaddy",
     href: "https://www.godaddy.com/",
     logoSrc: "/registrars/godaddy.svg",
-    logoWidth: 160,
-    logoHeight: 33,
+    logoWidth: LOGO_SIZE.width,
+    logoHeight: LOGO_SIZE.height,
   },
   {
     name: "Namecheap",
     href: "https://www.namecheap.com/",
     logoSrc: "/registrars/namecheap.svg",
-    logoWidth: 160,
-    logoHeight: 89,
+    logoWidth: LOGO_SIZE.width,
+    logoHeight: LOGO_SIZE.height,
   },
   {
     name: "HostGator",
     href: "https://www.hostgator.com/",
     logoSrc: "/registrars/hostgator.svg",
-    logoWidth: 160,
-    logoHeight: 29,
+    logoWidth: LOGO_SIZE.width,
+    logoHeight: LOGO_SIZE.height,
   },
 ] as const;
 
@@ -90,13 +95,13 @@ function NewDomainContent() {
             rel="noopener noreferrer"
             className="group flex flex-col items-center rounded-2xl border border-neutral-200 bg-white px-6 py-8 text-center shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md"
           >
-            <div className="flex h-20 w-full items-center justify-center">
+            <div className="flex min-h-[96px] w-full items-center justify-center">
               <Image
                 src={registrar.logoSrc}
                 alt={`${registrar.name} logo`}
                 width={registrar.logoWidth}
                 height={registrar.logoHeight}
-                className="h-auto max-h-16 w-auto max-w-[160px] object-contain transition duration-200 group-hover:scale-[1.02]"
+                className="h-auto w-[160px] object-contain transition duration-200 group-hover:scale-[1.02]"
               />
             </div>
             <span className="mt-5 text-sm font-semibold text-neutral-900">
