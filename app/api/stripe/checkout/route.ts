@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         trial_period_days: HOSTING_TRIAL_DAYS,
         metadata: subscriptionMetadata,
       },
-      success_url: `${appUrl}/preview/${slug}?checkout=success`,
+      success_url: `${appUrl}/checkout/success?slug=${encodeURIComponent(slug)}`,
       cancel_url: `${appUrl}/preview/${slug}?checkout=canceled`,
     });
 
