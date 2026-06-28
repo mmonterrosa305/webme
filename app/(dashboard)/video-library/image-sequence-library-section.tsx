@@ -24,6 +24,9 @@ export function ImageSequenceLibrarySection() {
   const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -65,6 +68,18 @@ export function ImageSequenceLibrarySection() {
   useEffect(() => {
     void loadSequences();
   }, [loadSequences]);
+
+  useEffect(() => {
+    setSelectedSequenceId(null);
+  }, [uploadIndustry]);
+
+  useEffect(() => {
+    setSelectedSequenceId((current) =>
+      current && filteredSequences.some((sequence) => sequence.id === current)
+        ? current
+        : null,
+    );
+  }, [filteredSequences]);
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -284,8 +299,8 @@ export function ImageSequenceLibrarySection() {
           <div className="space-y-4 px-5 py-5">
             <PresetImageSequencePicker
               industry={uploadIndustry}
-              selectedSequenceId={null}
-              onSelectedSequenceIdChange={() => {}}
+              selectedSequenceId={selectedSequenceId}
+              onSelectedSequenceIdChange={setSelectedSequenceId}
               enabled
               showAutoSelect={false}
               gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
