@@ -7,6 +7,7 @@ import {
 import {
   countImageSequencesForIndustry,
   createImageSequence,
+  getImageSequenceById,
   listImageSequences,
 } from "@/lib/image-sequences/queries";
 import {
@@ -17,9 +18,27 @@ import { MAX_SEQUENCES_PER_INDUSTRY } from "@/lib/image-sequences/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
+export const dynamic = "force-dynamic";
 
 function jsonError(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status });
+  return NextResponse.json(
+    { error: message },
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    },
+  );
+}
+
+function jsonOk(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+    },
+  });
 }
 
 export async function GET(request: Request) {
@@ -27,7 +46,19 @@ export async function GET(request: Request) {
     const industry = new URL(request.url).searchParams.get("industry")?.trim();
     const sequences = await listImageSequences(industry || undefined);
 
-    return NextResponse.json({ sequences });
+    console.log("[image-sequences GET]", {
+      industryFilter: industry || null,
+      count: sequences.length,
+      sequences: sequences.map((sequence) => ({
+        id: sequence.id,
+        industry: sequence.industry,
+        label: sequence.label,
+        frame_count: sequence.frame_count,
+        created_at: sequence.created_at,
+      })),
+    });
+
+    return jsonOk({ sequences });
   } catch (error) {
     const message =
       error instanceof Error
@@ -120,7 +151,26 @@ export async function POST(request: Request) {
       thumbnailUrl,
     });
 
-    return NextResponse.json({ sequence });
+    const verified = await getImageSequenceById(sequence.id);
+    if (!verified) {
+      console.error("[image-sequences POST] Insert verification failed", {
+        industry,
+        sequenceId: sequence.id,
+      });
+      return jsonError(
+        "Image sequence was uploaded but could not be saved. Try again.",
+        500,
+      );
+    }
+
+    console.log("[image-sequences POST] Saved sequence", {
+      id: verified.id,
+      industry: verified.industry,
+      label: verified.label,
+      frame_count: verified.frame_count,
+    });
+
+    return jsonOk({ sequence: verified });
   } catch (error) {
     const message =
       error instanceof Error

@@ -123,7 +123,9 @@ export function PresetImageSequencePicker({
         const query = industry
           ? `?industry=${encodeURIComponent(industry)}`
           : "";
-        const response = await fetch(`/api/image-sequences${query}`);
+        const response = await fetch(`/api/image-sequences${query}`, {
+          cache: "no-store",
+        });
         const data = (await response.json()) as {
           sequences?: ImageSequencePreset[];
           error?: string;

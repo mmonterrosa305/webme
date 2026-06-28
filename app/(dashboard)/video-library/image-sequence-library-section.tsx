@@ -15,10 +15,42 @@ import { PresetImageSequencePicker } from "../_components/preset-image-sequence-
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
 
+const UPLOAD_INDUSTRY_STORAGE_KEY = "webme:image-sequence-upload-industry";
+
+function readStoredUploadIndustry(): string {
+  if (typeof window === "undefined") {
+    return INDUSTRIES[0];
+  }
+
+  const stored = window.sessionStorage.getItem(UPLOAD_INDUSTRY_STORAGE_KEY);
+  return stored &&
+    (INDUSTRIES as readonly string[]).includes(stored)
+    ? stored
+    : INDUSTRIES[0];
+}
+
+function mergeSequenceList(
+  current: ImageSequencePreset[],
+  nextSequence: ImageSequencePreset,
+): ImageSequencePreset[] {
+  const withoutDuplicate = current.filter(
+    (sequence) => sequence.id !== nextSequence.id,
+  );
+  return [...withoutDuplicate, nextSequence].sort((a, b) => {
+    const industrySort = a.industry.localeCompare(b.industry);
+    if (industrySort !== 0) {
+      return industrySort;
+    }
+    return a.created_at.localeCompare(b.created_at);
+  });
+}
+
 export function ImageSequenceLibrarySection() {
   const [sequences, setSequences] = useState<ImageSequencePreset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadIndustry, setUploadIndustry] = useState<string>(INDUSTRIES[0]);
+  const [uploadIndustry, setUploadIndustry] = useState(() =>
+    readStoredUploadIndustry(),
+  );
   const [uploadLabel, setUploadLabel] = useState("");
   const [uploadZipFile, setUploadZipFile] = useState<File | null>(null);
   const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
@@ -36,14 +68,21 @@ export function ImageSequenceLibrarySection() {
   );
 
   const industryCount = filteredSequences.length;
+  const totalSequenceCount = sequences.length;
   const suggestedLabel = `Sequence ${industryCount + 1}`;
+
+  useEffect(() => {
+    window.sessionStorage.setItem(UPLOAD_INDUSTRY_STORAGE_KEY, uploadIndustry);
+  }, [uploadIndustry]);
 
   const loadSequences = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/image-sequences");
+      const response = await fetch("/api/image-sequences", {
+        cache: "no-store",
+      });
       const data = await readJsonResponse<{
         sequences?: ImageSequencePreset[];
         error?: string;
@@ -114,6 +153,10 @@ export function ImageSequenceLibrarySection() {
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to upload image sequence.");
+      }
+
+      if (data.sequence) {
+        setSequences((current) => mergeSequenceList(current, data.sequence!));
       }
 
       setMessage(
@@ -287,14 +330,34 @@ export function ImageSequenceLibrarySection() {
 
       <Panel
         title="Sequence library"
-        subtitle={`Image sequences for ${uploadIndustry}.`}
+        subtitle={
+          totalSequenceCount > 0
+            ? `${totalSequenceCount} saved sequence${totalSequenceCount === 1 ? "" : "s"} across all industries. Showing ${uploadIndustry} (${industryCount}).`
+            : `Image sequences for ${uploadIndustry}.`
+        }
       >
         {loading ? (
           <p className="px-5 py-5 text-sm text-neutral-600">Loading sequences...</p>
-        ) : filteredSequences.length === 0 ? (
+        ) : totalSequenceCount === 0 ? (
           <p className="px-5 py-5 text-sm text-neutral-600">
-            No image sequences for {uploadIndustry} yet.
+            No image sequences uploaded yet.
           </p>
+        ) : filteredSequences.length === 0 ? (
+          <div className="space-y-3 px-5 py-5">
+            <p className="text-sm text-neutral-600">
+              No image sequences for {uploadIndustry} yet. Select another industry
+              above to view {totalSequenceCount} saved sequence
+              {totalSequenceCount === 1 ? "" : "s"} in other industries.
+            </p>
+            <PresetImageSequencePicker
+              industry={undefined}
+              selectedSequenceId={selectedSequenceId}
+              onSelectedSequenceIdChange={setSelectedSequenceId}
+              enabled
+              showAutoSelect={false}
+              gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            />
+          </div>
         ) : (
           <div className="space-y-4 px-5 py-5">
             <PresetImageSequencePicker

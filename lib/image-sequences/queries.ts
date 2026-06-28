@@ -105,8 +105,26 @@ export async function createImageSequence(input: {
     .single();
 
   if (error) {
+    console.error("[image-sequences] createImageSequence failed", {
+      industry,
+      label,
+      frameCount: input.framesUrls.length,
+      error: error.message,
+      code: error.code,
+    });
     throw new Error(error.message);
   }
+
+  if (!data) {
+    throw new Error("Image sequence insert returned no row.");
+  }
+
+  console.log("[image-sequences] createImageSequence saved", {
+    id: data.id,
+    industry: data.industry,
+    label: data.label,
+    frame_count: data.frame_count,
+  });
 
   return data as ImageSequencePreset;
 }
