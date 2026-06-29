@@ -122,7 +122,7 @@ const HERO_PARALLAX_INIT_SCRIPT = `<script id="${HERO_PARALLAX_INIT_ID}">
 
     var delay = viewport * DELAY_RATIO;
     var adjusted = Math.max(0, scrollPast - delay);
-    var lagY = adjusted * BG_RATE;
+    var lagY = adjusted * -BG_RATE;
     bg.style.transform = "translate3d(0," + lagY + "px,0)";
   }
 

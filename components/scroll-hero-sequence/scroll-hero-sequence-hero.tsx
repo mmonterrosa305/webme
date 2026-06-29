@@ -508,7 +508,7 @@ export function ScrollHeroSequenceHero({
 
       const delay = viewport * HERO_PARALLAX_DELAY_RATIO;
       const adjusted = Math.max(0, scrollPast - delay);
-      media.style.transform = `translate3d(0, ${adjusted * HERO_PARALLAX_BG_RATE}px, 0)`;
+      media.style.transform = `translate3d(0, ${-adjusted * HERO_PARALLAX_BG_RATE}px, 0)`;
     };
 
     tick();
