@@ -19,6 +19,8 @@ type ScrollHeroSequenceHeroProps = {
 type LoadState = "loading" | "ready" | "error";
 
 const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
+const HERO_PARALLAX_BG_RATE = 0.45;
+const HERO_PARALLAX_DELAY_RATIO = 0.12;
 
 const BASE_PLAYBACK_FPS = 24;
 const SCROLL_VELOCITY_SCALE = 0.012;
@@ -166,6 +168,7 @@ export function ScrollHeroSequenceHero({
 
   const sectionRef = useRef<HTMLElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
@@ -486,86 +489,123 @@ export function ScrollHeroSequenceHero({
     };
   }, [sequenceId, posterUrl, resolvedHeadline, resolvedTagline, ctaLabel]);
 
+  useEffect(() => {
+    const section = sectionRef.current;
+    const media = mediaRef.current;
+    if (!section || !media) {
+      return;
+    }
+
+    const tick = () => {
+      const rect = section.getBoundingClientRect();
+      const scrollPast = -rect.top;
+      const viewport = window.innerHeight || 1;
+
+      if (scrollPast < 0) {
+        media.style.transform = "";
+        return;
+      }
+
+      const delay = viewport * HERO_PARALLAX_DELAY_RATIO;
+      const adjusted = Math.max(0, scrollPast - delay);
+      media.style.transform = `translate3d(0, ${adjusted * HERO_PARALLAX_BG_RATE}px, 0)`;
+    };
+
+    tick();
+    window.addEventListener("scroll", tick, { passive: true });
+    window.addEventListener("resize", tick);
+
+    return () => {
+      window.removeEventListener("scroll", tick);
+      window.removeEventListener("resize", tick);
+    };
+  }, []);
+
   const showOverlay = Boolean(resolvedHeadline || resolvedTagline || ctaLabel);
 
   return (
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative h-[400vh] w-full bg-black"
+      className="webme-hero-parallax relative h-[400vh] w-full bg-black"
       style={{ background: "black" }}
     >
+      {showOverlay ? (
+        <div
+          className={`webme-hero-parallax-content relative z-20 mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
+            loadState === "ready" ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {resolvedHeadline ? (
+            <h1
+              ref={headlineRef}
+              className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
+              style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
+            >
+              {resolvedHeadline}
+            </h1>
+          ) : null}
+          {resolvedTagline ? (
+            <p
+              ref={taglineRef}
+              className="max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
+              style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
+            >
+              {resolvedTagline}
+            </p>
+          ) : null}
+          {ctaLabel ? (
+            <a
+              ref={ctaRef}
+              href={ctaHref}
+              className="pointer-events-auto mt-2 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
+              style={{
+                background: "#ffffff",
+                border: "2px solid #ffffff",
+                boxShadow: HERO_TEXT_SHADOW,
+                opacity: 0,
+              }}
+            >
+              {ctaLabel}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
       <div
         ref={pinRef}
-        className="relative flex h-screen w-full items-center justify-center overflow-hidden bg-black"
+        className="relative -mt-[100vh] flex h-screen w-full items-center justify-center overflow-hidden bg-black"
         style={{ background: "black" }}
       >
         <div
-          className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
-            loadState === "ready" ? "opacity-100" : "opacity-60"
-          }`}
-          aria-hidden
-        />
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 z-[1] block h-full w-full"
-          style={{ opacity: LOOP_FADE_MAX_OPACITY }}
-        />
-        {loadState === "loading" ? (
+          ref={mediaRef}
+          className="webme-hero-parallax-media absolute inset-0"
+        >
           <div
-            className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-              <span className="text-sm font-medium tracking-wide text-white/80">
-                Loading sequence…
-              </span>
-            </div>
-          </div>
-        ) : null}
-        {showOverlay ? (
-          <div
-            className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
-              loadState === "ready" ? "opacity-100" : "opacity-0"
+            className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
+              loadState === "ready" ? "opacity-100" : "opacity-60"
             }`}
-          >
-            {resolvedHeadline ? (
-              <h1
-                ref={headlineRef}
-                className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
-                style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
-              >
-                {resolvedHeadline}
-              </h1>
-            ) : null}
-            {resolvedTagline ? (
-              <p
-                ref={taglineRef}
-                className="max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
-                style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
-              >
-                {resolvedTagline}
-              </p>
-            ) : null}
-            {ctaLabel ? (
-              <a
-                ref={ctaRef}
-                href={ctaHref}
-                className="pointer-events-auto mt-2 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
-                style={{
-                  background: "#ffffff",
-                  border: "2px solid #ffffff",
-                  boxShadow: HERO_TEXT_SHADOW,
-                  opacity: 0,
-                }}
-              >
-                {ctaLabel}
-              </a>
-            ) : null}
-          </div>
-        ) : null}
+            aria-hidden
+          />
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 z-[1] block h-full w-full"
+            style={{ opacity: LOOP_FADE_MAX_OPACITY }}
+          />
+          {loadState === "loading" ? (
+            <div
+              className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                <span className="text-sm font-medium tracking-wide text-white/80">
+                  Loading sequence…
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );

@@ -1,5 +1,6 @@
 import type { SiteMetadata } from "@/lib/site-editor/types";
 import { ensureHeroVideoPlayback } from "@/lib/agents/normalize-hero-video";
+import { injectHeroParallax } from "@/lib/site-editor/inject-hero-parallax";
 import { injectSiteAnimations } from "@/lib/site-editor/inject-site-animations";
 import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
 import { stripHorizontalScrollSection } from "@/lib/site-editor/strip-horizontal-scroll-section";
@@ -31,7 +32,8 @@ export async function enrichBuiltSiteHtml(options: {
   const withoutHorizontalScroll = stripHorizontalScrollSection(withReviews.html);
   const normalizedHero = normalizeHeroSection(withoutHorizontalScroll);
   const withHeroPlayback = ensureHeroVideoPlayback(normalizedHero);
-  const withAnimations = injectSiteAnimations(withHeroPlayback);
+  const withParallax = injectHeroParallax(withHeroPlayback);
+  const withAnimations = injectSiteAnimations(withParallax);
   console.log("[enrichBuiltSiteHtml] enrichments:", {
     businessName: options.businessName,
     beforeLength: withReviews.html.length,
@@ -56,6 +58,7 @@ export function applyStoredSiteEnrichmentsToHtml(
   prepared = stripHorizontalScrollSection(prepared);
   prepared = normalizeHeroSection(prepared);
   prepared = ensureHeroVideoPlayback(prepared);
+  prepared = injectHeroParallax(prepared);
   prepared = injectSiteAnimations(prepared);
   return prepared;
 }
