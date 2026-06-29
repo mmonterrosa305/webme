@@ -8,12 +8,15 @@ export const BUILD_STAGES = [
 
 export type BuildJobStatus = "queued" | "building";
 
+export type BuildJobMode = "build" | "rebuild";
+
 export type BuildJobState = {
   status: BuildJobStatus;
   stageIndex: number;
   progress: number;
   stageLabel: string;
   startedAt?: number;
+  mode: BuildJobMode;
 };
 
 export function computeBuildProgress(startedAt: number, now = Date.now()) {
@@ -49,16 +52,21 @@ export function computeBuildProgress(startedAt: number, now = Date.now()) {
   };
 }
 
-export function createQueuedBuildJob(): BuildJobState {
+export function createQueuedBuildJob(mode: BuildJobMode = "build"): BuildJobState {
   return {
     status: "queued",
     stageIndex: 0,
     progress: 0,
-    stageLabel: "Waiting for build slot...",
+    stageLabel:
+      mode === "rebuild" ? "Waiting to rebuild..." : "Waiting for build slot...",
+    mode,
   };
 }
 
-export function createActiveBuildJob(startedAt = Date.now()): BuildJobState {
+export function createActiveBuildJob(
+  mode: BuildJobMode = "build",
+  startedAt = Date.now(),
+): BuildJobState {
   const initial = computeBuildProgress(startedAt, startedAt);
   return {
     status: "building",
@@ -66,5 +74,6 @@ export function createActiveBuildJob(startedAt = Date.now()): BuildJobState {
     progress: initial.progress,
     stageLabel: initial.stageLabel,
     startedAt,
+    mode,
   };
 }

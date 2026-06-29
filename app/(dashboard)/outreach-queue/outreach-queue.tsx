@@ -14,11 +14,17 @@ import { ScrollBuildOptionsField } from "../_components/scroll-build-options-fie
 import { BuildProgressBar } from "./build-progress-bar";
 import {
   MAX_CONCURRENT_BUILDS,
+  type BuildJobMode,
   type BuildJobState,
   computeBuildProgress,
   createActiveBuildJob,
   createQueuedBuildJob,
 } from "./build-queue";
+
+type QueuedBuildJob = {
+  itemId: string;
+  mode: BuildJobMode;
+};
 
 type QueueItem = {
   id: string;
@@ -53,7 +59,7 @@ export function OutreachQueue() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const buildQueueRef = useRef<string[]>([]);
+  const buildQueueRef = useRef<QueuedBuildJob[]>([]);
   const activeBuildIdsRef = useRef<Set<string>>(new Set());
   const buildJobsRef = useRef<Record<string, BuildJobState>>({});
   const itemsByIdRef = useRef<Record<string, QueueItem>>({});
@@ -147,18 +153,19 @@ export function OutreachQueue() {
     });
   }, []);
 
-  const runBuild = useCallback(async (itemId: string) => {
+  const runBuild = useCallback(async (itemId: string, mode: BuildJobMode) => {
     const item = itemsByIdRef.current[itemId];
     if (!item) {
       console.error("[outreach-queue] runBuild aborted: item missing", {
         itemId,
+        mode,
       });
       releaseBuildSlot(itemId, "missing-item");
       processBuildQueueRef.current();
       return;
     }
 
-    if (item.site_slug) {
+    if (mode === "build" && item.site_slug) {
       console.log("[outreach-queue] runBuild skipped: site already exists", {
         itemId,
         siteSlug: item.site_slug,
@@ -168,12 +175,43 @@ export function OutreachQueue() {
       return;
     }
 
+    if (mode === "rebuild" && !item.site_slug) {
+      console.log("[outreach-queue] rebuild skipped: no site yet", { itemId });
+      releaseBuildSlot(itemId, "no-site-to-rebuild");
+      processBuildQueueRef.current();
+      return;
+    }
+
     console.log("[outreach-queue] runBuild starting", {
       itemId,
+      mode,
       businessName: item.business_name,
     });
 
     try {
+      if (mode === "rebuild") {
+        const response = await fetch("/api/outreach-queue/rebuild", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: item.id, site_slug: item.site_slug }),
+        });
+
+        const data = (await response.json()) as {
+          siteSlug?: string;
+          error?: string;
+        };
+
+        if (!response.ok || !data.siteSlug) {
+          throw new Error(data.error ?? "Failed to rebuild site.");
+        }
+
+        console.log("[outreach-queue] rebuild completed", {
+          itemId,
+          siteSlug: data.siteSlug,
+        });
+        return;
+      }
+
       const scroll = getScrollBuildOptions(scrollBuildOptionsRef.current, itemId);
 
       console.log("[outreach-queue] runBuild submitting request", {
@@ -271,7 +309,10 @@ export function OutreachQueue() {
       activeBuildIdsRef.current.size < MAX_CONCURRENT_BUILDS &&
       buildQueueRef.current.length > 0
     ) {
-      const itemId = buildQueueRef.current.shift();
+      const queuedJob = buildQueueRef.current.shift();
+      const itemId = queuedJob?.itemId;
+      const mode = queuedJob?.mode ?? "build";
+
       if (!itemId || activeBuildIdsRef.current.has(itemId)) {
         console.log("[outreach-queue] processBuildQueue skipping queue entry", {
           itemId,
@@ -281,9 +322,10 @@ export function OutreachQueue() {
       }
 
       const item = itemsByIdRef.current[itemId];
-      if (!item || item.site_slug) {
+      if (!item || (mode === "build" && item.site_slug)) {
         console.log("[outreach-queue] processBuildQueue dropping stale job", {
           itemId,
+          mode,
           hasItem: Boolean(item),
           siteSlug: item?.site_slug ?? null,
         });
@@ -299,26 +341,41 @@ export function OutreachQueue() {
         continue;
       }
 
+      if (mode === "rebuild" && !item.site_slug) {
+        setBuildJobs((current) => {
+          if (!current[itemId]) {
+            return current;
+          }
+
+          const next = { ...current };
+          delete next[itemId];
+          return next;
+        });
+        continue;
+      }
+
       activeBuildIdsRef.current.add(itemId);
       console.log("[outreach-queue] processBuildQueue starting build", {
         itemId,
+        mode,
         activeBuilds: activeBuildIdsRef.current.size,
       });
       setBuildJobs((current) => {
         const next = {
           ...current,
-          [itemId]: createActiveBuildJob(),
+          [itemId]: createActiveBuildJob(mode),
         };
         buildJobsRef.current = next;
         return next;
       });
-      void runBuild(itemId);
+      void runBuild(itemId, mode);
     }
   };
 
-  function enqueueBuildSite(item: QueueItem) {
-    console.log("[outreach-queue] Build Site clicked", {
+  function enqueueBuildJob(item: QueueItem, mode: BuildJobMode) {
+    console.log("[outreach-queue] enqueueBuildJob", {
       itemId: item.id,
+      mode,
       businessName: item.business_name,
       siteSlug: item.site_slug,
       existingJob: buildJobsRef.current[item.id]?.status ?? null,
@@ -327,39 +384,39 @@ export function OutreachQueue() {
     });
 
     const latestItem = itemsByIdRef.current[item.id] ?? item;
-    if (latestItem.site_slug) {
-      console.log("[outreach-queue] Build Site ignored: site already exists", {
-        itemId: item.id,
-        siteSlug: latestItem.site_slug,
-      });
+
+    if (mode === "build" && latestItem.site_slug) {
+      return;
+    }
+
+    if (mode === "rebuild" && !latestItem.site_slug) {
       return;
     }
 
     if (buildJobsRef.current[item.id]) {
-      console.log("[outreach-queue] Build Site ignored: job already tracked", {
-        itemId: item.id,
-        status: buildJobsRef.current[item.id].status,
-      });
       return;
     }
 
     setActionError(null);
     itemsByIdRef.current[item.id] = latestItem;
 
-    const queuedJob = createQueuedBuildJob();
+    const queuedJob = createQueuedBuildJob(mode);
     buildJobsRef.current = {
       ...buildJobsRef.current,
       [item.id]: queuedJob,
     };
     setBuildJobs(buildJobsRef.current);
-    buildQueueRef.current.push(item.id);
-
-    console.log("[outreach-queue] Build Site enqueued", {
-      itemId: item.id,
-      queueLength: buildQueueRef.current.length,
-    });
+    buildQueueRef.current.push({ itemId: item.id, mode });
 
     processBuildQueueRef.current();
+  }
+
+  function enqueueBuildSite(item: QueueItem) {
+    enqueueBuildJob(item, "build");
+  }
+
+  function enqueueRebuildSite(item: QueueItem) {
+    enqueueBuildJob(item, "rebuild");
   }
 
   async function handleFindEmail(item: QueueItem) {
@@ -528,7 +585,7 @@ export function OutreachQueue() {
       });
       setQueue((current) => current.filter((entry) => entry.id !== id));
       buildQueueRef.current = buildQueueRef.current.filter(
-        (queuedId) => queuedId !== id,
+        (queuedJob) => queuedJob.itemId !== id,
       );
       activeBuildIdsRef.current.delete(id);
       setBuildJobs((current) => {
@@ -668,14 +725,26 @@ export function OutreachQueue() {
           </button>
         ) : null}
         {item.site_slug ? (
-          <button
-            type="button"
-            onClick={() => void sendOutreach(item)}
-            disabled={sending.has(item.id) || sendingAll}
-            className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:opacity-60"
-          >
-            {sending.has(item.id) ? "Sending..." : "Send Outreach"}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => void sendOutreach(item)}
+              disabled={sending.has(item.id) || sendingAll || buildInProgress}
+              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:opacity-60"
+            >
+              {sending.has(item.id) ? "Sending..." : "Send Outreach"}
+            </button>
+            {!buildInProgress ? (
+              <button
+                type="button"
+                onClick={() => enqueueRebuildSite(item)}
+                disabled={sending.has(item.id) || sendingAll}
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-60"
+              >
+                Rebuild
+              </button>
+            ) : null}
+          </>
         ) : null}
         <button
           type="button"
@@ -692,10 +761,14 @@ export function OutreachQueue() {
   const rowFooters = queue.map((item) => {
     const buildJob = buildJobs[item.id];
 
-    if (buildJob && !item.site_slug) {
+    if (buildJob && (!item.site_slug || buildJob.mode === "rebuild")) {
       return (
         <BuildProgressBar
-          label={buildJob.stageLabel}
+          label={
+            buildJob.mode === "rebuild"
+              ? `Rebuilding — ${buildJob.stageLabel}`
+              : buildJob.stageLabel
+          }
           progress={buildJob.progress}
           queued={buildJob.status === "queued"}
         />

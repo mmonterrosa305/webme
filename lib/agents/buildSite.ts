@@ -21,6 +21,7 @@ import {
   formatIndustryImagePromptBlock,
   getRandomHero,
 } from "./industry-images";
+import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
 import {
   COLOR_PALETTES,
   DESIGN_STYLES,
@@ -63,7 +64,7 @@ ${buildIndustryHeroListForPrompt()}
 - Do NOT use scraped business photo URLs, Pexels, or random image URLs.
 
 ## Sections (include ONLY these eight — in this order)
-1. Hero — full-screen (100vh). If user prompt includes Hero video URL: use that MP4 as background video with <video autoplay muted loop playsinline> (never controls), object-fit cover, poster from Hero URL. Otherwise use Hero URL as background-image. Dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA. Hero text wrapper: padding-top at least 120px. Fade-in on load.
+1. Hero — full-screen (100vh). If user prompt includes Hero video URL: use that MP4 as background video with <video autoplay muted loop playsinline> (never controls), object-fit cover, poster from Hero URL. Otherwise use Hero URL as background-image. Dark rgba(0,0,0,0.5) overlay, large white headline, subheadline, primary CTA inside .hero-content below the tagline. Never put trust-bar stats or literal labels like "Star Rating" in the hero. Hero text wrapper: padding-top at least 120px. Fade-in on load.
 2. Trust bar — horizontal row of 4 stat badges (e.g. years in business, star rating, jobs completed, availability/24-7). Use real rating/review data when provided; plausible industry defaults otherwise.
 3. Services — 4 service cards in a responsive grid. Card backgrounds: Service1, Service2, Service3, Service4 (each a different photo). Min-height 250px, dark overlay, white title + short description.
 4. About — 2-column layout: left = short brand story (2–3 sentences) + stats; right = large image using About URL only.
@@ -114,6 +115,7 @@ export type BuildSiteInput = {
   scrollHeroVideoUrl?: string | null;
   scrollHeroSequencePresetId?: string | null;
   cardHoverEffect?: boolean;
+  existingSiteSlug?: string;
 };
 
 type SupportedImageMediaType =
@@ -467,7 +469,9 @@ export async function buildSite(
         (await fetchHeroVideo(industry))
       : await fetchHeroVideo(industry);
   const pixabayPhotos = await fetchIndustryPhotos(industry);
-  const siteSlug = `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
+  const siteSlug =
+    input.existingSiteSlug?.trim() ||
+    `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;
   const messageOptions = { heroUrl, heroVideoUrl, siteSlug, pixabayPhotos };
 
   const message = await client.messages.create({
@@ -494,7 +498,13 @@ export async function buildSite(
     throw new Error("No text response from Claude.");
   }
 
-  let html = normalizeHeroVideoAttributes(extractHtml(textBlock.text));
+  let html = normalizeHeroSection(
+    normalizeHeroVideoAttributes(extractHtml(textBlock.text)),
+    {
+      rating: input.businessProfile.rating,
+      reviewCount: input.businessProfile.reviewCount,
+    },
+  );
 
   if (useImageSequence && input.scrollHeroSequencePresetId) {
     html = prepareSiteHtmlForSequenceBuild(html);

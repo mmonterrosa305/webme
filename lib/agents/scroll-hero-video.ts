@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 
+import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
+
 import { fetchPexelsVideoUrls } from "./fetch-pexels-video";
 import { getIndustrySearchQueries } from "./fetch-pixabay-photos";
 
@@ -111,14 +113,28 @@ header.webme-scroll-hero-nav,
   max-width: 960px;
   margin: 0 auto !important;
   padding: 24px !important;
-  padding-top: 24px !important;
+  padding-top: 120px !important;
   text-align: center !important;
   color: #fff !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
+  gap: 1rem !important;
   box-sizing: border-box;
+}
+.webme-scroll-hero-content .hero-rating,
+.webme-scroll-hero-pin .hero-content .hero-rating {
+  margin: 0 !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+.webme-scroll-hero-content .btn,
+.webme-scroll-hero-pin .hero-content .btn,
+.webme-scroll-hero-content a.btn,
+.webme-scroll-hero-pin .hero-content a.btn {
+  margin-top: 0.5rem !important;
 }
 .webme-scroll-hero-rest {
   position: relative;
@@ -570,7 +586,8 @@ export function applyScrollHeroVideo(
   videoUrl: string,
   posterUrl: string,
 ): string {
-  const $ = cheerio.load(html);
+  const normalizedHtml = normalizeHeroSection(html);
+  const $ = cheerio.load(normalizedHtml);
   let $video: cheerio.Cheerio<AnyNode> = $('video[data-webme="hero-image"]').first();
 
   if (!$video.length) {

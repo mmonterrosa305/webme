@@ -1,5 +1,6 @@
 import { applyStoredSiteEnrichmentsToHtml } from "@/lib/leads/enrich-built-site-html";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
@@ -28,13 +29,15 @@ export async function prepareLeadSiteHtml(
   void industry;
 
   const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
-  let prepared: string;
+  let prepared = normalizeHeroSection(html);
 
   if (sequenceId || hasScrollHeroSequence(html) || hasStaleSequenceInitScript(html)) {
-    prepared = stripSequenceHeroFromSiteHtml(html).html;
+    prepared = stripSequenceHeroFromSiteHtml(prepared).html;
   } else {
-    prepared = prepareScrollHeroVideoSiteHtml(html);
+    prepared = prepareScrollHeroVideoSiteHtml(prepared);
   }
+
+  prepared = normalizeHeroSection(prepared);
 
   return applyStoredSiteEnrichmentsToHtml(
     prepared,

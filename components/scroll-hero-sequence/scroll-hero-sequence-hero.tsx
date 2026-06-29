@@ -65,28 +65,6 @@ function fadeInOut(
   return 0;
 }
 
-function slideY(
-  progress: number,
-  fadeInEnd: number,
-  holdEnd: number,
-  fadeOutEnd: number,
-  fromY: number,
-  toY: number,
-): number {
-  if (progress <= fadeInEnd) {
-    const t = segmentProgress(progress, 0, fadeInEnd);
-    return lerp(fromY, toY, t);
-  }
-  if (progress <= holdEnd) {
-    return toY;
-  }
-  if (progress <= fadeOutEnd) {
-    const t = segmentProgress(progress, holdEnd, fadeOutEnd);
-    return lerp(toY, -fromY, t);
-  }
-  return -fromY;
-}
-
 function wrapProgress(progress: number): number {
   let wrapped = progress % 1;
   if (wrapped < 0) {
@@ -333,21 +311,18 @@ export function ScrollHeroSequenceHero({
       if (headlineEl) {
         gsap.set(headlineEl, {
           opacity: fadeInOut(progress, 0, 0.55, 0.75),
-          y: slideY(progress, 0.2, 0.55, 0.75, 40, 0),
         });
       }
 
       if (taglineEl) {
         gsap.set(taglineEl, {
           opacity: fadeInOut(progress, 0.65, 0.78, 0.88),
-          y: slideY(progress, 0.72, 0.78, 0.88, 40, 0),
         });
       }
 
       if (ctaEl) {
         gsap.set(ctaEl, {
           opacity: fadeInOut(progress, 0.68, 0.78, 0.88),
-          y: slideY(progress, 0.74, 0.78, 0.88, 40, 0),
         });
       }
     };
@@ -552,7 +527,7 @@ export function ScrollHeroSequenceHero({
         ) : null}
         {showOverlay ? (
           <div
-            className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-center px-6 pt-24 text-center text-white transition-opacity duration-700 ${
+            className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
               loadState === "ready" ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -568,7 +543,7 @@ export function ScrollHeroSequenceHero({
             {resolvedTagline ? (
               <p
                 ref={taglineRef}
-                className="mt-4 max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
+                className="max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
                 style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
               >
                 {resolvedTagline}
@@ -578,7 +553,7 @@ export function ScrollHeroSequenceHero({
               <a
                 ref={ctaRef}
                 href={ctaHref}
-                className="pointer-events-auto mt-8 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
+                className="pointer-events-auto mt-2 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
                 style={{
                   background: "#ffffff",
                   border: "2px solid #ffffff",

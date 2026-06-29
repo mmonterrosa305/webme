@@ -35,21 +35,21 @@ export default async function PreviewPage({ params }: PageProps) {
     notFound();
   }
 
-  const sequenceId = getScrollHeroSequenceIdFromMetadata(lead.site_metadata);
-  const sequenceHero = sequenceId
-    ? resolveSequenceHeroCopy({
-        html: lead.site_html,
-        metadata: lead.site_metadata,
-        businessName: lead.business_name,
-      })
-    : null;
-
   const siteHtml = await prepareAndPersistLeadSiteHtml(
     lead.site_slug,
     lead.site_html,
     lead.site_metadata,
     lead.industry,
   );
+
+  const sequenceId = getScrollHeroSequenceIdFromMetadata(lead.site_metadata);
+  const sequenceHero = sequenceId
+    ? resolveSequenceHeroCopy({
+        html: siteHtml,
+        metadata: lead.site_metadata,
+        businessName: lead.business_name,
+      })
+    : null;
 
   return (
     <PreviewShell

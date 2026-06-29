@@ -9,6 +9,7 @@ import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
 import { uploadLogo } from "@/lib/agents/upload-logo";
 import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
 import { withScrollHeroSequenceMetadata } from "@/lib/site-editor/scroll-hero-metadata";
+import { captureSiteBuildOptions } from "@/lib/leads/site-build-options";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -330,6 +331,22 @@ export async function POST(request: Request) {
       contentToMetadata(siteContent),
       scrollHeroSequencePresetId,
     );
+
+    siteMetadata = {
+      ...siteMetadata,
+      buildOptions: captureSiteBuildOptions({
+        paletteId,
+        styleId,
+        sections,
+        createLogoForMe,
+        scrollAnimationEffect,
+        scrollHeroMediaType,
+        scrollHeroPresetId,
+        scrollHeroSequencePresetId,
+        cardHoverEffect,
+        googlePlaceId,
+      }),
+    };
 
     const enriched = await enrichBuiltSiteHtml({
       html: builtHtml,

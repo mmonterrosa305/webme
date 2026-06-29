@@ -1,5 +1,7 @@
 import type { SiteMetadata } from "@/lib/site-editor/types";
+import { ensureHeroVideoPlayback } from "@/lib/agents/normalize-hero-video";
 import { injectSiteAnimations } from "@/lib/site-editor/inject-site-animations";
+import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
 import { stripHorizontalScrollSection } from "@/lib/site-editor/strip-horizontal-scroll-section";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
@@ -27,7 +29,9 @@ export async function enrichBuiltSiteHtml(options: {
   });
 
   const withoutHorizontalScroll = stripHorizontalScrollSection(withReviews.html);
-  const withAnimations = injectSiteAnimations(withoutHorizontalScroll);
+  const normalizedHero = normalizeHeroSection(withoutHorizontalScroll);
+  const withHeroPlayback = ensureHeroVideoPlayback(normalizedHero);
+  const withAnimations = injectSiteAnimations(withHeroPlayback);
   console.log("[enrichBuiltSiteHtml] enrichments:", {
     businessName: options.businessName,
     beforeLength: withReviews.html.length,
@@ -50,6 +54,8 @@ export function applyStoredSiteEnrichmentsToHtml(
   let prepared = applyStoredGoogleReviewsToHtml(html, metadata);
   prepared = applyStoredGoogleMapToHtml(prepared, metadata);
   prepared = stripHorizontalScrollSection(prepared);
+  prepared = normalizeHeroSection(prepared);
+  prepared = ensureHeroVideoPlayback(prepared);
   prepared = injectSiteAnimations(prepared);
   return prepared;
 }
@@ -58,7 +64,8 @@ export { applyStoredGoogleMapToHtml, applyStoredGoogleReviewsToHtml };
 
 /** Prepare iframe HTML for external sequence hero sites (strip hero + ensure animations). */
 export function prepareSequenceIframeHtml(html: string): string {
-  const stripped = stripSequenceHeroFromSiteHtml(html);
+  const normalized = normalizeHeroSection(html);
+  const stripped = stripSequenceHeroFromSiteHtml(normalized);
   const withoutHorizontalScroll = stripHorizontalScrollSection(stripped.html);
   return injectSiteAnimations(withoutHorizontalScroll);
 }

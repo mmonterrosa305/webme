@@ -39,13 +39,17 @@ export default async function SitePage({ params }: PageProps) {
   const metadata = lead.site_metadata;
 
   if (sequenceId) {
+    const siteHtml = await prepareLeadSiteHtml(
+      lead.site_html,
+      lead.site_metadata,
+      lead.industry,
+    );
     const heroCopy = resolveSequenceHeroCopy({
-      html: lead.site_html,
+      html: siteHtml,
       metadata,
       businessName: lead.business_name,
     });
-    const stripped = prepareSequenceIframeHtml(lead.site_html);
-    const bodyHtml = injectAnalyticsScript(stripped);
+    const bodyHtml = injectAnalyticsScript(prepareSequenceIframeHtml(siteHtml));
 
     return (
       <div className="bg-white">

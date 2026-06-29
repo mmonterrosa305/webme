@@ -1,5 +1,18 @@
 import type { GoogleReview } from "@/lib/google-places/fetch-google-reviews";
 
+export type SiteBuildOptions = {
+  paletteId: string;
+  styleId: string;
+  sections: string[];
+  createLogoForMe: boolean;
+  scrollAnimationEffect: boolean;
+  scrollHeroMediaType: "video" | "image-sequence";
+  scrollHeroPresetId?: string | null;
+  scrollHeroSequencePresetId?: string | null;
+  cardHoverEffect: boolean;
+  googlePlaceId?: string | null;
+};
+
 export type SiteImageSlot =
   | "hero"
   | "about"
@@ -37,6 +50,7 @@ export type SiteMetadata = {
   googleReviews?: GoogleReview[];
   businessAddress?: string;
   googleMapsEmbedUrl?: string;
+  buildOptions?: SiteBuildOptions;
 };
 
 export type ClientSiteData = {

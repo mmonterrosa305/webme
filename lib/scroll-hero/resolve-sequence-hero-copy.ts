@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio";
 
+import { isPlaceholderRatingCopy } from "@/lib/site-editor/normalize-hero-section";
+
 import { extractSiteContent } from "@/lib/site-editor/extract-content";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 
@@ -38,18 +40,24 @@ export function resolveSequenceHeroCopy(options: {
     metadata: options.metadata,
   });
 
-  const headline =
+  const rawTagline =
+    options.metadata?.tagline?.trim() ||
+    stripped.tagline ||
+    titleParts.tagline ||
+    content.tagline;
+
+  const tagline = isPlaceholderRatingCopy(rawTagline) ? "" : rawTagline;
+
+  const rawHeadline =
     options.metadata?.headline?.trim() ||
     stripped.headline ||
     content.headline ||
     titleParts.headline ||
     options.businessName.trim();
 
-  const tagline =
-    options.metadata?.tagline?.trim() ||
-    stripped.tagline ||
-    titleParts.tagline ||
-    content.tagline;
+  const headline = isPlaceholderRatingCopy(rawHeadline)
+    ? options.businessName.trim()
+    : rawHeadline;
 
   return {
     headline,
