@@ -231,8 +231,24 @@ function restructureStandardHero($: cheerio.CheerioAPI): boolean {
     return false;
   }
 
+  const $existingBg = $hero.find(".webme-hero-parallax-bg").first();
+  if ($existingBg.length) {
+    $hero.addClass("webme-hero-parallax");
+
+    const $content = $hero.find(".hero-content, [class*='hero-content']").first();
+    if ($content.length) {
+      $content.addClass("webme-hero-parallax-content");
+    }
+
+    $hero.find(".webme-hero-parallax-runway").remove();
+    return true;
+  }
+
   if ($hero.hasClass("webme-hero-parallax")) {
-    return false;
+    $hero.removeClass("webme-hero-parallax");
+    $hero
+      .find(".webme-hero-parallax-content")
+      .removeClass("webme-hero-parallax-content");
   }
 
   const $video = $hero

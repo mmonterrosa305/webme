@@ -1,8 +1,13 @@
 import type { SiteMetadata } from "@/lib/site-editor/types";
-import { ensureHeroVideoPlayback } from "@/lib/agents/normalize-hero-video";
+import {
+  normalizeHeroVideoAttributes,
+} from "@/lib/agents/normalize-hero-video";
 import { injectHeroParallax } from "@/lib/site-editor/inject-hero-parallax";
 import { injectSiteAnimations } from "@/lib/site-editor/inject-site-animations";
-import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
+import {
+  normalizeHeroSection,
+  type HeroRatingOptions,
+} from "@/lib/site-editor/normalize-hero-section";
 import { stripHorizontalScrollSection } from "@/lib/site-editor/strip-horizontal-scroll-section";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
@@ -20,6 +25,8 @@ export async function enrichBuiltSiteHtml(options: {
   city: string;
   address?: string | null;
   placeId?: string | null;
+  rating?: HeroRatingOptions["rating"];
+  reviewCount?: HeroRatingOptions["reviewCount"];
 }): Promise<{ html: string; metadata: SiteMetadata }> {
   const withReviews = await enrichBuiltSiteWithGoogleReviews({
     html: options.html,
@@ -29,9 +36,14 @@ export async function enrichBuiltSiteHtml(options: {
     placeId: options.placeId,
   });
 
+  const heroRating: HeroRatingOptions | undefined =
+    typeof options.rating === "number" && Number.isFinite(options.rating)
+      ? { rating: options.rating, reviewCount: options.reviewCount }
+      : undefined;
+
   const withoutHorizontalScroll = stripHorizontalScrollSection(withReviews.html);
-  const normalizedHero = normalizeHeroSection(withoutHorizontalScroll);
-  const withHeroPlayback = ensureHeroVideoPlayback(normalizedHero);
+  const normalizedHero = normalizeHeroSection(withoutHorizontalScroll, heroRating);
+  const withHeroPlayback = normalizeHeroVideoAttributes(normalizedHero);
   const withParallax = injectHeroParallax(withHeroPlayback);
   const withAnimations = injectSiteAnimations(withParallax);
   console.log("[enrichBuiltSiteHtml] enrichments:", {
@@ -57,7 +69,7 @@ export function applyStoredSiteEnrichmentsToHtml(
   prepared = applyStoredGoogleMapToHtml(prepared, metadata);
   prepared = stripHorizontalScrollSection(prepared);
   prepared = normalizeHeroSection(prepared);
-  prepared = ensureHeroVideoPlayback(prepared);
+  prepared = normalizeHeroVideoAttributes(prepared);
   prepared = injectHeroParallax(prepared);
   prepared = injectSiteAnimations(prepared);
   return prepared;

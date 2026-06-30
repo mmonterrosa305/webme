@@ -1,4 +1,5 @@
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
+import { prepareLeadSiteHtml } from "@/lib/agents/prepare-lead-site-html";
 import {
   COLOR_PALETTES,
   DESIGN_STYLES,
@@ -16,6 +17,7 @@ import {
   contentToMetadata,
   extractSiteContent,
 } from "@/lib/site-editor/extract-content";
+import { isPlaceholderRatingCopy } from "@/lib/site-editor/normalize-hero-section";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -56,6 +58,18 @@ type LeadRebuildRow = {
   site_html: string | null;
   site_metadata: SiteMetadata | null;
 };
+
+function preserveHeroCopy(
+  stored: string | undefined,
+  extracted: string | undefined,
+): string | undefined {
+  const storedValue = stored?.trim();
+  if (storedValue && !isPlaceholderRatingCopy(storedValue)) {
+    return storedValue;
+  }
+
+  return extracted?.trim() || undefined;
+}
 
 /** Rebuild a lead site in place, preserving the existing slug and build options. */
 export async function rebuildLeadSite(siteSlug: string): Promise<{
@@ -171,8 +185,11 @@ export async function rebuildLeadSite(siteSlug: string): Promise<{
     ...siteMetadata,
     buildOptions,
     logoUrl: storedLogoUrl || siteMetadata.logoUrl,
-    headline: leadRow.site_metadata?.headline ?? siteMetadata.headline,
-    tagline: leadRow.site_metadata?.tagline ?? siteMetadata.tagline,
+    headline: preserveHeroCopy(
+      leadRow.site_metadata?.headline,
+      siteMetadata.headline,
+    ),
+    tagline: preserveHeroCopy(leadRow.site_metadata?.tagline, siteMetadata.tagline),
     googlePlaceId:
       buildOptions.googlePlaceId ?? leadRow.site_metadata?.googlePlaceId,
   };
@@ -184,13 +201,28 @@ export async function rebuildLeadSite(siteSlug: string): Promise<{
     city: leadRow.city,
     address: leadRow.address ?? businessProfile.address,
     placeId: buildOptions.googlePlaceId ?? leadRow.site_metadata?.googlePlaceId,
+    rating: businessProfile.rating,
+    reviewCount: businessProfile.reviewCount,
   });
 
-  const html = enriched.html;
   siteMetadata = {
     ...enriched.metadata,
     buildOptions,
+    headline: preserveHeroCopy(
+      leadRow.site_metadata?.headline,
+      enriched.metadata.headline,
+    ),
+    tagline: preserveHeroCopy(
+      leadRow.site_metadata?.tagline,
+      enriched.metadata.tagline,
+    ),
   };
+
+  const html = await prepareLeadSiteHtml(
+    enriched.html,
+    siteMetadata,
+    leadRow.industry,
+  );
 
   const { error: updateError } = await supabase
     .from("leads")
