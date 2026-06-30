@@ -51,12 +51,6 @@ const HERO_PARALLAX_STYLES = `<style id="${HERO_PARALLAX_STYLE_ID}">
   min-height: 100vh;
   min-height: 100dvh;
 }
-.webme-hero-parallax-runway {
-  position: relative;
-  z-index: 1;
-  height: 45vh;
-  pointer-events: none;
-}
 #webme-scroll-hero.webme-hero-parallax .webme-scroll-hero-content.webme-hero-parallax-content {
   margin-top: -100vh;
   margin-top: -100dvh;
@@ -275,21 +269,17 @@ function restructureStandardHero($: cheerio.CheerioAPI): boolean {
     $content.addClass("webme-hero-parallax-content");
   }
 
-  if (!$hero.find(".webme-hero-parallax-runway").length) {
-    $hero.append('<div class="webme-hero-parallax-runway" aria-hidden="true"></div>');
-  }
+  $hero.find(".webme-hero-parallax-runway").remove();
 
   return true;
 }
 
 function ensureParallaxAssets($: cheerio.CheerioAPI): void {
-  if (!$(`#${HERO_PARALLAX_STYLE_ID}`).length) {
-    $("head").append(HERO_PARALLAX_STYLES);
-  }
+  $(`#${HERO_PARALLAX_STYLE_ID}`).remove();
+  $("head").append(HERO_PARALLAX_STYLES);
 
-  if (!$(`#${HERO_PARALLAX_INIT_ID}`).length) {
-    $("body").append(HERO_PARALLAX_INIT_SCRIPT);
-  }
+  $(`#${HERO_PARALLAX_INIT_ID}`).remove();
+  $("body").append(HERO_PARALLAX_INIT_SCRIPT);
 }
 
 /** Inject hero parallax markup, styles, and scroll script. Idempotent. */
@@ -313,6 +303,7 @@ export function injectHeroParallax(html: string): string {
     return html;
   }
 
+  $(".webme-hero-parallax-runway").remove();
   ensureParallaxAssets($);
   return $.html();
 }
@@ -321,6 +312,7 @@ export function prepareScrollHeroParallax($: cheerio.CheerioAPI): void {
   detachScrollHeroContentFromPin($);
   wrapScrollHeroMedia($);
   if ($("#webme-scroll-hero").hasClass("webme-hero-parallax")) {
+    $(".webme-hero-parallax-runway").remove();
     ensureParallaxAssets($);
   }
 }
