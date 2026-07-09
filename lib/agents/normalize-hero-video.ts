@@ -2,11 +2,8 @@ const REQUIRED_VIDEO_ATTRS = ["autoplay", "muted", "loop", "playsinline"] as con
 
 const HERO_VIDEO_PLAYBACK_INIT_ID = "webme-hero-video-playback-init";
 
-/** Videos shorter than this (at normal speed) keep default playback rate. */
-export const HERO_VIDEO_MIN_DURATION_SEC = 8;
-
-/** Target slow-motion rate for longer hero background videos (0.4–0.5x). */
-export const HERO_VIDEO_PLAYBACK_RATE = 0.45;
+/** Target slow-motion rate for hero background videos. */
+export const HERO_VIDEO_PLAYBACK_RATE = 0.5;
 
 function stripControlsAttribute(attrs: string): string {
   return attrs
@@ -39,7 +36,6 @@ function hasAutoplayHeroVideo(html: string): boolean {
 
 const HERO_VIDEO_PLAYBACK_INIT_SCRIPT = `<script id="${HERO_VIDEO_PLAYBACK_INIT_ID}">
 (function () {
-  var MIN_DURATION = ${HERO_VIDEO_MIN_DURATION_SEC};
   var PLAYBACK_RATE = ${HERO_VIDEO_PLAYBACK_RATE};
 
   function isAutoplayHeroVideo(video) {
@@ -69,17 +65,9 @@ const HERO_VIDEO_PLAYBACK_INIT_SCRIPT = `<script id="${HERO_VIDEO_PLAYBACK_INIT_
         return;
       }
 
-      var duration = video.duration;
-      if (!duration || !isFinite(duration)) {
-        return;
-      }
-
       video.setAttribute("data-webme-hero-video-configured", "true");
       ensureSeamlessLoop(video);
-
-      if (duration >= MIN_DURATION) {
-        video.playbackRate = PLAYBACK_RATE;
-      }
+      video.playbackRate = PLAYBACK_RATE;
 
       if (video.paused) {
         var playPromise = video.play();
@@ -90,6 +78,7 @@ const HERO_VIDEO_PLAYBACK_INIT_SCRIPT = `<script id="${HERO_VIDEO_PLAYBACK_INIT_
     }
 
     video.addEventListener("loadedmetadata", applySettings, { once: true });
+    video.addEventListener("loadeddata", applySettings, { once: true });
     if (video.readyState >= 1) {
       applySettings();
     }
@@ -109,7 +98,7 @@ const HERO_VIDEO_PLAYBACK_INIT_SCRIPT = `<script id="${HERO_VIDEO_PLAYBACK_INIT_
 })();
 </script>`;
 
-/** Slow long hero background videos and inject the playback init script. Idempotent. */
+/** Slow hero background videos and inject the playback init script. Idempotent. */
 export function ensureHeroVideoPlayback(html: string): string {
   if (!hasAutoplayHeroVideo(html) || isScrollHeroSite(html)) {
     return html;

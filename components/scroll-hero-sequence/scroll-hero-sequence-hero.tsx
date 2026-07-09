@@ -16,6 +16,33 @@ type LoadState = "loading" | "ready" | "error";
 
 const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
 
+function findContactTarget(root: Document): HTMLElement | null {
+  return (
+    root.getElementById("contact") ||
+    (root.querySelector('[data-webme="phone"]')?.closest("section") as
+      | HTMLElement
+      | null) ||
+    (root.querySelector("section form")?.closest("section") as HTMLElement | null)
+  );
+}
+
+function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+
+  const iframe = document.querySelector("iframe") as HTMLIFrameElement | null;
+  const iframeDoc = iframe?.contentDocument;
+  const target = iframeDoc
+    ? findContactTarget(iframeDoc)
+    : findContactTarget(document);
+
+  if (!target) {
+    return;
+  }
+
+  const top = target.getBoundingClientRect().top + window.scrollY;
+  window.scrollTo({ top, behavior: "smooth" });
+}
+
 const BASE_PLAYBACK_FPS = 24;
 const SCROLL_VELOCITY_SCALE = 0.012;
 const PLAYBACK_RATE_LERP = 0.1;
@@ -518,6 +545,7 @@ export function ScrollHeroSequenceHero({
             <a
               ref={ctaRef}
               href={ctaHref}
+              onClick={scrollToContactSection}
               className="pointer-events-auto mt-2 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
               style={{
                 background: "#ffffff",

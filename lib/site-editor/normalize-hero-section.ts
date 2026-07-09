@@ -343,6 +343,144 @@ function stripPlaceholderTrustBarSections($: cheerio.CheerioAPI): void {
   });
 }
 
+const HERO_CTA_SCROLL_STYLE_ID = "webme-hero-cta-scroll-styles";
+const HERO_CTA_SCROLL_INIT_ID = "webme-hero-cta-scroll-init";
+
+const HERO_CTA_SCROLL_STYLES = `<style id="${HERO_CTA_SCROLL_STYLE_ID}">
+html { scroll-behavior: smooth; }
+</style>`;
+
+const HERO_CTA_SCROLL_INIT_SCRIPT = `<script id="${HERO_CTA_SCROLL_INIT_ID}">
+(function () {
+  function findContactTarget() {
+    var byId = document.getElementById("contact");
+    if (byId) {
+      return byId;
+    }
+
+    var phone = document.querySelector('[data-webme="phone"]');
+    if (phone && phone.closest) {
+      var phoneSection = phone.closest("section");
+      if (phoneSection) {
+        return phoneSection;
+      }
+    }
+
+    var forms = document.querySelectorAll("section form");
+    for (var i = 0; i < forms.length; i++) {
+      var formSection = forms[i].closest("section");
+      if (formSection) {
+        return formSection;
+      }
+    }
+
+    return null;
+  }
+
+  function scrollToContact(event) {
+    var target = findContactTarget();
+    if (!target) {
+      return;
+    }
+
+    event.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function bindHeroCtas() {
+    var selectors = [
+      ".hero-content a[href='#contact']",
+      ".webme-scroll-hero-content a[href='#contact']",
+      ".hero-content a.btn",
+      ".hero-content button.btn",
+      ".hero-content .btn-primary",
+      ".hero-content .cta",
+      ".hero-content .hero-cta",
+      ".webme-scroll-hero-content a.btn",
+      ".webme-scroll-hero-content button.btn",
+      ".webme-scroll-hero-content .btn-primary",
+      ".webme-scroll-hero-content .cta",
+      ".webme-scroll-hero-content .hero-cta",
+    ];
+
+    document.querySelectorAll(selectors.join(",")).forEach(function (element) {
+      if (element.getAttribute("data-webme-hero-cta-bound") === "true") {
+        return;
+      }
+
+      element.setAttribute("data-webme-hero-cta-bound", "true");
+      element.addEventListener("click", scrollToContact);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindHeroCtas);
+  } else {
+    bindHeroCtas();
+  }
+})();
+</script>`;
+
+function findContactSection($: cheerio.CheerioAPI): cheerio.Cheerio<AnyNode> {
+  const byId = $("#contact").first();
+  if (byId.length) {
+    return byId;
+  }
+
+  return $("section")
+    .filter((_index, element) => {
+      const $section = $(element);
+      return (
+        $section.find('[data-webme="phone"]').length > 0 ||
+        $section.find("form").length > 0 ||
+        /contact/i.test($section.attr("id") ?? "") ||
+        /contact/i.test($section.attr("class") ?? "")
+      );
+    })
+    .first();
+}
+
+function ensureContactSectionId($: cheerio.CheerioAPI): void {
+  const $contact = findContactSection($);
+  if (!$contact.length || $contact.attr("id") === "contact") {
+    return;
+  }
+
+  if (!$contact.attr("id")?.trim()) {
+    $contact.attr("id", "contact");
+  }
+}
+
+function wireHeroCtaLinks(
+  $: cheerio.CheerioAPI,
+  $hero: cheerio.Cheerio<AnyNode>,
+): void {
+  $hero.find("a, button").each((_index, element) => {
+    if (!isHeroCta($, element)) {
+      return;
+    }
+
+    const $cta = $(element);
+
+    if ($cta.is("button")) {
+      $cta.attr("type", "button");
+      return;
+    }
+
+    $cta.attr("href", "#contact");
+  });
+}
+
+function ensureHeroCtaScrollAssets($: cheerio.CheerioAPI): void {
+  if ($(`#${HERO_CTA_SCROLL_INIT_ID}`).length) {
+    return;
+  }
+
+  $(`#${HERO_CTA_SCROLL_STYLE_ID}`).remove();
+  $("head").append(HERO_CTA_SCROLL_STYLES);
+  $("body").append(HERO_CTA_SCROLL_INIT_SCRIPT);
+}
+
 function isHeroCta($: cheerio.CheerioAPI, element: AnyNode): boolean {
   const $element = $(element);
   const className = ($element.attr("class") ?? "").toLowerCase();
@@ -477,7 +615,10 @@ export function normalizeHeroSection(
 
   if ($hero.length) {
     normalizeHeroRating($, $hero, options);
+    ensureContactSectionId($);
     relocateHeroCta($, $hero);
+    wireHeroCtaLinks($, $hero);
+    ensureHeroCtaScrollAssets($);
   }
 
   stripPlaceholderTrustBarSections($);
