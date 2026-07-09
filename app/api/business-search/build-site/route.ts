@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { scrapeContactInfo } from "@/lib/agents/scrapeContactInfo";
 import { buildBusinessSearchSite } from "@/lib/leads/build-business-search-site";
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
 import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
@@ -98,18 +99,27 @@ export async function POST(request: Request) {
       scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
     }
 
-    const result = await buildBusinessSearchSite(business, {
-      scrollAnimationEffect,
-      scrollHeroMediaType,
-      scrollHeroVideoUrl,
-      scrollHeroSequencePresetId,
-      cardHoverEffect,
-    });
+    const [result, contactInfo] = await Promise.all([
+      buildBusinessSearchSite(business, {
+        scrollAnimationEffect,
+        scrollHeroMediaType,
+        scrollHeroVideoUrl,
+        scrollHeroSequencePresetId,
+        cardHoverEffect,
+      }),
+      scrapeContactInfo({
+        businessName: business.businessName,
+        city: business.city,
+        website: business.website,
+        phone: business.phone,
+      }).catch(() => ({ ownerEmail: null as string | null })),
+    ]);
 
     return NextResponse.json({
       success: true,
       siteSlug: result.siteSlug,
       businessName: result.businessName,
+      ownerEmail: contactInfo.ownerEmail,
     });
   } catch (error) {
     const message =

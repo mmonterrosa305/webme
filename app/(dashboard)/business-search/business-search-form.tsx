@@ -19,6 +19,7 @@ type Phase = "idle" | "searching" | "building" | "done" | "error";
 type BuildResult = {
   siteSlug: string;
   businessName: string;
+  ownerEmail: string | null;
 };
 
 function InfoRow({
@@ -228,6 +229,14 @@ export function BusinessSearchForm() {
     null,
   );
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [previewEmail, setPreviewEmail] = useState("");
+  const [sendingPreviewEmail, setSendingPreviewEmail] = useState(false);
+  const [previewEmailSuccess, setPreviewEmailSuccess] = useState<string | null>(
+    null,
+  );
+  const [previewEmailError, setPreviewEmailError] = useState<string | null>(
+    null,
+  );
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
   const [cardHoverEffect, setCardHoverEffect] = useState(false);
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
@@ -252,6 +261,9 @@ export function BusinessSearchForm() {
     setResult(null);
     setQueueSuccessMessage(null);
     setQueueError(null);
+    setPreviewEmail("");
+    setPreviewEmailSuccess(null);
+    setPreviewEmailError(null);
     setPhase("searching");
 
     try {
@@ -292,6 +304,8 @@ export function BusinessSearchForm() {
     setResult(null);
     setQueueSuccessMessage(null);
     setQueueError(null);
+    setPreviewEmailSuccess(null);
+    setPreviewEmailError(null);
 
     try {
       let response: Response;
@@ -337,6 +351,7 @@ export function BusinessSearchForm() {
       const data = (await response.json()) as {
         siteSlug?: string;
         businessName?: string;
+        ownerEmail?: string | null;
         error?: string;
       };
 
@@ -344,10 +359,14 @@ export function BusinessSearchForm() {
         throw new Error(data.error ?? "Failed to build site.");
       }
 
+      const discoveredEmail = data.ownerEmail?.trim() || null;
+
       setResult({
         siteSlug: data.siteSlug,
         businessName: data.businessName ?? business.businessName,
+        ownerEmail: discoveredEmail,
       });
+      setPreviewEmail(discoveredEmail ?? "");
       setPhase("done");
     } catch (buildError) {
       setPhase("error");
@@ -356,6 +375,50 @@ export function BusinessSearchForm() {
           ? buildError.message
           : "Failed to build site.",
       );
+    }
+  }
+
+  async function handleSendPreviewEmail() {
+    if (!result?.siteSlug) {
+      return;
+    }
+
+    const email = previewEmail.trim();
+
+    if (!email) {
+      setPreviewEmailError("Enter an email address to send the preview.");
+      return;
+    }
+
+    setSendingPreviewEmail(true);
+    setPreviewEmailSuccess(null);
+    setPreviewEmailError(null);
+
+    try {
+      const response = await fetch("/api/business-search/send-preview-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteSlug: result.siteSlug,
+          ownerEmail: email,
+        }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to send preview email.");
+      }
+
+      setPreviewEmailSuccess(`Preview email sent to ${email}.`);
+    } catch (sendError) {
+      setPreviewEmailError(
+        sendError instanceof Error
+          ? sendError.message
+          : "Failed to send preview email.",
+      );
+    } finally {
+      setSendingPreviewEmail(false);
     }
   }
 
@@ -546,6 +609,57 @@ export function BusinessSearchForm() {
                 {sendingToQueue ? "Saving..." : "Save & Send to Outreach Queue"}
               </button>
             </div>
+
+            <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+              {result.ownerEmail ? (
+                <p className="text-sm text-neutral-700">
+                  Owner email found:{" "}
+                  <span className="font-medium text-neutral-900">
+                    {result.ownerEmail}
+                  </span>
+                </p>
+              ) : (
+                <div>
+                  <label
+                    htmlFor="previewOwnerEmail"
+                    className="mb-2 block text-sm font-medium text-neutral-700"
+                  >
+                    Owner email
+                  </label>
+                  <input
+                    id="previewOwnerEmail"
+                    type="email"
+                    value={previewEmail}
+                    onChange={(event) => setPreviewEmail(event.target.value)}
+                    placeholder="owner@business.com"
+                    className={inputClassName}
+                    disabled={sendingPreviewEmail}
+                  />
+                  <p className="mt-1.5 text-xs text-neutral-500">
+                    No email found from Google Places — enter one manually.
+                  </p>
+                </div>
+              )}
+              <button
+                type="button"
+                disabled={sendingPreviewEmail || (!result.ownerEmail && !previewEmail.trim())}
+                onClick={() => void handleSendPreviewEmail()}
+                className="mt-3 inline-flex rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {sendingPreviewEmail ? "Sending..." : "Send Preview Email"}
+              </button>
+            </div>
+
+            {previewEmailSuccess ? (
+              <p className="mt-3 text-sm font-medium text-emerald-700" role="status">
+                {previewEmailSuccess}
+              </p>
+            ) : null}
+            {previewEmailError ? (
+              <p className="mt-3 text-sm font-medium text-red-700" role="alert">
+                {previewEmailError}
+              </p>
+            ) : null}
             {queueSuccessMessage ? (
               <p className="mt-3 text-sm font-medium text-emerald-700" role="status">
                 {queueSuccessMessage}
