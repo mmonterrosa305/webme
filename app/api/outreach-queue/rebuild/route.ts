@@ -8,6 +8,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       id?: string;
       site_slug?: string;
+      scrollHeroSequencePresetId?: string;
     };
 
     const queueId = typeof body.id === "string" ? body.id.trim() : "";
@@ -37,7 +38,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await rebuildLeadSite(siteSlug);
+    const scrollHeroSequencePresetId =
+      typeof body.scrollHeroSequencePresetId === "string"
+        ? body.scrollHeroSequencePresetId.trim()
+        : "";
+
+    if (!scrollHeroSequencePresetId) {
+      return NextResponse.json(
+        { error: "An image sequence must be selected before rebuilding." },
+        { status: 400 },
+      );
+    }
+
+    const result = await rebuildLeadSite(siteSlug, {
+      scrollHeroSequencePresetId,
+    });
 
     return NextResponse.json({
       success: true,

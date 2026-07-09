@@ -71,8 +71,15 @@ function preserveHeroCopy(
   return extracted?.trim() || undefined;
 }
 
+export type RebuildLeadSiteOptions = {
+  scrollHeroSequencePresetId?: string | null;
+};
+
 /** Rebuild a lead site in place, preserving the existing slug and build options. */
-export async function rebuildLeadSite(siteSlug: string): Promise<{
+export async function rebuildLeadSite(
+  siteSlug: string,
+  options?: RebuildLeadSiteOptions,
+): Promise<{
   siteSlug: string;
   siteBuiltAt: string;
 }> {
@@ -99,10 +106,21 @@ export async function rebuildLeadSite(siteSlug: string): Promise<{
   }
 
   const leadRow = lead as LeadRebuildRow;
-  const buildOptions = resolveSiteBuildOptions({
+  let buildOptions = resolveSiteBuildOptions({
     metadata: leadRow.site_metadata,
     siteHtml: leadRow.site_html,
   });
+
+  const sequenceOverride = options?.scrollHeroSequencePresetId?.trim();
+  if (sequenceOverride) {
+    buildOptions = {
+      ...buildOptions,
+      scrollAnimationEffect: true,
+      scrollHeroMediaType: "image-sequence",
+      scrollHeroSequencePresetId: sequenceOverride,
+      scrollHeroPresetId: null,
+    };
+  }
 
   if (!isPaletteId(buildOptions.paletteId)) {
     throw new Error(`Invalid stored palette: ${buildOptions.paletteId}`);

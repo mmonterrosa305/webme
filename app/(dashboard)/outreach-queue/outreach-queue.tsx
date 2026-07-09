@@ -12,6 +12,7 @@ import {
 import { Panel, DataTable } from "../_components/dashboard-ui";
 import { ScrollBuildOptionsField } from "../_components/scroll-build-options-field";
 import { BuildProgressBar } from "./build-progress-bar";
+import { RebuildSequenceModal } from "./rebuild-sequence-modal";
 import {
   MAX_CONCURRENT_BUILDS,
   type BuildJobMode,
@@ -24,6 +25,7 @@ import {
 type QueuedBuildJob = {
   itemId: string;
   mode: BuildJobMode;
+  scrollHeroSequencePresetId?: string;
 };
 
 type QueueItem = {
@@ -58,11 +60,15 @@ export function OutreachQueue() {
   const [savingEmailIds, setSavingEmailIds] = useState<Set<string>>(new Set());
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [rebuildModalItem, setRebuildModalItem] = useState<QueueItem | null>(
+    null,
+  );
 
   const buildQueueRef = useRef<QueuedBuildJob[]>([]);
   const activeBuildIdsRef = useRef<Set<string>>(new Set());
   const buildJobsRef = useRef<Record<string, BuildJobState>>({});
   const itemsByIdRef = useRef<Record<string, QueueItem>>({});
+  const rebuildSequenceByItemRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     buildJobsRef.current = buildJobs;
@@ -155,6 +161,8 @@ export function OutreachQueue() {
 
   const runBuild = useCallback(async (itemId: string, mode: BuildJobMode) => {
     const item = itemsByIdRef.current[itemId];
+    const scrollHeroSequencePresetId =
+      rebuildSequenceByItemRef.current[itemId]?.trim() ?? "";
     if (!item) {
       console.error("[outreach-queue] runBuild aborted: item missing", {
         itemId,
@@ -190,10 +198,18 @@ export function OutreachQueue() {
 
     try {
       if (mode === "rebuild") {
+        if (!scrollHeroSequencePresetId) {
+          throw new Error("An image sequence must be selected before rebuilding.");
+        }
+
         const response = await fetch("/api/outreach-queue/rebuild", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: item.id, site_slug: item.site_slug }),
+          body: JSON.stringify({
+            id: item.id,
+            site_slug: item.site_slug,
+            scrollHeroSequencePresetId,
+          }),
         });
 
         const data = (await response.json()) as {
@@ -280,6 +296,7 @@ export function OutreachQueue() {
         err instanceof Error ? err.message : "Failed to build site.",
       );
     } finally {
+      delete rebuildSequenceByItemRef.current[itemId];
       releaseBuildSlot(itemId, "finished");
       processBuildQueueRef.current();
     }
@@ -372,7 +389,11 @@ export function OutreachQueue() {
     }
   };
 
-  function enqueueBuildJob(item: QueueItem, mode: BuildJobMode) {
+  function enqueueBuildJob(
+    item: QueueItem,
+    mode: BuildJobMode,
+    options?: { scrollHeroSequencePresetId?: string },
+  ) {
     console.log("[outreach-queue] enqueueBuildJob", {
       itemId: item.id,
       mode,
@@ -400,23 +421,57 @@ export function OutreachQueue() {
     setActionError(null);
     itemsByIdRef.current[item.id] = latestItem;
 
+    const scrollHeroSequencePresetId =
+      options?.scrollHeroSequencePresetId?.trim() ?? "";
+    if (mode === "rebuild") {
+      if (!scrollHeroSequencePresetId) {
+        setActionError("Select an image sequence before rebuilding.");
+        return;
+      }
+      rebuildSequenceByItemRef.current[item.id] = scrollHeroSequencePresetId;
+    }
+
     const queuedJob = createQueuedBuildJob(mode);
     buildJobsRef.current = {
       ...buildJobsRef.current,
       [item.id]: queuedJob,
     };
     setBuildJobs(buildJobsRef.current);
-    buildQueueRef.current.push({ itemId: item.id, mode });
+    buildQueueRef.current.push({
+      itemId: item.id,
+      mode,
+      scrollHeroSequencePresetId: scrollHeroSequencePresetId || undefined,
+    });
 
     processBuildQueueRef.current();
   }
 
-  function enqueueBuildSite(item: QueueItem) {
-    enqueueBuildJob(item, "build");
+  function openRebuildModal(item: QueueItem) {
+    setActionError(null);
+    setRebuildModalItem(item);
   }
 
-  function enqueueRebuildSite(item: QueueItem) {
-    enqueueBuildJob(item, "rebuild");
+  function handleConfirmRebuild(sequenceId: string) {
+    if (!rebuildModalItem) {
+      return;
+    }
+
+    const latestItem =
+      itemsByIdRef.current[rebuildModalItem.id] ?? rebuildModalItem;
+
+    if (buildJobsRef.current[latestItem.id]) {
+      setActionError("A rebuild is already in progress for this item.");
+      return;
+    }
+
+    enqueueBuildJob(latestItem, "rebuild", {
+      scrollHeroSequencePresetId: sequenceId,
+    });
+    setRebuildModalItem(null);
+  }
+
+  function enqueueBuildSite(item: QueueItem) {
+    enqueueBuildJob(item, "build");
   }
 
   async function handleFindEmail(item: QueueItem) {
@@ -737,7 +792,7 @@ export function OutreachQueue() {
             {!buildInProgress ? (
               <button
                 type="button"
-                onClick={() => enqueueRebuildSite(item)}
+                onClick={() => openRebuildModal(item)}
                 disabled={sending.has(item.id) || sendingAll}
                 className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-60"
               >
@@ -841,6 +896,14 @@ export function OutreachQueue() {
           </div>
         )}
       </Panel>
+      {rebuildModalItem ? (
+        <RebuildSequenceModal
+          businessName={rebuildModalItem.business_name}
+          industry={rebuildModalItem.industry}
+          onCancel={() => setRebuildModalItem(null)}
+          onConfirm={handleConfirmRebuild}
+        />
+      ) : null}
     </div>
   );
 }
