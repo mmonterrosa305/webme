@@ -2,8 +2,6 @@ import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 
 import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
-import { injectHeroParallax } from "@/lib/site-editor/inject-hero-parallax";
-
 import { fetchPexelsVideoUrls } from "./fetch-pexels-video";
 import { getIndustrySearchQueries } from "./fetch-pixabay-photos";
 
@@ -500,7 +498,7 @@ export function prepareScrollHeroVideoSiteHtml(html: string): string {
     ensureScrollHeroInitScript($);
   }
 
-  return injectHeroParallax($.html());
+  return $.html();
 }
 
 export function prepareScrollHeroSiteHtml(html: string): string {

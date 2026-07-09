@@ -1,10 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
 
 type ScrollHeroSequenceHeroProps = {
   sequenceId: string;
@@ -19,8 +15,6 @@ type ScrollHeroSequenceHeroProps = {
 type LoadState = "loading" | "ready" | "error";
 
 const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
-const HERO_PARALLAX_BG_RATE = 0.45;
-const HERO_PARALLAX_DELAY_RATIO = 0.12;
 
 const BASE_PLAYBACK_FPS = 24;
 const SCROLL_VELOCITY_SCALE = 0.012;
@@ -167,8 +161,6 @@ export function ScrollHeroSequenceHero({
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const sectionRef = useRef<HTMLElement>(null);
-  const pinRef = useRef<HTMLDivElement>(null);
-  const mediaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
@@ -176,9 +168,8 @@ export function ScrollHeroSequenceHero({
 
   useEffect(() => {
     const section = sectionRef.current;
-    const pin = pinRef.current;
     const canvas = canvasRef.current;
-    if (!section || !pin || !canvas) {
+    if (!section || !canvas) {
       return;
     }
 
@@ -216,7 +207,7 @@ export function ScrollHeroSequenceHero({
     };
 
     const resizeCanvas = () => {
-      const rect = pin.getBoundingClientRect();
+      const rect = section.getBoundingClientRect();
       const width = Math.max(1, Math.floor(rect.width));
       const height = Math.max(1, Math.floor(rect.height));
       canvas.width = Math.floor(width * dpr);
@@ -312,21 +303,15 @@ export function ScrollHeroSequenceHero({
 
     const updateTextOverlay = (progress: number) => {
       if (headlineEl) {
-        gsap.set(headlineEl, {
-          opacity: fadeInOut(progress, 0, 0.55, 0.75),
-        });
+        headlineEl.style.opacity = String(fadeInOut(progress, 0, 0.55, 0.75));
       }
 
       if (taglineEl) {
-        gsap.set(taglineEl, {
-          opacity: fadeInOut(progress, 0.65, 0.78, 0.88),
-        });
+        taglineEl.style.opacity = String(fadeInOut(progress, 0.65, 0.78, 0.88));
       }
 
       if (ctaEl) {
-        gsap.set(ctaEl, {
-          opacity: fadeInOut(progress, 0.68, 0.78, 0.88),
-        });
+        ctaEl.style.opacity = String(fadeInOut(progress, 0.68, 0.78, 0.88));
       }
     };
 
@@ -386,23 +371,6 @@ export function ScrollHeroSequenceHero({
       }, SCROLL_IDLE_MS);
     };
 
-    const bindPin = () => {
-      ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
-
-      ScrollTrigger.create({
-        id: "webme-scroll-hero-pin",
-        trigger: section,
-        start: "top top",
-        end: "bottom bottom",
-        pin: pin,
-        pinSpacing: false,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-      });
-
-      ScrollTrigger.refresh();
-    };
-
     const startPlayback = () => {
       baseProgressPerSecond =
         frameUrls.length > 0 ? BASE_PLAYBACK_FPS / frameUrls.length : 0.4;
@@ -413,7 +381,6 @@ export function ScrollHeroSequenceHero({
       isScrolling = false;
 
       updateTextOverlay(0);
-      bindPin();
       drawFrameSync(0);
       updateCanvasLoopFade();
 
@@ -485,41 +452,8 @@ export function ScrollHeroSequenceHero({
       window.removeEventListener("resize", onResize);
       window.clearTimeout(scrollIdleTimer);
       window.cancelAnimationFrame(rafId);
-      ScrollTrigger.getById("webme-scroll-hero-pin")?.kill();
     };
   }, [sequenceId, posterUrl, resolvedHeadline, resolvedTagline, ctaLabel]);
-
-  useEffect(() => {
-    const section = sectionRef.current;
-    const media = mediaRef.current;
-    if (!section || !media) {
-      return;
-    }
-
-    const tick = () => {
-      const rect = section.getBoundingClientRect();
-      const scrollPast = -rect.top;
-      const viewport = window.innerHeight || 1;
-
-      if (scrollPast < 0) {
-        media.style.transform = "";
-        return;
-      }
-
-      const delay = viewport * HERO_PARALLAX_DELAY_RATIO;
-      const adjusted = Math.max(0, scrollPast - delay);
-      media.style.transform = `translate3d(0, ${-adjusted * HERO_PARALLAX_BG_RATE}px, 0)`;
-    };
-
-    tick();
-    window.addEventListener("scroll", tick, { passive: true });
-    window.addEventListener("resize", tick);
-
-    return () => {
-      window.removeEventListener("scroll", tick);
-      window.removeEventListener("resize", tick);
-    };
-  }, []);
 
   const showOverlay = Boolean(resolvedHeadline || resolvedTagline || ctaLabel);
 
@@ -527,12 +461,38 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="webme-hero-parallax relative h-[400vh] w-full bg-black"
-      style={{ background: "black" }}
+      className="relative min-h-screen w-full overflow-hidden bg-black"
     >
+      <div className="absolute inset-0">
+        <div
+          className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
+            loadState === "ready" ? "opacity-100" : "opacity-60"
+          }`}
+          aria-hidden
+        />
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 z-[1] block h-full w-full"
+          style={{ opacity: LOOP_FADE_MAX_OPACITY }}
+        />
+        {loadState === "loading" ? (
+          <div
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+              <span className="text-sm font-medium tracking-wide text-white/80">
+                Loading sequence…
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {showOverlay ? (
         <div
-          className={`webme-hero-parallax-content relative z-20 mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
+          className={`relative z-20 mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
             loadState === "ready" ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -571,42 +531,6 @@ export function ScrollHeroSequenceHero({
           ) : null}
         </div>
       ) : null}
-      <div
-        ref={pinRef}
-        className="relative -mt-[100vh] flex h-screen w-full items-center justify-center overflow-hidden bg-black"
-        style={{ background: "black" }}
-      >
-        <div
-          ref={mediaRef}
-          className="webme-hero-parallax-media absolute inset-0"
-        >
-          <div
-            className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
-              loadState === "ready" ? "opacity-100" : "opacity-60"
-            }`}
-            aria-hidden
-          />
-          <canvas
-            ref={canvasRef}
-            className="absolute inset-0 z-[1] block h-full w-full"
-            style={{ opacity: LOOP_FADE_MAX_OPACITY }}
-          />
-          {loadState === "loading" ? (
-            <div
-              className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
-              aria-live="polite"
-              aria-busy="true"
-            >
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-                <span className="text-sm font-medium tracking-wide text-white/80">
-                  Loading sequence…
-                </span>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
     </section>
   );
 }

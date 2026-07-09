@@ -22,7 +22,6 @@ import {
   getRandomHero,
 } from "./industry-images";
 import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
-import { injectHeroParallax } from "@/lib/site-editor/inject-hero-parallax";
 import {
   COLOR_PALETTES,
   DESIGN_STYLES,
@@ -516,8 +515,6 @@ export async function buildSite(
   if (input.cardHoverEffect) {
     html = applyServiceCardHoverEffect(html);
   }
-
-  html = injectHeroParallax(html);
 
   if (!html.includes("<html") && !html.includes("<!DOCTYPE")) {
     throw new Error("Model response did not contain valid HTML.");
