@@ -55,7 +55,6 @@ export function ImageSequenceLibrarySection() {
   const [uploadZipFile, setUploadZipFile] = useState<File | null>(null);
   const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(
     null,
   );
@@ -177,31 +176,12 @@ export function ImageSequenceLibrarySection() {
     }
   }
 
-  async function handleDelete(sequence: ImageSequencePreset) {
-    setDeletingId(sequence.id);
-
-    try {
-      const response = await fetch(`/api/image-sequences/${sequence.id}`, {
-        method: "DELETE",
-      });
-
-      const data = await readJsonResponse<{ error?: string }>(response);
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Failed to delete sequence.");
-      }
-
-      setMessage(`Deleted ${sequence.label} (${sequence.industry}).`);
-      await loadSequences();
-    } catch (deleteError) {
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : "Failed to delete sequence.",
-      );
-    } finally {
-      setDeletingId(null);
-    }
+  async function handleSequenceDeleted(sequence: ImageSequencePreset) {
+    setSequences((current) =>
+      current.filter((item) => item.id !== sequence.id),
+    );
+    setMessage(`Deleted ${sequence.label} (${sequence.industry}).`);
+    setError(null);
   }
 
   return (
@@ -355,6 +335,8 @@ export function ImageSequenceLibrarySection() {
               onSelectedSequenceIdChange={setSelectedSequenceId}
               enabled
               showAutoSelect={false}
+              showDelete
+              onDeleted={handleSequenceDeleted}
               gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
             />
           </div>
@@ -366,23 +348,10 @@ export function ImageSequenceLibrarySection() {
               onSelectedSequenceIdChange={setSelectedSequenceId}
               enabled
               showAutoSelect={false}
+              showDelete
+              onDeleted={handleSequenceDeleted}
               gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
             />
-            <div className="flex flex-wrap gap-2">
-              {filteredSequences.map((sequence) => (
-                <button
-                  key={sequence.id}
-                  type="button"
-                  disabled={deletingId === sequence.id}
-                  onClick={() => void handleDelete(sequence)}
-                  className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {deletingId === sequence.id
-                    ? "Deleting..."
-                    : `Delete ${sequence.label}`}
-                </button>
-              ))}
-            </div>
           </div>
         )}
       </Panel>

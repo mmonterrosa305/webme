@@ -90,6 +90,8 @@ export function PresetImageSequencePicker({
   disabled = false,
   enabled = true,
   showAutoSelect = false,
+  showDelete = false,
+  onDeleted,
   gridClassName = "grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
 }: {
   industry?: string;
@@ -98,11 +100,14 @@ export function PresetImageSequencePicker({
   disabled?: boolean;
   enabled?: boolean;
   showAutoSelect?: boolean;
+  showDelete?: boolean;
+  onDeleted?: (sequence: ImageSequencePreset) => void;
   gridClassName?: string;
 }) {
   const [sequences, setSequences] = useState<ImageSequencePreset[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [playingSequenceId, setPlayingSequenceId] = useState<string | null>(
     null,
   );
@@ -170,6 +175,53 @@ export function PresetImageSequencePicker({
     }
   }, [playingSequenceId, sequences]);
 
+  async function handleDelete(sequence: ImageSequencePreset) {
+    const confirmed = window.confirm(
+      `Delete "${sequence.label}"? This cannot be undone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(sequence.id);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/image-sequences/${sequence.id}`, {
+        method: "DELETE",
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to delete sequence.");
+      }
+
+      setSequences((current) =>
+        current.filter((item) => item.id !== sequence.id),
+      );
+
+      if (selectedSequenceId === sequence.id) {
+        onSelectedSequenceIdChange(null);
+      }
+
+      if (playingSequenceId === sequence.id) {
+        setPlayingSequenceId(null);
+      }
+
+      onDeleted?.(sequence);
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete sequence.",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   if (!enabled) {
     return null;
   }
@@ -233,13 +285,31 @@ export function PresetImageSequencePicker({
                 onStop={() => setPlayingSequenceId(null)}
               />
               <div className="px-3 py-2.5">
-                <p className="text-sm font-medium text-neutral-900">
-                  {sequence.label}
-                </p>
-                <p className="mt-0.5 text-xs text-neutral-500">
-                  {sequence.frame_count} frames
-                  {!industry ? ` · ${sequence.industry}` : ""}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-neutral-900">
+                      {sequence.label}
+                    </p>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                      {sequence.frame_count} frames
+                      {!industry ? ` · ${sequence.industry}` : ""}
+                    </p>
+                  </div>
+                  {showDelete ? (
+                    <button
+                      type="button"
+                      disabled={disabled || deletingId === sequence.id}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void handleDelete(sequence);
+                      }}
+                      className="shrink-0 rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingId === sequence.id ? "Deleting..." : "Delete"}
+                    </button>
+                  ) : null}
+                </div>
                 <label className="mt-2 flex cursor-pointer items-center gap-2">
                   <input
                     type="radio"
