@@ -45,6 +45,8 @@ function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
 
 /** Viewport heights of scroll required to scrub from first to last frame. */
 const SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER = 3;
+/** Sticky viewport (100vh) + scroll runway → 400vh total section height. */
+const SEQUENCE_SECTION_HEIGHT_VH = 100 + SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER * 100;
 /** Skip washed-out opening frames — sequence starts at frame 61 (index 60). */
 const START_FRAME_OFFSET = 60;
 const LOOP_FADE_FRAME_COUNT = 15;
@@ -94,7 +96,65 @@ function fadeInOut(
 }
 
 function getSequenceSectionHeightVh(): number {
-  return 100 + SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER * 100;
+  return SEQUENCE_SECTION_HEIGHT_VH;
+}
+
+/** Read scroll offset from whichever root is actually scrolling. */
+function getPageScrollY(): number {
+  return Math.max(
+    window.scrollY || 0,
+    window.pageYOffset || 0,
+    document.documentElement?.scrollTop || 0,
+    document.body?.scrollTop || 0,
+  );
+}
+
+function getScrollEventTargets(): EventTarget[] {
+  const targets: EventTarget[] = [window, document];
+  if (document.documentElement) {
+    targets.push(document.documentElement);
+  }
+  if (document.body) {
+    targets.push(document.body);
+  }
+  return targets;
+}
+
+/**
+ * Prefer the scroll root that already reports a non-zero offset; otherwise
+ * fall back to documentElement (most reliable for document scrolling).
+ */
+function resolvePreferredScrollRoot(): {
+  target: EventTarget;
+  getScrollY: () => number;
+} {
+  const windowY = window.scrollY || window.pageYOffset || 0;
+  const docElY = document.documentElement?.scrollTop || 0;
+  const bodyY = document.body?.scrollTop || 0;
+
+  if (docElY > 0) {
+    return {
+      target: document.documentElement,
+      getScrollY: () => document.documentElement.scrollTop || 0,
+    };
+  }
+  if (bodyY > 0) {
+    return {
+      target: document.body,
+      getScrollY: () => document.body.scrollTop || 0,
+    };
+  }
+  if (windowY > 0) {
+    return {
+      target: window,
+      getScrollY: () => window.scrollY || window.pageYOffset || 0,
+    };
+  }
+
+  return {
+    target: document.documentElement || document,
+    getScrollY: getPageScrollY,
+  };
 }
 
 function progressToExactFrame(progress: number, totalFrames: number): number {
@@ -264,7 +324,18 @@ export function ScrollHeroSequenceHero({
     let rafId = 0;
     let allFramesLoaded = false;
 
+    let preferredScrollRoot = resolvePreferredScrollRoot();
+    const scrollTargets = getScrollEventTargets();
+
     const getScrollProgress = (): number => {
+      // Re-resolve if we previously saw all zeros (common on first paint).
+      if (preferredScrollRoot.getScrollY() === 0) {
+        const current = getPageScrollY();
+        if (current > 0) {
+          preferredScrollRoot = resolvePreferredScrollRoot();
+        }
+      }
+
       const rect = section.getBoundingClientRect();
       const scrollPast = Math.max(0, -rect.top);
       const viewport = window.innerHeight || 1;
@@ -488,6 +559,7 @@ export function ScrollHeroSequenceHero({
     };
 
     const onScroll = () => {
+      preferredScrollRoot = resolvePreferredScrollRoot();
       lastScrollTime = performance.now();
       updateFromScroll();
     };
@@ -498,7 +570,9 @@ export function ScrollHeroSequenceHero({
       }
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
+    for (const target of scrollTargets) {
+      target.addEventListener("scroll", onScroll, { passive: true });
+    }
     window.addEventListener("resize", onResize);
 
     void fetch(`/api/image-sequences/${encodeURIComponent(sequenceId)}`)
@@ -528,7 +602,9 @@ export function ScrollHeroSequenceHero({
 
     return () => {
       cancelled = true;
-      window.removeEventListener("scroll", onScroll);
+      for (const target of scrollTargets) {
+        target.removeEventListener("scroll", onScroll);
+      }
       window.removeEventListener("resize", onResize);
       window.cancelAnimationFrame(rafId);
     };
