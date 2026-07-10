@@ -52,6 +52,10 @@ const LOOP_FADE_MIN_OPACITY = 0;
 const LOOP_FADE_MAX_OPACITY = 1;
 const KEN_BURNS_SCALE_MAX = 1.08;
 const KEN_BURNS_HALF_CYCLE_SEC = 8;
+/** Start auto-advancing frames after this long without scroll. */
+const AUTO_PLAY_IDLE_MS = 300;
+/** Auto-play frame rate when the user is not scrolling. */
+const AUTO_PLAY_FPS = 8;
 
 function lerp(start: number, end: number, amount: number): number {
   return start + (end - start) * amount;
@@ -104,6 +108,34 @@ function progressToExactFrame(progress: number, totalFrames: number): number {
     START_FRAME_OFFSET +
     clampedProgress * (totalFrames - START_FRAME_OFFSET - 1)
   );
+}
+
+function exactFrameToProgress(exactFrame: number, totalFrames: number): number {
+  if (totalFrames <= 1) {
+    return 0;
+  }
+
+  if (totalFrames <= START_FRAME_OFFSET + 1) {
+    return clamp(exactFrame / (totalFrames - 1), 0, 1);
+  }
+
+  const start = START_FRAME_OFFSET;
+  const end = totalFrames - 1;
+  return clamp((exactFrame - start) / (end - start), 0, 1);
+}
+
+function getAutoPlayLoopBounds(totalFrames: number): {
+  loopStart: number;
+  loopEnd: number;
+  loopLength: number;
+} {
+  const loopStart = totalFrames <= START_FRAME_OFFSET + 1 ? 0 : START_FRAME_OFFSET;
+  const loopEnd = totalFrames - 1;
+  return {
+    loopStart,
+    loopEnd,
+    loopLength: loopEnd - loopStart + 1,
+  };
 }
 
 function isWebpFrameUrl(url: string): boolean {
@@ -225,7 +257,76 @@ export function ScrollHeroSequenceHero({
     const dpr = window.devicePixelRatio || 1;
 
     let frameProgress = 0;
+    let autoPlayExactFrame = START_FRAME_OFFSET;
+    let autoPlaying = false;
+    let lastScrollTime = performance.now();
+    let lastTickTime = 0;
+    let rafId = 0;
     let allFramesLoaded = false;
+
+    const getScrollProgress = (): number => {
+      const rect = section.getBoundingClientRect();
+      const scrollPast = Math.max(0, -rect.top);
+      const viewport = window.innerHeight || 1;
+      const scrollRange = viewport * SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER;
+      return clamp(scrollPast / scrollRange, 0, 1);
+    };
+
+    const isScrollIdle = (): boolean =>
+      performance.now() - lastScrollTime >= AUTO_PLAY_IDLE_MS;
+
+    const renderFrame = () => {
+      drawFrameSync(frameProgress);
+      updateTextOverlay(frameProgress);
+      updateCanvasLoopFade();
+    };
+
+    const advanceAutoPlay = (dt: number) => {
+      const totalFrames = frameUrls.length;
+      if (!totalFrames) {
+        return;
+      }
+
+      const { loopStart, loopEnd, loopLength } = getAutoPlayLoopBounds(totalFrames);
+
+      if (!autoPlaying) {
+        autoPlayExactFrame = progressToExactFrame(getScrollProgress(), totalFrames);
+        autoPlaying = true;
+      } else {
+        autoPlayExactFrame += AUTO_PLAY_FPS * dt;
+        if (autoPlayExactFrame > loopEnd) {
+          autoPlayExactFrame =
+            loopStart + ((autoPlayExactFrame - loopStart) % loopLength);
+        }
+      }
+
+      frameProgress = exactFrameToProgress(autoPlayExactFrame, totalFrames);
+    };
+
+    const tick = (now: number) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (!allFramesLoaded) {
+        rafId = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      if (!lastTickTime) {
+        lastTickTime = now;
+      }
+
+      const dt = Math.min((now - lastTickTime) / 1000, 0.05);
+      lastTickTime = now;
+
+      if (isScrollIdle()) {
+        advanceAutoPlay(dt);
+        renderFrame();
+      }
+
+      rafId = window.requestAnimationFrame(tick);
+    };
 
     const setCanvasOpacity = (opacity: number) => {
       canvas.style.opacity = String(opacity);
@@ -349,19 +450,16 @@ export function ScrollHeroSequenceHero({
         return;
       }
 
-      const rect = section.getBoundingClientRect();
-      const scrollPast = Math.max(0, -rect.top);
-      const viewport = window.innerHeight || 1;
-      const scrollRange = viewport * SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER;
-
-      frameProgress = clamp(scrollPast / scrollRange, 0, 1);
-      drawFrameSync(frameProgress);
-      updateTextOverlay(frameProgress);
-      updateCanvasLoopFade();
+      autoPlaying = false;
+      frameProgress = getScrollProgress();
+      renderFrame();
     };
 
     const startPlayback = () => {
+      lastScrollTime = performance.now();
+      lastTickTime = 0;
       updateFromScroll();
+      rafId = window.requestAnimationFrame(tick);
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
     };
 
@@ -390,6 +488,7 @@ export function ScrollHeroSequenceHero({
     };
 
     const onScroll = () => {
+      lastScrollTime = performance.now();
       updateFromScroll();
     };
 
@@ -431,6 +530,7 @@ export function ScrollHeroSequenceHero({
       cancelled = true;
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
+      window.cancelAnimationFrame(rafId);
     };
   }, [sequenceId, posterUrl, resolvedHeadline, resolvedTagline, ctaLabel]);
 
