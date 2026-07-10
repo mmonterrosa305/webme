@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { unstable_noStore as noStore } from "next/cache";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
-import ScrollHeroSequenceHeroWrapper from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero-wrapper";
 import { SiteContentFrame } from "@/components/site-content-frame";
 import {
   prepareAndPersistLeadSiteHtml,
   resolveScrollHeroSequenceId,
 } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
-import { prepareSequenceIframeHtml } from "@/lib/leads/enrich-built-site-html";
-import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
 import { injectAnalyticsScript } from "@/lib/site/inject-analytics";
 
 type PageProps = {
@@ -41,6 +38,14 @@ export default async function SitePage({ params }: PageProps) {
     notFound();
   }
 
+  const sequenceId = resolveScrollHeroSequenceId(lead.site_metadata);
+
+  // Sequence heroes render correctly in the preview pipeline — serve that
+  // as the public live site without the preview chrome.
+  if (sequenceId) {
+    redirect(`/preview/${slug}?mode=public`);
+  }
+
   const siteHtml = await prepareAndPersistLeadSiteHtml(
     lead.site_slug,
     lead.site_html,
@@ -48,60 +53,13 @@ export default async function SitePage({ params }: PageProps) {
     lead.industry,
   );
 
-  const metadata = lead.site_metadata;
-  const sequenceId = resolveScrollHeroSequenceId(metadata);
-
-  const sequenceDebug = (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        zIndex: 9999,
-        background: "red",
-        color: "white",
-        padding: "4px",
-        fontSize: "12px",
-      }}
-    >
-      SEQ: {sequenceId ?? "NULL"}
-    </div>
-  );
-
-  if (sequenceId) {
-    const heroCopy = resolveSequenceHeroCopy({
-      html: siteHtml,
-      metadata,
-      businessName: lead.business_name,
-    });
-    const bodyHtml = injectAnalyticsScript(prepareSequenceIframeHtml(siteHtml));
-
-    return (
-      <div className="bg-white">
-        {sequenceDebug}
-        <ScrollHeroSequenceHeroWrapper
-          key={sequenceId}
-          sequenceId={sequenceId}
-          businessName={lead.business_name}
-          posterUrl={heroCopy.posterUrl || metadata?.heroImageUrl}
-          headline={heroCopy.headline}
-          tagline={heroCopy.tagline}
-        />
-        <SiteContentFrame html={bodyHtml} title={lead.business_name} />
-      </div>
-    );
-  }
-
   const html = injectAnalyticsScript(siteHtml);
 
   return (
-    <>
-      {sequenceDebug}
-      <SiteContentFrame
-        html={html}
-        title={lead.business_name}
-        className="min-h-screen w-full"
-      />
-    </>
+    <SiteContentFrame
+      html={html}
+      title={lead.business_name}
+      className="min-h-screen w-full"
+    />
   );
 }
