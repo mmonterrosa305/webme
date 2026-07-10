@@ -45,6 +45,8 @@ function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
 
 /** Viewport heights of scroll required to scrub from first to last frame. */
 const SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER = 3;
+/** Skip washed-out opening frames — sequence starts at frame 21 (index 20). */
+const START_FRAME_OFFSET = 20;
 const LOOP_FADE_FRAME_COUNT = 15;
 const LOOP_FADE_MIN_OPACITY = 0;
 const LOOP_FADE_MAX_OPACITY = 1;
@@ -87,6 +89,19 @@ function fadeInOut(
 
 function getSequenceSectionHeightVh(): number {
   return 100 + SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER * 100;
+}
+
+function progressToExactFrame(progress: number, totalFrames: number): number {
+  const clampedProgress = clamp(progress, 0, 1);
+
+  if (totalFrames <= START_FRAME_OFFSET + 1) {
+    return clampedProgress * (totalFrames - 1);
+  }
+
+  return (
+    START_FRAME_OFFSET +
+    clampedProgress * (totalFrames - START_FRAME_OFFSET - 1)
+  );
 }
 
 function isWebpFrameUrl(url: string): boolean {
@@ -142,7 +157,7 @@ function getLoopFadeOpacity(frameProgress: number, frameCount: number): number {
     LOOP_FADE_FRAME_COUNT,
     Math.max(1, Math.floor(frameCount / 2)),
   );
-  const exactFrame = clamp(frameProgress, 0, 1) * maxIndex;
+  const exactFrame = progressToExactFrame(frameProgress, frameCount);
 
   if (exactFrame <= fadeFrames - 1) {
     if (fadeFrames <= 1) {
@@ -289,10 +304,10 @@ export function ScrollHeroSequenceHero({
         return;
       }
 
-      const maxIndex = frameUrls.length - 1;
-      const exact = clamp(progress, 0, 1) * maxIndex;
+      const totalFrames = frameUrls.length;
+      const exact = progressToExactFrame(progress, totalFrames);
       const idx = Math.floor(exact);
-      const next = Math.min(idx + 1, maxIndex);
+      const next = Math.min(idx + 1, totalFrames - 1);
       const blend = exact - idx;
 
       const imgA = imageCache[idx];
