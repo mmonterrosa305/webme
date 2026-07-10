@@ -52,8 +52,6 @@ const START_FRAME_OFFSET = 80;
 const LOOP_FADE_FRAME_COUNT = 15;
 const LOOP_FADE_MIN_OPACITY = 0;
 const LOOP_FADE_MAX_OPACITY = 1;
-const KEN_BURNS_SCALE_MAX = 1.08;
-const KEN_BURNS_HALF_CYCLE_SEC = 8;
 /** Start auto-advancing frames after this long without scroll. */
 const AUTO_PLAY_IDLE_MS = 300;
 /** Auto-play frame rate when the user is not scrolling. */
@@ -619,17 +617,6 @@ export function ScrollHeroSequenceHero({
       className="relative w-full bg-black"
       style={{ height: `${getSequenceSectionHeightVh()}vh` }}
     >
-      <style>{`
-        @keyframes webme-sequence-ken-burns {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(${KEN_BURNS_SCALE_MAX}); }
-        }
-        .webme-sequence-canvas-ken-burns {
-          animation: webme-sequence-ken-burns ${KEN_BURNS_HALF_CYCLE_SEC * 2}s ease-in-out infinite;
-          transform-origin: center center;
-          will-change: transform;
-        }
-      `}</style>
       <div className="sticky top-0 h-screen w-full overflow-hidden">
         <div className="absolute inset-0">
           <div
@@ -638,7 +625,7 @@ export function ScrollHeroSequenceHero({
             }`}
             aria-hidden
           />
-          <div className="webme-sequence-canvas-ken-burns absolute inset-0 z-[1]">
+          <div className="absolute inset-0 z-[1]">
             <canvas
               ref={canvasRef}
               className="block h-full w-full"
