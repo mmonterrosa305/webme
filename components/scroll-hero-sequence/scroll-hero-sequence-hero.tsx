@@ -406,9 +406,8 @@ export function ScrollHeroSequenceHero({
     };
 
     const resizeCanvas = () => {
-      const rect = section.getBoundingClientRect();
-      const width = Math.max(1, Math.floor(rect.width));
-      const height = Math.max(1, Math.floor(rect.height));
+      const width = Math.max(1, Math.floor(window.innerWidth || 1));
+      const height = Math.max(1, Math.floor(window.innerHeight || 1));
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       canvas.style.width = `${width}px`;
@@ -416,6 +415,7 @@ export function ScrollHeroSequenceHero({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
+    /** object-fit: cover — scale image to fill the full canvas, crop overflow. */
     const drawCover = (img: HTMLImageElement) => {
       const cw = canvas.width / dpr;
       const ch = canvas.height / dpr;
@@ -563,6 +563,7 @@ export function ScrollHeroSequenceHero({
     };
 
     const onResize = () => {
+      resizeCanvas();
       if (allFramesLoaded) {
         drawFrameSync(frameProgress);
       }
