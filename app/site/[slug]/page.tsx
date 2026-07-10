@@ -51,6 +51,23 @@ export default async function SitePage({ params }: PageProps) {
   const metadata = lead.site_metadata;
   const sequenceId = resolveScrollHeroSequenceId(metadata);
 
+  const sequenceDebug = (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        zIndex: 9999,
+        background: "red",
+        color: "white",
+        padding: "4px",
+        fontSize: "12px",
+      }}
+    >
+      SEQ: {sequenceId ?? "NULL"}
+    </div>
+  );
+
   if (sequenceId) {
     const heroCopy = resolveSequenceHeroCopy({
       html: siteHtml,
@@ -61,6 +78,7 @@ export default async function SitePage({ params }: PageProps) {
 
     return (
       <div className="bg-white">
+        {sequenceDebug}
         <ScrollHeroSequenceHero
           key={sequenceId}
           sequenceId={sequenceId}
@@ -77,10 +95,13 @@ export default async function SitePage({ params }: PageProps) {
   const html = injectAnalyticsScript(siteHtml);
 
   return (
-    <SiteContentFrame
-      html={html}
-      title={lead.business_name}
-      className="min-h-screen w-full"
-    />
+    <>
+      {sequenceDebug}
+      <SiteContentFrame
+        html={html}
+        title={lead.business_name}
+        className="min-h-screen w-full"
+      />
+    </>
   );
 }
