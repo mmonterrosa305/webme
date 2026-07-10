@@ -199,12 +199,14 @@ export function PreviewShell({
 
     html.style.overflow = "auto";
     html.style.height = "auto";
-    html.style.minHeight = "100%";
+    html.style.minHeight = "auto";
+    html.classList.remove("h-full");
     body.style.overflow = "visible";
     body.style.height = "auto";
-    body.style.minHeight = "100%";
+    body.style.minHeight = "auto";
     body.style.display = "block";
     body.style.flexDirection = "";
+    body.classList.remove("h-full", "min-h-0");
 
     const logScrollChain = (label: string) => {
       const hero = document.getElementById("webme-scroll-hero-external");
@@ -284,11 +286,13 @@ export function PreviewShell({
       html.style.overflow = previous.htmlOverflow;
       html.style.height = previous.htmlHeight;
       html.style.minHeight = previous.htmlMinHeight;
+      html.classList.add("h-full");
       body.style.overflow = previous.bodyOverflow;
       body.style.height = previous.bodyHeight;
       body.style.minHeight = previous.bodyMinHeight;
       body.style.display = previous.bodyDisplay;
       body.style.flexDirection = previous.bodyFlexDirection;
+      body.classList.add("h-full", "min-h-0");
     };
   }, [isPublicMode]);
 
@@ -1162,7 +1166,15 @@ export function PreviewShell({
 
   if (isPublicMode) {
     return (
-      <div className="block w-full bg-white">
+      <div
+        className="block w-full bg-white"
+        style={{
+          minHeight: "400vh",
+          height: "auto",
+          maxHeight: "none",
+          overflow: "visible",
+        }}
+      >
         {scrollSequenceId ? (
           <ScrollHeroSequenceHero
             key={scrollSequenceId}
