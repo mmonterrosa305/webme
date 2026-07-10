@@ -48,8 +48,11 @@ export default async function SitePage({ params }: PageProps) {
     lead.industry,
   );
 
-  const sequenceId = getScrollHeroSequenceIdFromMetadata(lead.site_metadata);
   const metadata = lead.site_metadata;
+  const sequenceId =
+    getScrollHeroSequenceIdFromMetadata(metadata) ||
+    metadata?.buildOptions?.scrollHeroSequencePresetId?.trim() ||
+    null;
 
   if (sequenceId) {
     const heroCopy = resolveSequenceHeroCopy({
@@ -62,9 +65,10 @@ export default async function SitePage({ params }: PageProps) {
     return (
       <div className="bg-white">
         <ScrollHeroSequenceHero
+          key={sequenceId}
           sequenceId={sequenceId}
           businessName={lead.business_name}
-          posterUrl={heroCopy.posterUrl}
+          posterUrl={heroCopy.posterUrl || metadata?.heroImageUrl}
           headline={heroCopy.headline}
           tagline={heroCopy.tagline}
         />
