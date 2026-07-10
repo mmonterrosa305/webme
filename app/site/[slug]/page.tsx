@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 
-import { ScrollHeroSequenceHero } from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero";
+import ScrollHeroSequenceHeroWrapper from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero-wrapper";
 import { SiteContentFrame } from "@/components/site-content-frame";
 import {
   prepareAndPersistLeadSiteHtml,
@@ -79,7 +79,7 @@ export default async function SitePage({ params }: PageProps) {
     return (
       <div className="bg-white">
         {sequenceDebug}
-        <ScrollHeroSequenceHero
+        <ScrollHeroSequenceHeroWrapper
           key={sequenceId}
           sequenceId={sequenceId}
           businessName={lead.business_name}
