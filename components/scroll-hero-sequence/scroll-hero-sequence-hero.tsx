@@ -45,8 +45,8 @@ function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
 
 /** Viewport heights of scroll required to scrub from first to last frame. */
 const SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER = 3;
-/** Skip washed-out opening frames — sequence starts at frame 46 (index 45). */
-const START_FRAME_OFFSET = 45;
+/** Skip washed-out opening frames — sequence starts at frame 61 (index 60). */
+const START_FRAME_OFFSET = 60;
 const LOOP_FADE_FRAME_COUNT = 15;
 const LOOP_FADE_MIN_OPACITY = 0;
 const LOOP_FADE_MAX_OPACITY = 1;
