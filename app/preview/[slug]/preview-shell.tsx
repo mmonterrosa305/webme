@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import type { LeadPreview } from "@/lib/leads/types";
 import {
@@ -82,6 +83,10 @@ export function PreviewShell({
   } | null;
   publicMode?: boolean;
 }) {
+  const searchParams = useSearchParams();
+  const isPublicMode =
+    publicMode || searchParams.get("mode") === "public";
+
   const pricingRef = useRef<HTMLElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [modal, setModal] = useState<Modal>(null);
@@ -166,12 +171,12 @@ export function PreviewShell({
   }, [lead.site_slug]);
 
   useEffect(() => {
-    if (publicMode) {
+    if (isPublicMode) {
       setLoadingEdits(false);
       return;
     }
     void loadEditStatus();
-  }, [loadEditStatus, publicMode]);
+  }, [loadEditStatus, isPublicMode]);
 
   const injectTextEditors = useCallback(() => {
     const iframe = iframeRef.current;
@@ -990,187 +995,208 @@ export function PreviewShell({
   }, [handleReplacePhoto, handleShuffleVideo]);
 
   const hasLogo = Boolean(normalizeLogoUrl(fields.logoUrl));
+  const viewFullSiteHref = hasScrollSequence
+    ? `/preview/${lead.site_slug}?mode=public`
+    : `/site/${lead.site_slug}`;
+
+  if (isPublicMode) {
+    return (
+      <div className="flex min-h-dvh flex-col bg-white">
+        {scrollSequenceId ? (
+          <ScrollHeroSequenceHero
+            key={scrollSequenceId}
+            sequenceId={scrollSequenceId}
+            businessName={lead.business_name}
+            posterUrl={
+              heroOverlay?.posterUrl || lead.site_metadata?.heroImageUrl
+            }
+            headline={
+              heroOverlay?.headline || fields.headline || lead.business_name
+            }
+            tagline={heroOverlay?.tagline || fields.tagline}
+          />
+        ) : null}
+        <iframe
+          ref={iframeRef}
+          title={lead.business_name}
+          sandbox="allow-scripts allow-same-origin"
+          className="min-h-0 w-full flex-1 border-0 bg-white"
+          srcDoc={siteHtml}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={
-        publicMode
-          ? "flex min-h-dvh flex-col bg-white"
-          : "flex min-h-dvh flex-col bg-neutral-100"
-      }
-    >
-      {!publicMode ? (
-        <>
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            className="hidden"
-            onChange={(event) => {
-              void handleLogoUpload(event.target.files?.[0] ?? null);
-              event.target.value = "";
-            }}
-          />
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime"
-            className="hidden"
-            onChange={(event) => {
-              void handleUploadHeroVideo(event.target.files?.[0] ?? null);
-              event.target.value = "";
-            }}
-          />
+    <div className="flex min-h-dvh flex-col bg-neutral-100">
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={(event) => {
+          void handleLogoUpload(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime"
+        className="hidden"
+        onChange={(event) => {
+          void handleUploadHeroVideo(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
 
-          <header className="sticky top-0 z-50 shrink-0 border-b border-neutral-800 bg-[#111111] shadow-lg">
-            <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">
-                    Preview for
-                  </p>
-                  <h1 className="truncate text-lg font-semibold text-white sm:text-xl">
-                    {fields.businessName || lead.business_name}
-                  </h1>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModal("packages");
-                      pricingRef.current?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                    }}
-                    className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
-                  >
-                    Yes! I want this site
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModal("declined")}
-                    className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
-                  >
-                    No thanks
-                  </button>
-                  <a
-                    href={`/site/${lead.site_slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
-                  >
-                    View full site
-                  </a>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-800 pt-3">
-                <span className="mr-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
-                  Edit site
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPhotoEditMode((current) => !current)}
-                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
-                >
-                  {photoEditMode ? "Done Editing" : "Replace Photos"}
-                </button>
-                <button
-                  type="button"
-                  disabled={uploadingLogo}
-                  onClick={() => logoInputRef.current?.click()}
-                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {uploadingLogo ? "Uploading..." : hasLogo ? "Change Logo" : "Upload Logo"}
-                </button>
-                {hasScrollSequence ? (
-                  <button
-                    type="button"
-                    disabled={scrollVideoControlsDisabled}
-                    onClick={() => void openPickSequenceModal()}
-                    className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {applyingSequenceId ? "Applying..." : "Pick Image Sequence"}
-                  </button>
-                ) : hasScrollHero ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={scrollVideoControlsDisabled}
-                      onClick={() => void handleShuffleVideo()}
-                      className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {shufflingVideo ? "Shuffling..." : "Shuffle Video"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={scrollVideoControlsDisabled}
-                      onClick={() => void openPickPresetModal()}
-                      className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {applyingPresetId ? "Applying..." : "Pick Preset"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={scrollVideoControlsDisabled}
-                      onClick={() => videoInputRef.current?.click()}
-                      className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {uploadingVideo ? "Uploading..." : "Upload Custom Video"}
-                    </button>
-                  </>
-                ) : null}
-              </div>
+      <header className="sticky top-0 z-50 shrink-0 border-b border-neutral-800 bg-[#111111] shadow-lg">
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">
+                Preview for
+              </p>
+              <h1 className="truncate text-lg font-semibold text-white sm:text-xl">
+                {fields.businessName || lead.business_name}
+              </h1>
             </div>
-          </header>
-
-          <div className="shrink-0 border-b border-neutral-200 bg-white px-4 py-3 sm:px-6">
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  Logo
-                </p>
-                <p className="mt-0.5 text-sm text-neutral-600">
-                  {hasLogo
-                    ? "Upload a new image to replace your logo."
-                    : "No logo yet — upload one to brand your site header."}
-                </p>
-              </div>
-              {hasLogo ? (
-                <img
-                  src={fields.logoUrl}
-                  alt="Current logo"
-                  className="h-14 w-auto max-w-[180px] rounded border border-neutral-200 bg-neutral-50 object-contain p-2"
-                />
-              ) : (
-                <div className="flex h-14 min-w-[120px] items-center justify-center rounded border border-dashed border-neutral-300 bg-neutral-50 px-4 text-xs text-neutral-500">
-                  No logo uploaded
-                </div>
-              )}
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={uploadingLogo}
-                onClick={() => logoInputRef.current?.click()}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => {
+                  setModal("packages");
+                  pricingRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }}
+                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
               >
-                {uploadingLogo
-                  ? "Uploading..."
-                  : hasLogo
-                    ? "Replace Logo"
-                    : "Upload Logo"}
+                Yes! I want this site
               </button>
+              <button
+                type="button"
+                onClick={() => setModal("declined")}
+                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+              >
+                No thanks
+              </button>
+              <a
+                href={viewFullSiteHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+              >
+                View full site
+              </a>
             </div>
           </div>
 
-          <div className="shrink-0 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 sm:px-6">
-            <p className="mx-auto max-w-7xl text-sm text-neutral-600">
-              Click the headline, tagline, business name, or phone number on the
-              site preview to edit text directly.
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-800 pt-3">
+            <span className="mr-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Edit site
+            </span>
+            <button
+              type="button"
+              onClick={() => setPhotoEditMode((current) => !current)}
+              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800"
+            >
+              {photoEditMode ? "Done Editing" : "Replace Photos"}
+            </button>
+            <button
+              type="button"
+              disabled={uploadingLogo}
+              onClick={() => logoInputRef.current?.click()}
+              className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {uploadingLogo ? "Uploading..." : hasLogo ? "Change Logo" : "Upload Logo"}
+            </button>
+            {hasScrollSequence ? (
+              <button
+                type="button"
+                disabled={scrollVideoControlsDisabled}
+                onClick={() => void openPickSequenceModal()}
+                className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {applyingSequenceId ? "Applying..." : "Pick Image Sequence"}
+              </button>
+            ) : hasScrollHero ? (
+              <>
+                <button
+                  type="button"
+                  disabled={scrollVideoControlsDisabled}
+                  onClick={() => void handleShuffleVideo()}
+                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {shufflingVideo ? "Shuffling..." : "Shuffle Video"}
+                </button>
+                <button
+                  type="button"
+                  disabled={scrollVideoControlsDisabled}
+                  onClick={() => void openPickPresetModal()}
+                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {applyingPresetId ? "Applying..." : "Pick Preset"}
+                </button>
+                <button
+                  type="button"
+                  disabled={scrollVideoControlsDisabled}
+                  onClick={() => videoInputRef.current?.click()}
+                  className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-white transition hover:border-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {uploadingVideo ? "Uploading..." : "Upload Custom Video"}
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      <div className="shrink-0 border-b border-neutral-200 bg-white px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              Logo
+            </p>
+            <p className="mt-0.5 text-sm text-neutral-600">
+              {hasLogo
+                ? "Upload a new image to replace your logo."
+                : "No logo yet — upload one to brand your site header."}
             </p>
           </div>
-        </>
-      ) : null}
+          {hasLogo ? (
+            <img
+              src={fields.logoUrl}
+              alt="Current logo"
+              className="h-14 w-auto max-w-[180px] rounded border border-neutral-200 bg-neutral-50 object-contain p-2"
+            />
+          ) : (
+            <div className="flex h-14 min-w-[120px] items-center justify-center rounded border border-dashed border-neutral-300 bg-neutral-50 px-4 text-xs text-neutral-500">
+              No logo uploaded
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={uploadingLogo}
+            onClick={() => logoInputRef.current?.click()}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploadingLogo
+              ? "Uploading..."
+              : hasLogo
+                ? "Replace Logo"
+                : "Upload Logo"}
+          </button>
+        </div>
+      </div>
+
+      <div className="shrink-0 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 sm:px-6">
+        <p className="mx-auto max-w-7xl text-sm text-neutral-600">
+          Click the headline, tagline, business name, or phone number on the
+          site preview to edit text directly.
+        </p>
+      </div>
 
       {scrollSequenceId ? (
         <ScrollHeroSequenceHero
@@ -1189,16 +1215,9 @@ export function PreviewShell({
         ref={iframeRef}
         title={`Website preview for ${lead.business_name}`}
         sandbox="allow-scripts allow-same-origin"
-        className={
-          publicMode
-            ? "min-h-0 w-full flex-1 border-0 bg-white"
-            : "min-h-[55vh] w-full flex-1 border-0 bg-white"
-        }
+        className="min-h-[55vh] w-full flex-1 border-0 bg-white"
         srcDoc={siteHtml}
         onLoad={() => {
-          if (publicMode) {
-            return;
-          }
           injectTextEditors();
           if (!scrollSequenceId) {
             injectHeroVideoOverlay();
@@ -1209,7 +1228,7 @@ export function PreviewShell({
         }}
       />
 
-      {!publicMode && editsRemaining > 0 ? (
+      {editsRemaining > 0 ? (
         <div className="shrink-0 border-t border-neutral-200 bg-white px-4 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] sm:px-6">
           <div className="mx-auto max-w-4xl">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -1240,35 +1259,33 @@ export function PreviewShell({
         </div>
       ) : null}
 
-      {!publicMode ? (
-        <section
-          id="pricing"
-          ref={pricingRef}
-          className="shrink-0 border-t border-neutral-200 bg-white px-4 py-10 sm:px-6"
-        >
-          <div className="mx-auto max-w-5xl">
-            <h2 className="text-center text-2xl font-semibold text-neutral-900">
-              Claim your site
-            </h2>
-            <p className="mt-2 text-center text-sm text-neutral-600">
-              Launch {fields.businessName || lead.business_name} for{" "}
-              {PRICING_HEADLINE}.
-            </p>
+      <section
+        id="pricing"
+        ref={pricingRef}
+        className="shrink-0 border-t border-neutral-200 bg-white px-4 py-10 sm:px-6"
+      >
+        <div className="mx-auto max-w-5xl">
+          <h2 className="text-center text-2xl font-semibold text-neutral-900">
+            Claim your site
+          </h2>
+          <p className="mt-2 text-center text-sm text-neutral-600">
+            Launch {fields.businessName || lead.business_name} for{" "}
+            {PRICING_HEADLINE}.
+          </p>
 
-            <div className="mt-8">
-              <PricingCard />
-            </div>
-
-            {checkoutError ? (
-              <p className="mt-4 text-center text-sm text-red-600" role="alert">
-                {checkoutError}
-              </p>
-            ) : null}
+          <div className="mt-8">
+            <PricingCard />
           </div>
-        </section>
-      ) : null}
 
-      {!publicMode && modal === "packages" ? (
+          {checkoutError ? (
+            <p className="mt-4 text-center text-sm text-red-600" role="alert">
+              {checkoutError}
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      {modal === "packages" ? (
         <ModalBackdrop onClose={() => setModal(null)}>
           <div className="p-6 sm:p-8">
             <h2 className="text-xl font-semibold text-neutral-900">
@@ -1300,7 +1317,7 @@ export function PreviewShell({
         </ModalBackdrop>
       ) : null}
 
-      {!publicMode && modal === "edits-exhausted" ? (
+      {modal === "edits-exhausted" ? (
         <ModalBackdrop onClose={() => setModal(null)}>
           <div className="p-6 text-center sm:p-8">
             <h2 className="text-xl font-semibold text-neutral-900">
@@ -1321,7 +1338,7 @@ export function PreviewShell({
         </ModalBackdrop>
       ) : null}
 
-      {!publicMode && modal === "pick-sequence" ? (
+      {modal === "pick-sequence" ? (
         <ModalBackdrop onClose={() => setModal(null)}>
           <div className="p-6 sm:p-8">
             <h2 className="text-xl font-semibold text-neutral-900">
@@ -1366,7 +1383,7 @@ export function PreviewShell({
         </ModalBackdrop>
       ) : null}
 
-      {!publicMode && modal === "pick-preset" ? (
+      {modal === "pick-preset" ? (
         <ModalBackdrop onClose={() => setModal(null)}>
           <div className="p-6 sm:p-8">
             <h2 className="text-xl font-semibold text-neutral-900">
@@ -1411,7 +1428,7 @@ export function PreviewShell({
         </ModalBackdrop>
       ) : null}
 
-      {!publicMode && modal === "declined" ? (
+      {modal === "declined" ? (
         <ModalBackdrop onClose={() => setModal(null)}>
           <div className="p-6 text-center sm:p-8">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-xl">

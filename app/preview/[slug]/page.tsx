@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import {
@@ -15,16 +16,18 @@ type PageProps = {
   searchParams: Promise<{ mode?: string | string[] }>;
 };
 
+function isPublicModeParam(mode: string | string[] | undefined): boolean {
+  const value = Array.isArray(mode) ? mode[0] : mode;
+  return value === "public";
+}
+
 export async function generateMetadata({
   params,
   searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
-  const mode = Array.isArray(resolvedSearchParams.mode)
-    ? resolvedSearchParams.mode[0]
-    : resolvedSearchParams.mode;
-  const publicMode = mode === "public";
+  const publicMode = isPublicModeParam(resolvedSearchParams.mode);
   const lead = await getLeadBySlug(slug);
 
   if (publicMode) {
@@ -43,10 +46,7 @@ export async function generateMetadata({
 export default async function PreviewPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
-  const mode = Array.isArray(resolvedSearchParams.mode)
-    ? resolvedSearchParams.mode[0]
-    : resolvedSearchParams.mode;
-  const publicMode = mode === "public";
+  const publicMode = isPublicModeParam(resolvedSearchParams.mode);
 
   const lead = await getLeadBySlug(slug);
 
@@ -71,14 +71,16 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
     : null;
 
   return (
-    <PreviewShell
-      lead={{
-        ...lead,
-        site_html: siteHtml,
-      }}
-      scrollHeroSequenceId={sequenceId}
-      sequenceHero={sequenceHero}
-      publicMode={publicMode}
-    />
+    <Suspense fallback={null}>
+      <PreviewShell
+        lead={{
+          ...lead,
+          site_html: siteHtml,
+        }}
+        scrollHeroSequenceId={sequenceId}
+        sequenceHero={sequenceHero}
+        publicMode={publicMode}
+      />
+    </Suspense>
   );
 }
