@@ -47,8 +47,8 @@ function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
 const SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER = 3;
 /** Sticky viewport (100vh) + scroll runway → 400vh total section height. */
 const SEQUENCE_SECTION_HEIGHT_VH = 100 + SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER * 100;
-/** Skip washed-out opening frames — sequence starts at frame 61 (index 60). */
-const START_FRAME_OFFSET = 60;
+/** Skip washed-out opening frames — sequence starts at frame 81 (index 80). */
+const START_FRAME_OFFSET = 80;
 const LOOP_FADE_FRAME_COUNT = 15;
 const LOOP_FADE_MIN_OPACITY = 0;
 const LOOP_FADE_MAX_OPACITY = 1;
