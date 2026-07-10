@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 
 import { ScrollHeroSequenceHero } from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero";
 import { SiteContentFrame } from "@/components/site-content-frame";
 import {
   getScrollHeroSequenceIdFromMetadata,
-  prepareLeadSiteHtml,
+  prepareAndPersistLeadSiteHtml,
 } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { prepareSequenceIframeHtml } from "@/lib/leads/enrich-built-site-html";
@@ -15,6 +16,9 @@ import { injectAnalyticsScript } from "@/lib/site/inject-analytics";
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
+
+/** Always fetch fresh lead HTML and re-run enrichment on every request. */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -28,6 +32,8 @@ export async function generateMetadata({
 }
 
 export default async function SitePage({ params }: PageProps) {
+  noStore();
+
   const { slug } = await params;
   const lead = await getLeadBySlug(slug);
 
@@ -35,15 +41,17 @@ export default async function SitePage({ params }: PageProps) {
     notFound();
   }
 
+  const siteHtml = await prepareAndPersistLeadSiteHtml(
+    lead.site_slug,
+    lead.site_html,
+    lead.site_metadata,
+    lead.industry,
+  );
+
   const sequenceId = getScrollHeroSequenceIdFromMetadata(lead.site_metadata);
   const metadata = lead.site_metadata;
 
   if (sequenceId) {
-    const siteHtml = await prepareLeadSiteHtml(
-      lead.site_html,
-      lead.site_metadata,
-      lead.industry,
-    );
     const heroCopy = resolveSequenceHeroCopy({
       html: siteHtml,
       metadata,
@@ -65,13 +73,7 @@ export default async function SitePage({ params }: PageProps) {
     );
   }
 
-  const html = injectAnalyticsScript(
-    await prepareLeadSiteHtml(
-      lead.site_html,
-      lead.site_metadata,
-      lead.industry,
-    ),
-  );
+  const html = injectAnalyticsScript(siteHtml);
 
   return (
     <SiteContentFrame
