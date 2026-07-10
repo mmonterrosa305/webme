@@ -76,8 +76,9 @@ export { applyStoredGoogleMapToHtml, applyStoredGoogleReviewsToHtml };
 
 /** Prepare iframe HTML for external sequence hero sites (strip hero + ensure animations). */
 export function prepareSequenceIframeHtml(html: string): string {
-  const normalized = normalizeHeroSection(html);
-  const stripped = stripSequenceHeroFromSiteHtml(normalized);
-  const withoutHorizontalScroll = stripHorizontalScrollSection(stripped.html);
+  const stripped = stripSequenceHeroFromSiteHtml(html).html;
+  const normalized = normalizeHeroSection(stripped);
+  const withoutHero = stripSequenceHeroFromSiteHtml(normalized).html;
+  const withoutHorizontalScroll = stripHorizontalScrollSection(withoutHero);
   return injectSiteAnimations(withoutHorizontalScroll);
 }

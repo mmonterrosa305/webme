@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 import { ScrollHeroSequenceHero } from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero";
 import { SiteContentFrame } from "@/components/site-content-frame";
 import {
-  getScrollHeroSequenceIdFromMetadata,
   prepareAndPersistLeadSiteHtml,
+  resolveScrollHeroSequenceId,
 } from "@/lib/agents/prepare-lead-site-html";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { prepareSequenceIframeHtml } from "@/lib/leads/enrich-built-site-html";
@@ -49,10 +49,7 @@ export default async function SitePage({ params }: PageProps) {
   );
 
   const metadata = lead.site_metadata;
-  const sequenceId =
-    getScrollHeroSequenceIdFromMetadata(metadata) ||
-    metadata?.buildOptions?.scrollHeroSequencePresetId?.trim() ||
-    null;
+  const sequenceId = resolveScrollHeroSequenceId(metadata);
 
   if (sequenceId) {
     const heroCopy = resolveSequenceHeroCopy({

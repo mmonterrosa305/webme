@@ -250,10 +250,80 @@ function addNavClearanceToFirstContentBlock($: cheerio.CheerioAPI): void {
   });
 }
 
+function isScrollHeroScript(id: string, content: string): boolean {
+  if (id.startsWith("webme-scroll-hero")) {
+    return true;
+  }
+
+  return /webme-scroll-hero-frames|getElementById\(["']webme-scroll-hero|preloadFrames|webme-scroll-hero-sequence-init|webme-scroll-hero-init|ScrollTrigger\.getById\(["']webme-scroll-hero|loadImageAt\s*\(/i.test(
+    content,
+  );
+}
+
+function removeScrollHeroScripts($: cheerio.CheerioAPI): void {
+  $("script").each((_index, element) => {
+    const $script = $(element);
+    const id = ($script.attr("id") ?? "").trim();
+    const content = $script.html() ?? "";
+
+    if (isScrollHeroScript(id, content)) {
+      $script.remove();
+    }
+  });
+}
+
+function removeScrollHeroElements($: cheerio.CheerioAPI): void {
+  $("[data-webme-scroll-hero]").each((_index, element) => {
+    const $el = $(element);
+    const $heroSection = $el.closest("#webme-scroll-hero, #hero, section");
+
+    if ($heroSection.length && isHeroSection($heroSection)) {
+      $heroSection.remove();
+      return;
+    }
+
+    $el.remove();
+  });
+
+  $("#webme-scroll-hero").remove();
+
+  $("canvas").each((_index, element) => {
+    const $canvas = $(element);
+    const $section = $canvas.closest("section");
+
+    if ($section.length && isHeroSection($section)) {
+      $section.remove();
+      return;
+    }
+
+    $canvas.remove();
+  });
+
+  $(".webme-scroll-hero-pin, .webme-scroll-hero-content").each((_index, element) => {
+    const $el = $(element);
+    const $section = $el.closest("section");
+
+    if ($section.length && isHeroSection($section)) {
+      $section.remove();
+    }
+  });
+
+  $(
+    ".webme-scroll-hero-rest, [class*='scroll-runway'], [class*='webme-scroll-hero-runway']",
+  ).each((_index, element) => {
+    const $runway = $(element);
+    $runway.children().insertAfter($runway);
+    $runway.remove();
+  });
+}
+
 /** Remove baked-in sequence hero markup/scripts so the hero renders in Next.js instead. */
 export function stripSequenceHeroFromSiteHtml(html: string): StrippedSequenceHero {
   const $ = cheerio.load(html);
   const extracted = extractHeroCopy($);
+
+  removeScrollHeroElements($);
+  removeScrollHeroScripts($);
 
   $("#webme-scroll-hero-init").remove();
   $("#webme-scroll-hero-sequence-init").remove();
@@ -261,22 +331,6 @@ export function stripSequenceHeroFromSiteHtml(html: string): StrippedSequenceHer
   $("#webme-scroll-hero-styles").remove();
   $("html").removeClass("webme-scroll-hero-page");
   $("header, nav").removeClass("webme-scroll-hero-nav");
-
-  const $rest = $(".webme-scroll-hero-rest").first();
-  if ($rest.length) {
-    $rest.children().insertAfter($rest);
-    $rest.remove();
-  }
-
-  $("#webme-scroll-hero").remove();
-  $('canvas[data-webme-scroll-hero="sequence"]').each((_index, element) => {
-    const $section = $(element).closest("section");
-    if ($section.length) {
-      $section.remove();
-    } else {
-      $(element).remove();
-    }
-  });
 
   removeOrphanHeroSection($);
   addNavClearanceToFirstContentBlock($);

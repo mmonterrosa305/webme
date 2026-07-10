@@ -21,6 +21,16 @@ export function getScrollHeroSequenceIdFromMetadata(
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+export function resolveScrollHeroSequenceId(
+  metadata: Record<string, unknown> | SiteMetadata | null | undefined,
+): string | null {
+  return (
+    getScrollHeroSequenceIdFromMetadata(metadata) ||
+    (metadata as SiteMetadata | null)?.buildOptions?.scrollHeroSequencePresetId?.trim() ||
+    null
+  );
+}
+
 export async function prepareLeadSiteHtml(
   html: string,
   metadata?: Record<string, unknown> | SiteMetadata | null,
@@ -28,7 +38,7 @@ export async function prepareLeadSiteHtml(
 ): Promise<string> {
   void industry;
 
-  const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
+  const sequenceId = resolveScrollHeroSequenceId(metadata);
   let prepared = normalizeHeroSection(html);
 
   if (sequenceId || hasScrollHeroSequence(html) || hasStaleSequenceInitScript(html)) {
