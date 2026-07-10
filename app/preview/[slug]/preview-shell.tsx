@@ -178,6 +178,167 @@ export function PreviewShell({
     void loadEditStatus();
   }, [loadEditStatus, isPublicMode]);
 
+  /** Unlock document scroll for sequence hero scrubbing in public mode. */
+  useEffect(() => {
+    if (!isPublicMode) {
+      return;
+    }
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previous = {
+      htmlOverflow: html.style.overflow,
+      htmlHeight: html.style.height,
+      htmlMinHeight: html.style.minHeight,
+      bodyOverflow: body.style.overflow,
+      bodyHeight: body.style.height,
+      bodyMinHeight: body.style.minHeight,
+      bodyDisplay: body.style.display,
+      bodyFlexDirection: body.style.flexDirection,
+    };
+
+    html.style.overflow = "auto";
+    html.style.height = "auto";
+    html.style.minHeight = "100%";
+    body.style.overflow = "visible";
+    body.style.height = "auto";
+    body.style.minHeight = "100%";
+    body.style.display = "block";
+    body.style.flexDirection = "";
+
+    const logScrollChain = (label: string) => {
+      const hero = document.getElementById("webme-scroll-hero-external");
+      const chain: Array<Record<string, string | null>> = [];
+
+      const pushEl = (el: Element | null, name?: string) => {
+        if (!el) {
+          return;
+        }
+        const styles = window.getComputedStyle(el);
+        chain.push({
+          name: name ?? `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${typeof el.className === "string" && el.className ? `.${el.className.trim().split(/\s+/).slice(0, 3).join(".")}` : ""}`,
+          overflow: styles.overflow,
+          overflowX: styles.overflowX,
+          overflowY: styles.overflowY,
+          height: styles.height,
+          maxHeight: styles.maxHeight,
+          minHeight: styles.minHeight,
+          position: styles.position,
+          display: styles.display,
+          flex: styles.flex,
+        });
+      };
+
+      pushEl(html, "html");
+      pushEl(body, "body");
+
+      let node: HTMLElement | null = hero;
+      const ancestors: HTMLElement[] = [];
+      while (node) {
+        ancestors.unshift(node);
+        node = node.parentElement;
+      }
+      for (const el of ancestors) {
+        pushEl(el);
+      }
+
+      console.log(`[preview-public] scroll chain (${label})`, chain);
+
+      const blockers = chain.filter((entry) => {
+        const name = entry.name ?? "";
+        const isDocumentRoot = name === "html" || name === "body";
+        const overflowHidden =
+          entry.overflow === "hidden" ||
+          entry.overflowY === "hidden" ||
+          entry.overflowX === "hidden";
+        const nestedScrollTrap =
+          !isDocumentRoot &&
+          (entry.overflow === "scroll" ||
+            entry.overflow === "auto" ||
+            entry.overflowY === "scroll" ||
+            entry.overflowY === "auto");
+        const fixedHeightTrap =
+          !isDocumentRoot &&
+          typeof entry.height === "string" &&
+          entry.height !== "auto" &&
+          entry.height !== "0px" &&
+          (entry.height.endsWith("px") ||
+            entry.height === "100%" ||
+            entry.height === "100dvh" ||
+            entry.height === "100vh");
+        return overflowHidden || nestedScrollTrap || fixedHeightTrap;
+      });
+
+      if (blockers.length) {
+        console.warn("[preview-public] potential scroll blockers:", blockers);
+      } else {
+        console.log("[preview-public] no scroll blockers detected");
+      }
+    };
+
+    logScrollChain("after unlock");
+    const timeoutId = window.setTimeout(() => logScrollChain("after layout"), 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      html.style.overflow = previous.htmlOverflow;
+      html.style.height = previous.htmlHeight;
+      html.style.minHeight = previous.htmlMinHeight;
+      body.style.overflow = previous.bodyOverflow;
+      body.style.height = previous.bodyHeight;
+      body.style.minHeight = previous.bodyMinHeight;
+      body.style.display = previous.bodyDisplay;
+      body.style.flexDirection = previous.bodyFlexDirection;
+    };
+  }, [isPublicMode]);
+
+  /** Size the public-mode iframe to its content so the PAGE scrolls, not the iframe. */
+  useEffect(() => {
+    if (!isPublicMode) {
+      return;
+    }
+
+    const iframe = iframeRef.current;
+    if (!iframe) {
+      return;
+    }
+
+    const resizeIframe = () => {
+      const doc = iframe.contentDocument;
+      if (!doc?.body) {
+        return;
+      }
+
+      const height = Math.max(
+        doc.documentElement.scrollHeight,
+        doc.body.scrollHeight,
+        doc.documentElement.offsetHeight,
+        doc.body.offsetHeight,
+      );
+
+      iframe.style.height = `${height}px`;
+      iframe.style.overflow = "hidden";
+    };
+
+    const onLoad = () => {
+      resizeIframe();
+      window.setTimeout(resizeIframe, 100);
+      window.setTimeout(resizeIframe, 500);
+      window.setTimeout(resizeIframe, 1500);
+    };
+
+    iframe.addEventListener("load", onLoad);
+    if (iframe.contentDocument?.readyState === "complete") {
+      onLoad();
+    }
+
+    window.addEventListener("resize", resizeIframe);
+    return () => {
+      iframe.removeEventListener("load", onLoad);
+      window.removeEventListener("resize", resizeIframe);
+    };
+  }, [isPublicMode, siteHtml]);
+
   const injectTextEditors = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -1001,7 +1162,7 @@ export function PreviewShell({
 
   if (isPublicMode) {
     return (
-      <div className="flex min-h-dvh flex-col bg-white">
+      <div className="block w-full bg-white">
         {scrollSequenceId ? (
           <ScrollHeroSequenceHero
             key={scrollSequenceId}
@@ -1020,7 +1181,8 @@ export function PreviewShell({
           ref={iframeRef}
           title={lead.business_name}
           sandbox="allow-scripts allow-same-origin"
-          className="min-h-0 w-full flex-1 border-0 bg-white"
+          scrolling="no"
+          className="block w-full border-0 bg-white"
           srcDoc={siteHtml}
         />
       </div>
