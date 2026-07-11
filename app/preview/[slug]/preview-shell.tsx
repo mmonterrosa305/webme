@@ -74,6 +74,7 @@ export function PreviewShell({
   scrollHeroSequenceId = null,
   sequenceHero = null,
   publicMode = false,
+  hasPaidClient = false,
 }: {
   lead: LeadPreview;
   scrollHeroSequenceId?: string | null;
@@ -83,6 +84,7 @@ export function PreviewShell({
     posterUrl?: string;
   } | null;
   publicMode?: boolean;
+  hasPaidClient?: boolean;
 }) {
   const searchParams = useSearchParams();
   const isPublicMode =
@@ -1166,6 +1168,8 @@ export function PreviewShell({
     : `/site/${lead.site_slug}`;
 
   if (isPublicMode) {
+    const showClaimBar = !hasPaidClient;
+
     return (
       <div
         className="block w-full bg-white"
@@ -1174,7 +1178,7 @@ export function PreviewShell({
           height: "auto",
           maxHeight: "none",
           overflow: "visible",
-          paddingBottom: "88px",
+          paddingBottom: showClaimBar ? "88px" : undefined,
         }}
       >
         {scrollSequenceId ? (
@@ -1199,34 +1203,36 @@ export function PreviewShell({
           className="block w-full border-0 bg-white"
           srcDoc={siteHtml}
         />
-        <div
-          className="fixed bottom-0 left-0 right-0 z-[60] border-t border-white/10"
-          style={{ background: "#0f172a" }}
-        >
-          <div className="mx-auto flex max-w-5xl flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white sm:text-base">
-                Like what you see? This site is yours.
-              </p>
-              {checkoutError ? (
-                <p className="mt-1 text-xs text-red-400" role="alert">
-                  {checkoutError}
+        {showClaimBar ? (
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[60] border-t border-white/10"
+            style={{ background: "#0f172a" }}
+          >
+            <div className="mx-auto flex max-w-5xl flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white sm:text-base">
+                  Like what you see? This site is yours.
                 </p>
-              ) : null}
+                {checkoutError ? (
+                  <p className="mt-1 text-xs text-red-400" role="alert">
+                    {checkoutError}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handlePayNow()}
+                disabled={paying}
+                className="inline-flex shrink-0 items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                style={{ background: "#22c55e" }}
+              >
+                {paying
+                  ? "Redirecting…"
+                  : `Claim This Site — ${SITE_BUILD_FEE_DISPLAY}`}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => void handlePayNow()}
-              disabled={paying}
-              className="inline-flex shrink-0 items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-              style={{ background: "#22c55e" }}
-            >
-              {paying
-                ? "Redirecting…"
-                : `Claim This Site — ${SITE_BUILD_FEE_DISPLAY}`}
-            </button>
           </div>
-        </div>
+        ) : null}
       </div>
     );
   }

@@ -6,6 +6,7 @@ import {
   prepareAndPersistLeadSiteHtml,
   resolveScrollHeroSequenceId,
 } from "@/lib/agents/prepare-lead-site-html";
+import { getClientBySiteSlug } from "@/lib/clients/get-client-by-site-slug";
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
 
@@ -19,6 +20,22 @@ type PageProps = {
 function isPublicModeParam(mode: string | string[] | undefined): boolean {
   const value = Array.isArray(mode) ? mode[0] : mode;
   return value === "public";
+}
+
+function isPaidClient(
+  client: Awaited<ReturnType<typeof getClientBySiteSlug>>,
+  leadStatus: string | null,
+): boolean {
+  if (leadStatus === "won") {
+    return true;
+  }
+
+  if (!client) {
+    return false;
+  }
+
+  const status = (client.subscription_status ?? "").toLowerCase();
+  return status !== "payment_failed";
 }
 
 export async function generateMetadata({
@@ -54,6 +71,9 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
     notFound();
   }
 
+  const client = await getClientBySiteSlug(slug);
+  const hasPaidClient = isPaidClient(client, lead.status);
+
   const siteHtml = await prepareAndPersistLeadSiteHtml(
     lead.site_slug,
     lead.site_html,
@@ -80,6 +100,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
         scrollHeroSequenceId={sequenceId}
         sequenceHero={sequenceHero}
         publicMode={publicMode}
+        hasPaidClient={hasPaidClient}
       />
     </Suspense>
   );
