@@ -198,6 +198,9 @@ export async function handleCheckoutSessionCompleted(
     customerDetailsEmail,
   } = context;
   const { oneTimeAmount, monthlyAmount } = getPlanAmounts(plan);
+  // Coerce to numbers — Postgres rejects string "9.99" for numeric/int columns.
+  const oneTimeAmountNumber = Number(oneTimeAmount);
+  const monthlyAmountNumber = Number(monthlyAmount);
   const supabase = createAdminClient();
 
   const { data: leadRecord, error: leadRecordError } = await supabase
@@ -231,8 +234,8 @@ export async function handleCheckoutSessionCompleted(
     stripe_customer_id: customerId,
     stripe_subscription_id: subscriptionId,
     subscription_status: "active",
-    one_time_amount: oneTimeAmount,
-    monthly_amount: monthlyAmount,
+    one_time_amount: oneTimeAmountNumber,
+    monthly_amount: monthlyAmountNumber,
     site_slug: resolvedSiteSlug,
     site_html: leadRecord?.site_html ?? null,
     created_at: new Date().toISOString(),

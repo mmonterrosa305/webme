@@ -16,7 +16,7 @@ export const HOSTING_TRIAL_DAYS = 30;
 export const PLAN_AMOUNTS = {
   oneTimeAmount: SITE_BUILD_FEE,
   monthlyAmount: HOSTING_MONTHLY_FEE,
-} as const;
+};
 
 export const STRIPE_SITE_BUILD_PRICE_ENV = "STRIPE_SITE_BUILD_PRICE_ID";
 export const STRIPE_HOSTING_SUB_PRICE_ENV = "STRIPE_HOSTING_SUB_PRICE_ID";
@@ -69,9 +69,16 @@ export function getStripePriceToPlanMap(): Record<string, ClientPlan> {
   );
 }
 
-export function getPlanAmounts(plan: ClientPlan) {
+export function getPlanAmounts(plan: ClientPlan): {
+  oneTimeAmount: number;
+  monthlyAmount: number;
+} {
   if (plan === STANDARD_PLAN_ID) {
-    return PLAN_AMOUNTS;
+    return {
+      oneTimeAmount: Number(SITE_BUILD_FEE),
+      // Dollar amount as a number (e.g. 9.99) — never a string.
+      monthlyAmount: Number(HOSTING_MONTHLY_FEE),
+    };
   }
 
   const legacyAmounts: Record<
