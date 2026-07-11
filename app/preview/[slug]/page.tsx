@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 
 import {
@@ -11,6 +12,8 @@ import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
 
 import { PreviewShell } from "./preview-shell";
+
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -61,6 +64,8 @@ export async function generateMetadata({
 }
 
 export default async function PreviewPage({ params, searchParams }: PageProps) {
+  noStore();
+
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
   const publicMode = isPublicModeParam(resolvedSearchParams.mode);
