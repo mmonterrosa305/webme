@@ -7,6 +7,8 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+const CLIENT_PORTAL_LOGIN_URL = "https://mywebme.com/client/login";
+
 export function buildCheckoutWelcomeEmail({
   businessName,
   siteUrl,
@@ -31,6 +33,14 @@ export function buildCheckoutWelcomeEmail({
         </a>
       </p>
       <p style="margin: 0 0 16px;">
+        You can also log in to your client portal to track your site status and manage your account.
+      </p>
+      <p style="margin: 0 0 28px; text-align: center;">
+        <a href="${CLIENT_PORTAL_LOGIN_URL}" style="display: inline-block; background: #0f172a; color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 8px;">
+          Access Your Client Portal
+        </a>
+      </p>
+      <p style="margin: 0 0 16px;">
         Next step: reply to this email with your domain name (e.g. yourbusiness.com) and we&apos;ll get it connected for you.
       </p>
       <p style="margin: 0 0 24px;">
@@ -47,6 +57,9 @@ export function buildCheckoutWelcomeEmail({
 Thank you for choosing MyWebMe! Your website for ${businessName} is ready.
 
 View your site: ${siteUrl}
+
+You can also log in to your client portal to track your site status and manage your account.
+Access your client portal: ${CLIENT_PORTAL_LOGIN_URL}
 
 Next step: reply to this email with your domain name (e.g. yourbusiness.com) and we'll get it connected for you.
 
