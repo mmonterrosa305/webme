@@ -1204,16 +1204,27 @@ export function PreviewShell({
           style={{ background: "#0f172a" }}
         >
           <div className="mx-auto flex max-w-5xl flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-            <p className="text-sm font-medium text-white sm:text-base">
-              Like what you see? This site is yours.
-            </p>
-            <a
-              href={`/checkout?slug=${encodeURIComponent(lead.site_slug)}`}
-              className="inline-flex shrink-0 items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white sm:text-base">
+                Like what you see? This site is yours.
+              </p>
+              {checkoutError ? (
+                <p className="mt-1 text-xs text-red-400" role="alert">
+                  {checkoutError}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => void handlePayNow()}
+              disabled={paying}
+              className="inline-flex shrink-0 items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
               style={{ background: "#22c55e" }}
             >
-              Claim This Site — {SITE_BUILD_FEE_DISPLAY}
-            </a>
+              {paying
+                ? "Redirecting…"
+                : `Claim This Site — ${SITE_BUILD_FEE_DISPLAY}`}
+            </button>
           </div>
         </div>
       </div>
