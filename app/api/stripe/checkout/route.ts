@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { STANDARD_PLAN_ID, HOSTING_TRIAL_DAYS } from "@/lib/plans/pricing";
-import { getAppUrl, getStripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { getStripeCheckoutPriceIds } from "@/lib/stripe/price-env";
 
 export const runtime = "nodejs";
@@ -23,7 +23,10 @@ export async function POST(request: Request) {
     }
 
     const { siteBuildPriceId, hostingSubPriceId } = getStripeCheckoutPriceIds();
-    const appUrl = getAppUrl();
+    const baseUrl = (
+      process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
+      "https://webme-x6ed.onrender.com"
+    ).replace(/\/$/, "");
     const subscriptionMetadata = {
       lead_id: lead.id,
       site_slug: slug,
@@ -48,8 +51,8 @@ export async function POST(request: Request) {
         trial_period_days: HOSTING_TRIAL_DAYS,
         metadata: subscriptionMetadata,
       },
-      success_url: `${appUrl}/checkout/success?slug=${encodeURIComponent(slug)}`,
-      cancel_url: `${appUrl}/preview/${slug}?checkout=canceled`,
+      success_url: `${baseUrl}/checkout/success?slug=${encodeURIComponent(slug)}`,
+      cancel_url: `${baseUrl}/preview/${encodeURIComponent(slug)}?mode=public`,
     });
 
     if (!session.url) {
