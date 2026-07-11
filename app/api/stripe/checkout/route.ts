@@ -23,10 +23,9 @@ export async function POST(request: Request) {
     }
 
     const { siteBuildPriceId, hostingSubPriceId } = getStripeCheckoutPriceIds();
-    const baseUrl = (
+    const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
-      "https://webme-x6ed.onrender.com"
-    ).replace(/\/$/, "");
+      "https://webme-x6ed.onrender.com";
     const subscriptionMetadata = {
       lead_id: lead.id,
       site_slug: slug,
