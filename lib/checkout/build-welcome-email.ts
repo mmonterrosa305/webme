@@ -9,52 +9,50 @@ function escapeHtml(value: string): string {
 
 export function buildCheckoutWelcomeEmail({
   businessName,
-  portalUrl,
-  previewUrl,
+  siteUrl,
 }: {
   businessName: string;
-  portalUrl: string;
-  previewUrl: string;
+  siteUrl: string;
 }): { subject: string; html: string; text: string } {
   const safeBusiness = escapeHtml(businessName);
-  const safePortal = escapeHtml(portalUrl);
-  const safePreview = escapeHtml(previewUrl);
-  const subject = `Welcome to MyWebMe — ${businessName} is on the way`;
+  const safeSiteUrl = escapeHtml(siteUrl);
+  const subject = `Your website is ready, ${businessName}! 🎉`;
 
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 640px; margin: 0 auto; color: #171717; line-height: 1.6;">
       <p style="margin: 0 0 16px;">Hi there,</p>
+      <p style="margin: 0 0 24px;">
+        Thank you for choosing MyWebMe! Your website for
+        <strong>${safeBusiness}</strong> is ready.
+      </p>
+      <p style="margin: 0 0 28px; text-align: center;">
+        <a href="${safeSiteUrl}" style="display: inline-block; background: #22c55e; color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 8px;">
+          View Your Site
+        </a>
+      </p>
       <p style="margin: 0 0 16px;">
-        Thank you for choosing MyWebMe! Your payment is confirmed and
-        <strong>${safeBusiness}</strong> will be live within 24 hours.
+        Next step: reply to this email with your domain name (e.g. yourbusiness.com) and we&apos;ll get it connected for you.
       </p>
       <p style="margin: 0 0 24px;">
-        We sent a separate email with your 6-digit sign-in code. Use it at the client portal to edit your site anytime.
+        Questions? Just reply to this email.
       </p>
-      <p style="margin: 0 0 32px; text-align: center;">
-        <a href="${safePortal}" style="display: inline-block; background: #171717; color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 8px; margin-right: 8px;">
-          Open client portal
-        </a>
-        <a href="${safePreview}" style="display: inline-block; background: #ffffff; color: #171717; font-size: 16px; font-weight: 700; text-decoration: none; padding: 12px 26px; border-radius: 8px; border: 2px solid #171717;">
-          Preview your site
-        </a>
-      </p>
-      <p style="margin: 0; font-size: 14px; color: #737373;">
-        Questions? Reply to this email or write to sites@mywebme.com.
+      <p style="margin: 0;">
+        — The MyWebMe Team
       </p>
     </div>
   `.trim();
 
-  const text = `Welcome to MyWebMe!
+  const text = `Hi there,
 
-Thank you for choosing MyWebMe. Your payment is confirmed and ${businessName} will be live within 24 hours.
+Thank you for choosing MyWebMe! Your website for ${businessName} is ready.
 
-We also sent a 6-digit sign-in code in a separate email. Use it here to access your client portal:
-${portalUrl}
+View your site: ${siteUrl}
 
-Preview your site: ${previewUrl}
+Next step: reply to this email with your domain name (e.g. yourbusiness.com) and we'll get it connected for you.
 
-Questions? Email sites@mywebme.com.`;
+Questions? Just reply to this email.
+
+— The MyWebMe Team`;
 
   return { subject, html, text };
 }

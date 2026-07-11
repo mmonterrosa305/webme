@@ -25,11 +25,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const baseUrl = (
+      process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
+      "https://webme-x6ed.onrender.com"
+    ).replace(/\/$/, "");
+
     await sendCheckoutWelcomeEmail({
       email: context.ownerEmail,
       businessName: context.businessName,
-      portalUrl: context.portalUrl,
-      previewUrl: context.previewUrl,
+      siteUrl: `${baseUrl}/site/${encodeURIComponent(slug)}`,
     });
 
     return NextResponse.json({ success: true });

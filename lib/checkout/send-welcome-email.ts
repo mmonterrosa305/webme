@@ -1,4 +1,3 @@
-import { sendClientPortalOtp } from "@/lib/client-auth/client-otp";
 import { createResendClient, getResendFromEmail } from "@/lib/email/resend";
 
 import { buildCheckoutWelcomeEmail } from "./build-welcome-email";
@@ -6,8 +5,7 @@ import { buildCheckoutWelcomeEmail } from "./build-welcome-email";
 export async function sendCheckoutWelcomeEmail(options: {
   email: string;
   businessName: string;
-  portalUrl: string;
-  previewUrl: string;
+  siteUrl: string;
 }): Promise<void> {
   const email = options.email.trim().toLowerCase();
 
@@ -17,8 +15,7 @@ export async function sendCheckoutWelcomeEmail(options: {
 
   const { subject, html, text } = buildCheckoutWelcomeEmail({
     businessName: options.businessName,
-    portalUrl: options.portalUrl,
-    previewUrl: options.previewUrl,
+    siteUrl: options.siteUrl,
   });
 
   const resend = createResendClient();
@@ -33,6 +30,4 @@ export async function sendCheckoutWelcomeEmail(options: {
   if (sendResult.error) {
     throw new Error(sendResult.error.message);
   }
-
-  await sendClientPortalOtp(email, options.businessName);
 }

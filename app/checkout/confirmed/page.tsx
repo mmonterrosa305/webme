@@ -64,7 +64,7 @@ function ConfirmedContent() {
         {welcomeStatus === "sent" ? (
           <p className="text-sm text-emerald-700" role="status">
             Welcome email sent{data.ownerEmail ? ` to ${data.ownerEmail}` : ""}{" "}
-            with your client portal login details.
+            with a link to view your site.
           </p>
         ) : null}
 

@@ -1,7 +1,6 @@
 import type Stripe from "stripe";
 
 import type { ClientPlan } from "@/lib/clients/types";
-import { getClientPortalAppUrl } from "@/lib/client-auth/app-url";
 import { sendCheckoutWelcomeEmail } from "@/lib/checkout/send-welcome-email";
 import {
   getPlanAmounts,
@@ -301,12 +300,13 @@ export async function handleCheckoutSessionCompleted(
   }
 
   try {
-    const appUrl = getClientPortalAppUrl();
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
+      "https://webme-x6ed.onrender.com";
     await sendCheckoutWelcomeEmail({
       email: welcomeEmail,
       businessName,
-      portalUrl: `${appUrl}/client/login`,
-      previewUrl: `${appUrl}/preview/${resolvedSiteSlug}`,
+      siteUrl: `${baseUrl.replace(/\/$/, "")}/site/${resolvedSiteSlug}`,
     });
     console.log("[stripe/webhook] Sent checkout welcome email", {
       email: welcomeEmail,
