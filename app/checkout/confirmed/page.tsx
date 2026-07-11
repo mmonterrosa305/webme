@@ -43,7 +43,11 @@ function ConfirmedContent() {
   return (
     <CheckoutPanel
       title="You're all set!"
-      subtitle="Your site will be live within 24 hours. We received your domain details and our team is connecting everything."
+      subtitle={
+        data.domainStatus === "active"
+          ? "Thanks for updating your DNS. We're finishing the connection — your custom domain should go live within 24–48 hours."
+          : "Your site will be live within 24 hours. We received your domain details and our team is connecting everything."
+      }
     >
       <div className="space-y-4">
         {data.domainRequested ? (

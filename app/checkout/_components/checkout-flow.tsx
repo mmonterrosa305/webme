@@ -194,12 +194,16 @@ export function SecondaryButton({
 export function ExternalPrimaryLink({
   href,
   children,
+  target,
+  rel,
 }: {
   href: string;
   children: React.ReactNode;
+  target?: string;
+  rel?: string;
 }) {
   return (
-    <a href={href} className={primaryButtonClassName}>
+    <a href={href} target={target} rel={rel} className={primaryButtonClassName}>
       {children}
     </a>
   );
@@ -290,6 +294,20 @@ export async function submitCheckoutDomain(
 
   if (!response.ok) {
     throw new Error(data.error ?? "Failed to save domain.");
+  }
+}
+
+export async function confirmCheckoutDomainDns(slug: string): Promise<void> {
+  const response = await fetch("/api/checkout/domain/confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug }),
+  });
+
+  const data = await readJsonResponse<{ error?: string }>(response);
+
+  if (!response.ok) {
+    throw new Error(data.error ?? "Failed to confirm DNS update.");
   }
 }
 

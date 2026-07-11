@@ -1,7 +1,11 @@
 "use client";
 
-import Image from "next/image";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import {
+  buildNamecheapDomainSearchUrl,
+  cleanBusinessNameForDomainSearch,
+} from "@/lib/checkout/domain-search-name";
 
 import {
   CheckoutErrorState,
@@ -9,40 +13,12 @@ import {
   CheckoutLoadingState,
   CheckoutPageShell,
   CheckoutPanel,
+  ExternalPrimaryLink,
   PrimaryButton,
   submitCheckoutDomain,
   useCheckoutOnboarding,
   useCheckoutRouter,
 } from "../_components/checkout-flow";
-
-const LOGO_SIZE = {
-  width: 160,
-  height: 33,
-} as const;
-
-const REGISTRARS = [
-  {
-    name: "GoDaddy",
-    href: "https://www.godaddy.com/",
-    logoSrc: "/registrars/godaddy.svg",
-    logoWidth: LOGO_SIZE.width,
-    logoHeight: LOGO_SIZE.height,
-  },
-  {
-    name: "Namecheap",
-    href: "https://www.namecheap.com/",
-    logoSrc: "/registrars/namecheap.svg",
-    logoWidth: LOGO_SIZE.width,
-    logoHeight: LOGO_SIZE.height,
-  },
-  {
-    name: "HostGator",
-    href: "https://www.hostgator.com/",
-    logoSrc: "/registrars/hostgator.svg",
-    logoWidth: LOGO_SIZE.width,
-    logoHeight: LOGO_SIZE.height,
-  },
-] as const;
 
 function NewDomainContent() {
   const { slug, data, loading, error } = useCheckoutOnboarding();
@@ -50,6 +26,15 @@ function NewDomainContent() {
   const [domain, setDomain] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const searchName = useMemo(
+    () => cleanBusinessNameForDomainSearch(data?.businessName ?? ""),
+    [data?.businessName],
+  );
+  const namecheapUrl = useMemo(
+    () => buildNamecheapDomainSearchUrl(data?.businessName ?? "mybusiness"),
+    [data?.businessName],
+  );
 
   if (loading) {
     return <CheckoutLoadingState />;
@@ -71,7 +56,7 @@ function NewDomainContent() {
 
     try {
       await submitCheckoutDomain(slug, domain);
-      router.push("/checkout/confirmed");
+      router.push("/checkout/dns");
     } catch (submitErr) {
       setSubmitError(
         submitErr instanceof Error ? submitErr.message : "Failed to save domain.",
@@ -83,60 +68,57 @@ function NewDomainContent() {
 
   return (
     <CheckoutPanel
-      title="Choose a domain registrar"
-      subtitle="Purchase your domain at any registrar below. Affiliate links coming soon — these open the registrar homepage for now."
+      title="Get a domain for your site"
+      subtitle={`We'll open Namecheap with a search for “${searchName}” based on ${data.businessName}. Buy a domain you like, then come back here to connect it.`}
     >
-      <div className="grid gap-4 sm:grid-cols-3">
-        {REGISTRARS.map((registrar) => (
-          <a
-            key={registrar.name}
-            href={registrar.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex flex-col items-center rounded-2xl border border-neutral-200 bg-white px-6 py-8 text-center shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md"
-          >
-            <div className="flex min-h-[96px] w-full items-center justify-center">
-              <Image
-                src={registrar.logoSrc}
-                alt={`${registrar.name} logo`}
-                width={registrar.logoWidth}
-                height={registrar.logoHeight}
-                className="h-auto w-[160px] object-contain transition duration-200 group-hover:scale-[1.02]"
-              />
-            </div>
-            <span className="mt-5 text-sm font-semibold text-neutral-900">
-              {registrar.name}
-            </span>
-          </a>
-        ))}
-      </div>
+      <div className="space-y-6">
+        <ExternalPrimaryLink
+          href={namecheapUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Search domains on Namecheap →
+        </ExternalPrimaryLink>
 
-      <p className="mt-8 text-sm text-neutral-600">
-        Once you&apos;ve purchased your domain, come back and enter it here:
-      </p>
-
-      <form
-        onSubmit={(event) => void handleSubmit(event)}
-        className="mt-4 space-y-4"
-      >
-        <CheckoutInput
-          id="newDomain"
-          value={domain}
-          onChange={setDomain}
-          placeholder="yourbusiness.com"
-          disabled={submitting}
-        />
-
-        {submitError ? (
-          <p className="text-sm font-medium text-red-600" role="alert">
-            {submitError}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+          <p className="font-semibold">Come back here after purchasing your domain</p>
+          <p className="mt-1 text-amber-900/90">
+            Keep this tab open (or return to this page). Once you own a domain,
+            enter it below so we can connect it to your site.
           </p>
-        ) : null}
+        </div>
 
-        <PrimaryButton type="submit" disabled={submitting || !domain.trim()}>
-          {submitting ? "Saving…" : "Continue"}
-        </PrimaryButton>
-      </form>
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="space-y-4"
+        >
+          <div>
+            <label
+              htmlFor="newDomain"
+              className="mb-2 block text-sm font-medium text-neutral-700"
+            >
+              Enter your new domain (e.g. {searchName}.com)
+            </label>
+            <CheckoutInput
+              id="newDomain"
+              value={domain}
+              onChange={setDomain}
+              placeholder={`${searchName}.com`}
+              disabled={submitting}
+            />
+          </div>
+
+          {submitError ? (
+            <p className="text-sm font-medium text-red-600" role="alert">
+              {submitError}
+            </p>
+          ) : null}
+
+          <PrimaryButton type="submit" disabled={submitting || !domain.trim()}>
+            {submitting ? "Saving…" : "Connect My Domain"}
+          </PrimaryButton>
+        </form>
+      </div>
     </CheckoutPanel>
   );
 }
