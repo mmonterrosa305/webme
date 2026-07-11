@@ -19,6 +19,14 @@ function ConfirmedContent() {
   >("idle");
   const welcomeSentRef = useRef(false);
 
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_BASE_URL || "https://webme-x6ed.onrender.com"
+  ).replace(/\/$/, "");
+  const portalUrl = `${baseUrl}/client/login`;
+  const previewUrl = slug
+    ? `${baseUrl}/preview/${encodeURIComponent(slug)}?mode=public`
+    : `${baseUrl}/preview`;
+
   useEffect(() => {
     if (!slug || !data?.ownerEmail || welcomeSentRef.current) {
       return;
@@ -75,12 +83,12 @@ function ConfirmedContent() {
           </p>
         ) : null}
 
-        <ExternalPrimaryLink href={data.portalUrl}>
+        <ExternalPrimaryLink href={portalUrl}>
           Go to client portal →
         </ExternalPrimaryLink>
 
         <a
-          href={data.previewUrl}
+          href={previewUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="block text-center text-sm font-medium text-neutral-600 underline-offset-2 hover:text-neutral-900 hover:underline"
