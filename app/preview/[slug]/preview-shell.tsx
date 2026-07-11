@@ -181,7 +181,7 @@ export function PreviewShell({
     void loadEditStatus();
   }, [loadEditStatus, isPublicMode]);
 
-  /** Unlock document scroll for sequence hero scrubbing in public mode. */
+  /** Unlock document scroll so page content flows below the 100vh autoplay hero. */
   useEffect(() => {
     if (!isPublicMode) {
       return;
@@ -1174,7 +1174,7 @@ export function PreviewShell({
       <div
         className="block w-full bg-white"
         style={{
-          minHeight: "400vh",
+          minHeight: "100vh",
           height: "auto",
           maxHeight: "none",
           overflow: "visible",
@@ -1556,7 +1556,7 @@ export function PreviewShell({
             </h2>
             <p className="mt-1 text-sm text-neutral-600">
               {lead.industry
-                ? `Choose a scroll-scrubbed frame sequence from the ${lead.industry} library.`
+                ? `Choose an autoplay frame sequence from the ${lead.industry} library.`
                 : "This site has no industry set, so sequences cannot be loaded."}
             </p>
 

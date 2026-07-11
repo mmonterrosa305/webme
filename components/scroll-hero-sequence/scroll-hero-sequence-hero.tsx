@@ -16,6 +16,14 @@ type LoadState = "loading" | "ready" | "error";
 
 const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
 
+/** Skip washed-out opening frames — sequence starts at frame 81 (index 80). */
+const START_FRAME_OFFSET = 80;
+/** Steady cinematic playback rate. */
+const AUTO_PLAY_FPS = 24;
+/** Subtle Ken Burns zoom: 1 → 1.08 → 1 over a full cycle. */
+const KEN_BURNS_SCALE_MAX = 1.08;
+const KEN_BURNS_HALF_CYCLE_SEC = 8;
+
 function findContactTarget(root: Document): HTMLElement | null {
   return (
     root.getElementById("contact") ||
@@ -43,157 +51,35 @@ function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
   window.scrollTo({ top, behavior: "smooth" });
 }
 
-/** Viewport heights of scroll required to scrub from first to last frame. */
-const SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER = 3;
-/** Sticky viewport (100vh) + scroll runway → 400vh total section height. */
-const SEQUENCE_SECTION_HEIGHT_VH = 100 + SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER * 100;
-/** Skip washed-out opening frames — sequence starts at frame 81 (index 80). */
-const START_FRAME_OFFSET = 80;
-const LOOP_FADE_FRAME_COUNT = 15;
-const LOOP_FADE_MIN_OPACITY = 0;
-const LOOP_FADE_MAX_OPACITY = 1;
-/** Start auto-advancing frames after this long without scroll. */
-const AUTO_PLAY_IDLE_MS = 300;
-/** Auto-play frame rate when the user is not scrolling. */
-const AUTO_PLAY_FPS = 8;
-
-function lerp(start: number, end: number, amount: number): number {
-  return start + (end - start) * amount;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function segmentProgress(value: number, start: number, end: number): number {
-  if (value <= start) {
-    return 0;
-  }
-  if (value >= end) {
-    return 1;
-  }
-  return (value - start) / (end - start);
-}
-
-function fadeInOut(
-  progress: number,
-  fadeInEnd: number,
-  holdEnd: number,
-  fadeOutEnd: number,
-): number {
-  if (progress <= fadeInEnd) {
-    return segmentProgress(progress, 0, fadeInEnd);
-  }
-  if (progress <= holdEnd) {
-    return 1;
-  }
-  if (progress <= fadeOutEnd) {
-    return 1 - segmentProgress(progress, holdEnd, fadeOutEnd);
-  }
-  return 0;
-}
-
-function getSequenceSectionHeightVh(): number {
-  return SEQUENCE_SECTION_HEIGHT_VH;
-}
-
-/** Read scroll offset from whichever root is actually scrolling. */
-function getPageScrollY(): number {
-  return Math.max(
-    window.scrollY || 0,
-    window.pageYOffset || 0,
-    document.documentElement?.scrollTop || 0,
-    document.body?.scrollTop || 0,
-  );
-}
-
-function getScrollEventTargets(): EventTarget[] {
-  const targets: EventTarget[] = [window, document];
-  if (document.documentElement) {
-    targets.push(document.documentElement);
-  }
-  if (document.body) {
-    targets.push(document.body);
-  }
-  return targets;
-}
-
-/**
- * Prefer the scroll root that already reports a non-zero offset; otherwise
- * fall back to documentElement (most reliable for document scrolling).
- */
-function resolvePreferredScrollRoot(): {
-  target: EventTarget;
-  getScrollY: () => number;
-} {
-  const windowY = window.scrollY || window.pageYOffset || 0;
-  const docElY = document.documentElement?.scrollTop || 0;
-  const bodyY = document.body?.scrollTop || 0;
-
-  if (docElY > 0) {
-    return {
-      target: document.documentElement,
-      getScrollY: () => document.documentElement.scrollTop || 0,
-    };
-  }
-  if (bodyY > 0) {
-    return {
-      target: document.body,
-      getScrollY: () => document.body.scrollTop || 0,
-    };
-  }
-  if (windowY > 0) {
-    return {
-      target: window,
-      getScrollY: () => window.scrollY || window.pageYOffset || 0,
-    };
-  }
-
-  return {
-    target: document.documentElement || document,
-    getScrollY: getPageScrollY,
-  };
-}
-
-function progressToExactFrame(progress: number, totalFrames: number): number {
-  const clampedProgress = clamp(progress, 0, 1);
-
-  if (totalFrames <= START_FRAME_OFFSET + 1) {
-    return clampedProgress * (totalFrames - 1);
-  }
-
-  return (
-    START_FRAME_OFFSET +
-    clampedProgress * (totalFrames - START_FRAME_OFFSET - 1)
-  );
-}
-
-function exactFrameToProgress(exactFrame: number, totalFrames: number): number {
-  if (totalFrames <= 1) {
-    return 0;
-  }
-
-  if (totalFrames <= START_FRAME_OFFSET + 1) {
-    return clamp(exactFrame / (totalFrames - 1), 0, 1);
-  }
-
-  const start = START_FRAME_OFFSET;
-  const end = totalFrames - 1;
-  return clamp((exactFrame - start) / (end - start), 0, 1);
-}
-
-function getAutoPlayLoopBounds(totalFrames: number): {
+function getLoopBounds(totalFrames: number): {
   loopStart: number;
   loopEnd: number;
   loopLength: number;
 } {
   const loopStart = totalFrames <= START_FRAME_OFFSET + 1 ? 0 : START_FRAME_OFFSET;
-  const loopEnd = totalFrames - 1;
+  const loopEnd = Math.max(loopStart, totalFrames - 1);
   return {
     loopStart,
     loopEnd,
     loopLength: loopEnd - loopStart + 1,
   };
+}
+
+/** Keep exact frame in [loopStart, loopStart + loopLength). */
+function wrapExactFrame(
+  frame: number,
+  loopStart: number,
+  loopLength: number,
+): number {
+  if (loopLength <= 0) {
+    return loopStart;
+  }
+
+  let t = (frame - loopStart) % loopLength;
+  if (t < 0) {
+    t += loopLength;
+  }
+  return loopStart + t;
 }
 
 function isWebpFrameUrl(url: string): boolean {
@@ -239,41 +125,6 @@ async function loadFrameImage(url: string): Promise<HTMLImageElement | null> {
   }
 }
 
-function getLoopFadeOpacity(frameProgress: number, frameCount: number): number {
-  if (frameCount <= 1) {
-    return LOOP_FADE_MAX_OPACITY;
-  }
-
-  const maxIndex = frameCount - 1;
-  const fadeFrames = Math.min(
-    LOOP_FADE_FRAME_COUNT,
-    Math.max(1, Math.floor(frameCount / 2)),
-  );
-  const exactFrame = progressToExactFrame(frameProgress, frameCount);
-
-  if (exactFrame <= fadeFrames - 1) {
-    if (fadeFrames <= 1) {
-      return LOOP_FADE_MAX_OPACITY;
-    }
-    return lerp(
-      LOOP_FADE_MIN_OPACITY,
-      LOOP_FADE_MAX_OPACITY,
-      exactFrame / (fadeFrames - 1),
-    );
-  }
-
-  const fadeOutStart = maxIndex - fadeFrames + 1;
-  if (exactFrame >= fadeOutStart) {
-    if (fadeFrames <= 1) {
-      return LOOP_FADE_MIN_OPACITY;
-    }
-    const t = (exactFrame - fadeOutStart) / (fadeFrames - 1);
-    return lerp(LOOP_FADE_MAX_OPACITY, LOOP_FADE_MIN_OPACITY, t);
-  }
-
-  return LOOP_FADE_MAX_OPACITY;
-}
-
 export function ScrollHeroSequenceHero({
   sequenceId,
   businessName = "",
@@ -289,9 +140,6 @@ export function ScrollHeroSequenceHero({
 
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const headlineRef = useRef<HTMLHeadingElement>(null);
-  const taglineRef = useRef<HTMLParagraphElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -305,105 +153,15 @@ export function ScrollHeroSequenceHero({
       return;
     }
 
-    const headlineEl = headlineRef.current;
-    const taglineEl = taglineRef.current;
-    const ctaEl = ctaRef.current;
-
     let cancelled = false;
     let frameUrls: string[] = [];
     const imageCache: Record<number, HTMLImageElement> = {};
     const dpr = window.devicePixelRatio || 1;
 
-    let frameProgress = 0;
-    let autoPlayExactFrame = START_FRAME_OFFSET;
-    let autoPlaying = false;
-    let lastScrollTime = performance.now();
+    let exactFrame = START_FRAME_OFFSET;
     let lastTickTime = 0;
     let rafId = 0;
     let allFramesLoaded = false;
-
-    let preferredScrollRoot = resolvePreferredScrollRoot();
-    const scrollTargets = getScrollEventTargets();
-
-    const getScrollProgress = (): number => {
-      // Re-resolve if we previously saw all zeros (common on first paint).
-      if (preferredScrollRoot.getScrollY() === 0) {
-        const current = getPageScrollY();
-        if (current > 0) {
-          preferredScrollRoot = resolvePreferredScrollRoot();
-        }
-      }
-
-      const rect = section.getBoundingClientRect();
-      const scrollPast = Math.max(0, -rect.top);
-      const viewport = window.innerHeight || 1;
-      const scrollRange = viewport * SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER;
-      return clamp(scrollPast / scrollRange, 0, 1);
-    };
-
-    const isScrollIdle = (): boolean =>
-      performance.now() - lastScrollTime >= AUTO_PLAY_IDLE_MS;
-
-    const renderFrame = () => {
-      drawFrameSync(frameProgress);
-      updateTextOverlay(frameProgress);
-      updateCanvasLoopFade();
-    };
-
-    const advanceAutoPlay = (dt: number) => {
-      const totalFrames = frameUrls.length;
-      if (!totalFrames) {
-        return;
-      }
-
-      const { loopStart, loopEnd, loopLength } = getAutoPlayLoopBounds(totalFrames);
-
-      if (!autoPlaying) {
-        autoPlayExactFrame = progressToExactFrame(getScrollProgress(), totalFrames);
-        autoPlaying = true;
-      } else {
-        autoPlayExactFrame += AUTO_PLAY_FPS * dt;
-        if (autoPlayExactFrame > loopEnd) {
-          autoPlayExactFrame =
-            loopStart + ((autoPlayExactFrame - loopStart) % loopLength);
-        }
-      }
-
-      frameProgress = exactFrameToProgress(autoPlayExactFrame, totalFrames);
-    };
-
-    const tick = (now: number) => {
-      if (cancelled) {
-        return;
-      }
-
-      if (!allFramesLoaded) {
-        rafId = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      if (!lastTickTime) {
-        lastTickTime = now;
-      }
-
-      const dt = Math.min((now - lastTickTime) / 1000, 0.05);
-      lastTickTime = now;
-
-      if (isScrollIdle()) {
-        advanceAutoPlay(dt);
-        renderFrame();
-      }
-
-      rafId = window.requestAnimationFrame(tick);
-    };
-
-    const setCanvasOpacity = (opacity: number) => {
-      canvas.style.opacity = String(opacity);
-    };
-
-    const updateCanvasLoopFade = () => {
-      setCanvasOpacity(getLoopFadeOpacity(frameProgress, frameUrls.length));
-    };
 
     const resizeCanvas = () => {
       const width = Math.max(1, Math.floor(window.innerWidth || 1));
@@ -471,16 +229,17 @@ export function ScrollHeroSequenceHero({
       img.src = posterUrl;
     };
 
-    const drawFrameSync = (progress: number) => {
+    const drawExactFrame = (frame: number) => {
       if (!frameUrls.length || !allFramesLoaded) {
         return;
       }
 
       const totalFrames = frameUrls.length;
-      const exact = progressToExactFrame(progress, totalFrames);
-      const idx = Math.floor(exact);
-      const next = Math.min(idx + 1, totalFrames - 1);
-      const blend = exact - idx;
+      const { loopStart, loopEnd, loopLength } = getLoopBounds(totalFrames);
+      const wrapped = wrapExactFrame(frame, loopStart, loopLength);
+      const idx = Math.min(Math.floor(wrapped), loopEnd);
+      const next = idx >= loopEnd ? loopStart : idx + 1;
+      const blend = wrapped - idx;
 
       const imgA = imageCache[idx];
       const imgB = imageCache[next];
@@ -500,34 +259,49 @@ export function ScrollHeroSequenceHero({
       }
     };
 
-    const updateTextOverlay = (progress: number) => {
-      if (headlineEl) {
-        headlineEl.style.opacity = String(fadeInOut(progress, 0, 0.55, 0.75));
-      }
-
-      if (taglineEl) {
-        taglineEl.style.opacity = String(fadeInOut(progress, 0.65, 0.78, 0.88));
-      }
-
-      if (ctaEl) {
-        ctaEl.style.opacity = String(fadeInOut(progress, 0.68, 0.78, 0.88));
-      }
-    };
-
-    const updateFromScroll = () => {
-      if (cancelled || !allFramesLoaded) {
+    const advancePlayback = (dt: number) => {
+      const totalFrames = frameUrls.length;
+      if (!totalFrames) {
         return;
       }
 
-      autoPlaying = false;
-      frameProgress = getScrollProgress();
-      renderFrame();
+      const { loopStart, loopLength } = getLoopBounds(totalFrames);
+      exactFrame = wrapExactFrame(
+        exactFrame + AUTO_PLAY_FPS * dt,
+        loopStart,
+        loopLength,
+      );
+    };
+
+    const tick = (now: number) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (!allFramesLoaded) {
+        rafId = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      if (!lastTickTime) {
+        lastTickTime = now;
+      }
+
+      const dt = Math.min((now - lastTickTime) / 1000, 0.05);
+      lastTickTime = now;
+
+      advancePlayback(dt);
+      drawExactFrame(exactFrame);
+
+      rafId = window.requestAnimationFrame(tick);
     };
 
     const startPlayback = () => {
-      lastScrollTime = performance.now();
+      const totalFrames = frameUrls.length;
+      const { loopStart } = getLoopBounds(totalFrames);
+      exactFrame = loopStart;
       lastTickTime = 0;
-      updateFromScroll();
+      drawExactFrame(exactFrame);
       rafId = window.requestAnimationFrame(tick);
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
     };
@@ -556,22 +330,13 @@ export function ScrollHeroSequenceHero({
       startPlayback();
     };
 
-    const onScroll = () => {
-      preferredScrollRoot = resolvePreferredScrollRoot();
-      lastScrollTime = performance.now();
-      updateFromScroll();
-    };
-
     const onResize = () => {
       resizeCanvas();
       if (allFramesLoaded) {
-        drawFrameSync(frameProgress);
+        drawExactFrame(exactFrame);
       }
     };
 
-    for (const target of scrollTargets) {
-      target.addEventListener("scroll", onScroll, { passive: true });
-    }
     window.addEventListener("resize", onResize);
 
     void fetch(`/api/image-sequences/${encodeURIComponent(sequenceId)}`)
@@ -601,13 +366,10 @@ export function ScrollHeroSequenceHero({
 
     return () => {
       cancelled = true;
-      for (const target of scrollTargets) {
-        target.removeEventListener("scroll", onScroll);
-      }
       window.removeEventListener("resize", onResize);
       window.cancelAnimationFrame(rafId);
     };
-  }, [sequenceId, posterUrl, resolvedHeadline, resolvedTagline, ctaLabel]);
+  }, [sequenceId, posterUrl]);
 
   const showOverlay = Boolean(resolvedHeadline || resolvedTagline || ctaLabel);
 
@@ -615,39 +377,46 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative w-full bg-black"
-      style={{ height: `${getSequenceSectionHeightVh()}vh` }}
+      className="relative h-screen w-full overflow-hidden bg-black"
     >
-      <div className="sticky top-0 h-screen w-full overflow-hidden">
-        <div className="absolute inset-0">
-          <div
-            className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
-              loadState === "ready" ? "opacity-100" : "opacity-60"
-            }`}
-            aria-hidden
-          />
-          <div className="absolute inset-0 z-[1]">
-            <canvas
-              ref={canvasRef}
-              className="block h-full w-full"
-              style={{ opacity: LOOP_FADE_MAX_OPACITY }}
-            />
+      <style>{`
+        @keyframes webme-sequence-ken-burns {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(${KEN_BURNS_SCALE_MAX}); }
+        }
+        .webme-sequence-canvas-ken-burns {
+          animation: webme-sequence-ken-burns ${KEN_BURNS_HALF_CYCLE_SEC * 2}s ease-in-out infinite;
+          transform-origin: center center;
+          will-change: transform;
+        }
+      `}</style>
+      <div className="absolute inset-0">
+        <div
+          className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
+            loadState === "ready" ? "opacity-100" : "opacity-60"
+          }`}
+          aria-hidden
+        />
+        <div className="absolute inset-0 z-[1] overflow-hidden">
+          <div className="webme-sequence-canvas-ken-burns absolute inset-0">
+            <canvas ref={canvasRef} className="block h-full w-full" />
           </div>
-          {loadState === "loading" ? (
-            <div
-              className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
-              aria-live="polite"
-              aria-busy="true"
-            >
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-                <span className="text-sm font-medium tracking-wide text-white/80">
-                  Loading sequence…
-                </span>
-              </div>
-            </div>
-          ) : null}
         </div>
+        {loadState === "loading" ? (
+          <div
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+              <span className="text-sm font-medium tracking-wide text-white/80">
+                Loading sequence…
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {showOverlay ? (
         <div
           className={`relative z-20 mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
@@ -656,25 +425,22 @@ export function ScrollHeroSequenceHero({
         >
           {resolvedHeadline ? (
             <h1
-              ref={headlineRef}
               className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
-              style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
+              style={{ textShadow: HERO_TEXT_SHADOW }}
             >
               {resolvedHeadline}
             </h1>
           ) : null}
           {resolvedTagline ? (
             <p
-              ref={taglineRef}
               className="max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
-              style={{ textShadow: HERO_TEXT_SHADOW, opacity: 0 }}
+              style={{ textShadow: HERO_TEXT_SHADOW }}
             >
               {resolvedTagline}
             </p>
           ) : null}
           {ctaLabel ? (
             <a
-              ref={ctaRef}
               href={ctaHref}
               onClick={scrollToContactSection}
               className="pointer-events-auto mt-2 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
@@ -682,7 +448,6 @@ export function ScrollHeroSequenceHero({
                 background: "#ffffff",
                 border: "2px solid #ffffff",
                 boxShadow: HERO_TEXT_SHADOW,
-                opacity: 0,
               }}
             >
               {ctaLabel}
@@ -690,7 +455,6 @@ export function ScrollHeroSequenceHero({
           ) : null}
         </div>
       ) : null}
-      </div>
     </section>
   );
 }
