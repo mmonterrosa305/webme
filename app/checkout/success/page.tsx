@@ -36,7 +36,7 @@ function SuccessContent() {
         </div>
 
         <a
-          href={data.previewUrl}
+          href={`/preview/${encodeURIComponent(data.siteSlug)}?mode=public`}
           target="_blank"
           rel="noopener noreferrer"
           className="block rounded-xl border border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-900 underline-offset-2 hover:underline"
