@@ -1185,6 +1185,9 @@ export function PreviewShell({
           paddingBottom: showClaimBar ? "88px" : undefined,
         }}
       >
+        <div style={{position:'fixed',top:0,left:0,zIndex:9999,background:'blue',color:'white',padding:'4px',fontSize:'12px'}}>
+          PUBLIC MODE
+        </div>
         {scrollSequenceId ? (
           <ScrollHeroSequenceHero
             key={scrollSequenceId}
