@@ -109,6 +109,29 @@ export async function triggerRenderDeploy(
   return payload.deploy?.id ?? payload.id ?? null;
 }
 
+/** Register a custom domain on the WebMe Render service. */
+export async function addRenderCustomDomain(
+  domain: string,
+  apiKey?: string,
+): Promise<void> {
+  const name = domain.trim().toLowerCase();
+
+  if (!name) {
+    throw new Error("Domain name is required.");
+  }
+
+  const serviceId = await resolveRenderServiceId(apiKey);
+
+  await renderRequest(
+    `/services/${encodeURIComponent(serviceId)}/custom-domains`,
+    {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    },
+    apiKey,
+  );
+}
+
 export async function validateRenderApiKey(apiKey: string): Promise<boolean> {
   try {
     const response = await fetch(`${RENDER_API_BASE}/services?limit=1`, {

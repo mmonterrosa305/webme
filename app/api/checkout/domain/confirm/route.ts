@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCheckoutOnboardingContext } from "@/lib/checkout/onboarding-context";
 import { sendDomainConnectedEmail } from "@/lib/checkout/send-domain-connected-email";
 import { getClientBySiteSlug } from "@/lib/clients/get-client-by-site-slug";
+import { addRenderCustomDomain } from "@/lib/render/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
@@ -33,6 +34,8 @@ export async function POST(request: Request) {
       );
     }
 
+    const domain = client.domain_requested;
+
     const supabase = createAdminClient();
     const { error: updateError } = await supabase
       .from("clients")
@@ -45,12 +48,24 @@ export async function POST(request: Request) {
       throw new Error(updateError.message);
     }
 
+    try {
+      await addRenderCustomDomain(domain);
+      console.log(
+        `[checkout/domain/confirm] Registered custom domain on Render: ${domain}`,
+      );
+    } catch (renderError) {
+      console.error(
+        "[checkout/domain/confirm] Render custom-domain registration failed:",
+        renderError,
+      );
+    }
+
     if (context.ownerEmail) {
       try {
         await sendDomainConnectedEmail({
           email: context.ownerEmail,
           businessName: context.businessName,
-          domain: client.domain_requested,
+          domain,
           previewUrl: context.previewUrl,
           portalUrl: context.portalUrl,
         });
@@ -64,7 +79,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      domain: client.domain_requested,
+      domain,
       domainStatus: "active",
     });
   } catch (error) {
