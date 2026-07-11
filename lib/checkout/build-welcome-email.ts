@@ -7,7 +7,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-const CLIENT_PORTAL_LOGIN_URL = "https://mywebme.com/client/login";
+const CLIENT_PORTAL_LOGIN_URL = "https://webme-x6ed.onrender.com/client/login";
 
 export function buildCheckoutWelcomeEmail({
   businessName,
