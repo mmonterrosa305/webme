@@ -19,7 +19,7 @@ const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
 /** Skip washed-out opening frames — sequence starts at frame 81 (index 80). */
 const START_FRAME_OFFSET = 80;
 /** Steady cinematic playback rate. */
-const AUTO_PLAY_FPS = 24;
+const AUTO_PLAY_FPS = 8;
 /** Subtle Ken Burns zoom: 1 → 1.08 → 1 over a full cycle. */
 const KEN_BURNS_SCALE_MAX = 1.08;
 const KEN_BURNS_HALF_CYCLE_SEC = 8;
