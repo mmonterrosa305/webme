@@ -1,7 +1,8 @@
 import type Stripe from "stripe";
 
 import type { ClientPlan } from "@/lib/clients/types";
-import { sendClientPortalOtpIfEligible } from "@/lib/client-auth/send-client-otp";
+import { getClientPortalAppUrl } from "@/lib/client-auth/app-url";
+import { sendCheckoutWelcomeEmail } from "@/lib/checkout/send-welcome-email";
 import {
   getPlanAmounts,
   getStripePriceToPlanMap,
@@ -18,6 +19,8 @@ type CheckoutContext = {
   customerId: string;
   subscriptionId: string;
   email: string;
+  siteSlug: string | null;
+  customerDetailsEmail: string | null;
 };
 
 function getStripeObjectId(
@@ -170,6 +173,8 @@ async function resolveCheckoutContext(
     customerId,
     subscriptionId,
     email,
+    siteSlug: siteSlug ?? null,
+    customerDetailsEmail: session.customer_details?.email?.trim() ?? null,
   };
 }
 
@@ -182,8 +187,16 @@ export async function handleCheckoutSessionCompleted(
     return;
   }
 
-  const { leadId, plan, businessName, customerId, subscriptionId, email } =
-    context;
+  const {
+    leadId,
+    plan,
+    businessName,
+    customerId,
+    subscriptionId,
+    email,
+    siteSlug,
+    customerDetailsEmail,
+  } = context;
   const { oneTimeAmount, monthlyAmount } = getPlanAmounts(plan);
   const supabase = createAdminClient();
 
@@ -206,6 +219,9 @@ export async function handleCheckoutSessionCompleted(
     throw new Error(`Failed to update lead status: ${leadUpdateError.message}`);
   }
 
+  const resolvedSiteSlug =
+    leadRecord?.site_slug?.trim() || siteSlug?.trim() || null;
+
   const clientRow = {
     lead_id: leadId,
     business_name: businessName,
@@ -217,7 +233,7 @@ export async function handleCheckoutSessionCompleted(
     subscription_status: "active",
     one_time_amount: oneTimeAmount,
     monthly_amount: monthlyAmount,
-    site_slug: leadRecord?.site_slug ?? null,
+    site_slug: resolvedSiteSlug,
     site_html: leadRecord?.site_html ?? null,
     created_at: new Date().toISOString(),
   };
@@ -255,38 +271,49 @@ export async function handleCheckoutSessionCompleted(
     if (clientUpdateError) {
       throw new Error(`Failed to update client: ${clientUpdateError.message}`);
     }
+  } else {
+    const { error: clientInsertError } = await supabase
+      .from("clients")
+      .insert(clientRow);
 
+    if (clientInsertError) {
+      throw new Error(`Failed to create client: ${clientInsertError.message}`);
+    }
+  }
+
+  const welcomeEmail =
+    customerDetailsEmail ||
+    session.customer_details?.email?.trim() ||
+    email.trim();
+
+  if (!welcomeEmail || !resolvedSiteSlug) {
+    console.warn(
+      "[stripe/webhook] Skipping welcome email — missing email or site slug",
+      {
+        hasEmail: Boolean(welcomeEmail),
+        siteSlug: resolvedSiteSlug,
+      },
+    );
     return;
   }
 
-  const { error: clientInsertError } = await supabase
-    .from("clients")
-    .insert(clientRow);
-
-  if (clientInsertError) {
-    throw new Error(`Failed to create client: ${clientInsertError.message}`);
-  }
-
   try {
-    const sent = await sendClientPortalOtpIfEligible(
-      email,
+    const appUrl = getClientPortalAppUrl();
+    await sendCheckoutWelcomeEmail({
+      email: welcomeEmail,
       businessName,
-      plan,
-    );
-
-    if (sent) {
-      console.log("[stripe/webhook] Sent client portal sign-in code", {
-        email,
-        businessName,
-        plan,
-      });
-    }
-  } catch (magicLinkError) {
+      portalUrl: `${appUrl}/client/login`,
+      previewUrl: `${appUrl}/preview/${resolvedSiteSlug}`,
+    });
+    console.log("[stripe/webhook] Sent checkout welcome email", {
+      email: welcomeEmail,
+      siteSlug: resolvedSiteSlug,
+      businessName,
+    });
+  } catch (welcomeError) {
     console.error(
-      "[stripe/webhook] Failed to send client portal sign-in code:",
-      magicLinkError instanceof Error
-        ? magicLinkError.message
-        : magicLinkError,
+      "[stripe/webhook] Failed to send checkout welcome email:",
+      welcomeError instanceof Error ? welcomeError.message : welcomeError,
     );
   }
 }
