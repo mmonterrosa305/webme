@@ -21,6 +21,7 @@ import {
 import { PresetVideoPicker } from "@/app/(dashboard)/_components/preset-video-picker";
 import { PresetImageSequencePicker } from "@/app/(dashboard)/_components/preset-image-sequence-picker";
 import { ScrollHeroSequenceHero } from "@/components/scroll-hero-sequence/scroll-hero-sequence-hero";
+import { SiteContentFrame } from "@/components/site-content-frame";
 
 type Modal = "packages" | "declined" | "edits-exhausted" | "pick-preset" | "pick-sequence" | null;
 
@@ -1172,76 +1173,37 @@ export function PreviewShell({
     : `/site/${lead.site_slug}`;
 
   if (isPublicMode) {
-    // TEMP: force true to confirm the bar renders; real value is !hasPaidClient.
-    const showClaimBar = true;
-    console.log("showClaimBar:", showClaimBar, "hasPaidClient:", hasPaidClient, "computed:", !hasPaidClient);
-
     return (
-      <div
-        className="block w-full bg-white"
-        style={{
-          minHeight: "100vh",
-          height: "auto",
-          maxHeight: "none",
-          overflow: "visible",
-          paddingBottom: showClaimBar ? "88px" : undefined,
-        }}
-      >
-        <div style={{position:'fixed',top:0,left:0,zIndex:9999,background:'blue',color:'white',padding:'4px',fontSize:'12px'}}>
-          PUBLIC MODE | hasPaidClient={String(hasPaidClient)} showClaimBar forced true (computed={!hasPaidClient ? "true" : "false"})
-        </div>
-        {scrollSequenceId ? (
+      <div style={{ minHeight: "100vh", height: "auto" }}>
+        {scrollSequenceId && (
           <ScrollHeroSequenceHero
             key={scrollSequenceId}
             sequenceId={scrollSequenceId}
             businessName={lead.business_name}
-            posterUrl={
-              heroOverlay?.posterUrl || lead.site_metadata?.heroImageUrl
-            }
-            headline={
-              heroOverlay?.headline || fields.headline || lead.business_name
-            }
-            tagline={heroOverlay?.tagline || fields.tagline}
+            posterUrl={sequenceHero?.posterUrl}
+            headline={sequenceHero?.headline}
+            tagline={sequenceHero?.tagline}
           />
-        ) : null}
-        <iframe
-          ref={iframeRef}
-          title={lead.business_name}
-          sandbox="allow-scripts allow-same-origin"
-          scrolling="no"
-          className="block w-full border-0 bg-white"
-          srcDoc={siteHtml}
-        />
-        {showClaimBar ? (
-          <div
-            className="fixed bottom-0 left-0 right-0 z-[60] border-t border-white/10"
-            style={{ background: "#0f172a" }}
+        )}
+        <SiteContentFrame html={siteHtml} title={lead.business_name} />
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999, background: "#0f172a", borderTop: "1px solid rgba(255,255,255,0.1)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={{ color: "white", margin: 0, fontSize: "14px" }}>Like what you see? This site is yours.</p>
+          <button
+            onClick={() => {
+              fetch("/api/stripe/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slug: lead.site_slug }),
+              })
+              .then(r => r.json())
+              .then(d => { if (d.url) window.location.href = d.url; else alert("Error: " + JSON.stringify(d)); })
+              .catch(e => alert("Error: " + e));
+            }}
+            style={{ background: "#22c55e", color: "white", border: "none", borderRadius: "8px", padding: "10px 20px", fontSize: "14px", fontWeight: "600", cursor: "pointer" }}
           >
-            <div className="mx-auto flex max-w-5xl flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white sm:text-base">
-                  Like what you see? This site is yours.
-                </p>
-                {checkoutError ? (
-                  <p className="mt-1 text-xs text-red-400" role="alert">
-                    {checkoutError}
-                  </p>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => void handlePayNow()}
-                disabled={paying}
-                className="inline-flex shrink-0 items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                style={{ background: "#22c55e" }}
-              >
-                {paying
-                  ? "Redirecting…"
-                  : `Claim This Site — ${SITE_BUILD_FEE_DISPLAY}`}
-              </button>
-            </div>
-          </div>
-        ) : null}
+            Claim This Site — $199
+          </button>
+        </div>
       </div>
     );
   }
