@@ -475,22 +475,26 @@ export function PreviewShell({
     setPaying(true);
 
     try {
-      const response = await fetch("/api/stripe/checkout", {
+      const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug: lead.site_slug }),
       });
-
-      const data = (await response.json()) as { url?: string; error?: string };
-
-      if (!response.ok || !data.url) {
-        throw new Error(data.error ?? "Could not start checkout.");
+      const data = (await res.json()) as { url?: string; error?: string };
+      console.log("Checkout response:", data);
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("No URL in response:", data);
+        alert("Checkout error: " + JSON.stringify(data));
+        setCheckoutError(data.error ?? "Could not start checkout.");
+        setPaying(false);
       }
-
-      window.location.href = data.url;
-    } catch (error) {
+    } catch (err) {
+      console.error("Checkout fetch error:", err);
+      alert("Checkout error: " + err);
       setCheckoutError(
-        error instanceof Error ? error.message : "Checkout failed.",
+        err instanceof Error ? err.message : "Checkout failed.",
       );
       setPaying(false);
     }
