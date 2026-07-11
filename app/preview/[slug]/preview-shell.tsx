@@ -15,6 +15,7 @@ import {
   PLAN_FEATURES,
   PRICING_HEADLINE,
   PRICING_SUBLINE,
+  SITE_BUILD_FEE_DISPLAY,
 } from "@/lib/plans/pricing";
 
 import { PresetVideoPicker } from "@/app/(dashboard)/_components/preset-video-picker";
@@ -1173,6 +1174,7 @@ export function PreviewShell({
           height: "auto",
           maxHeight: "none",
           overflow: "visible",
+          paddingBottom: "88px",
         }}
       >
         {scrollSequenceId ? (
@@ -1197,6 +1199,23 @@ export function PreviewShell({
           className="block w-full border-0 bg-white"
           srcDoc={siteHtml}
         />
+        <div
+          className="fixed bottom-0 left-0 right-0 z-[60] border-t border-white/10"
+          style={{ background: "#0f172a" }}
+        >
+          <div className="mx-auto flex max-w-5xl flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+            <p className="text-sm font-medium text-white sm:text-base">
+              Like what you see? This site is yours.
+            </p>
+            <a
+              href={`/checkout?slug=${encodeURIComponent(lead.site_slug)}`}
+              className="inline-flex shrink-0 items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+              style={{ background: "#22c55e" }}
+            >
+              Claim This Site — {SITE_BUILD_FEE_DISPLAY}
+            </a>
+          </div>
+        </div>
       </div>
     );
   }

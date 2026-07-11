@@ -10,7 +10,7 @@ function escapeHtml(value: string): string {
 }
 
 export function buildPreviewSiteUrl(siteSlug: string): string {
-  return `${getOutreachPreviewBaseUrl()}/${siteSlug}`;
+  return `${getOutreachPreviewBaseUrl()}/${siteSlug}?mode=public`;
 }
 
 export function buildPreviewEmail({
