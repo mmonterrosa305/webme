@@ -1,15 +1,15 @@
 import type { ClientPlan } from "@/lib/clients/types";
 
-/** Current WebMe plan — $299 build + $9.99/mo hosting. */
+/** Current WebMe plan — $199 build + $9.99/mo hosting. */
 export const STANDARD_PLAN_ID = "standard" satisfies ClientPlan;
 
-export const SITE_BUILD_FEE = 299;
+export const SITE_BUILD_FEE = 199;
 export const HOSTING_MONTHLY_FEE = 9.99;
 
-export const SITE_BUILD_FEE_DISPLAY = "$299";
+export const SITE_BUILD_FEE_DISPLAY = "$199";
 export const HOSTING_MONTHLY_FEE_DISPLAY = "$9.99/mo";
-export const PRICING_HEADLINE = "$299 + first month free, then $9.99/mo hosting";
-export const PRICING_SUBLINE = "$299 one-time site build · first month of hosting free";
+export const PRICING_HEADLINE = "$199 + first month free, then $9.99/mo hosting";
+export const PRICING_SUBLINE = "$199 one-time site build · first month of hosting free";
 
 export const HOSTING_TRIAL_DAYS = 30;
 
