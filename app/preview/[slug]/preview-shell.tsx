@@ -1172,7 +1172,9 @@ export function PreviewShell({
     : `/site/${lead.site_slug}`;
 
   if (isPublicMode) {
-    const showClaimBar = !hasPaidClient;
+    // TEMP: force true to confirm the bar renders; real value is !hasPaidClient.
+    const showClaimBar = true;
+    console.log("showClaimBar:", showClaimBar, "hasPaidClient:", hasPaidClient, "computed:", !hasPaidClient);
 
     return (
       <div
@@ -1186,7 +1188,7 @@ export function PreviewShell({
         }}
       >
         <div style={{position:'fixed',top:0,left:0,zIndex:9999,background:'blue',color:'white',padding:'4px',fontSize:'12px'}}>
-          PUBLIC MODE
+          PUBLIC MODE | hasPaidClient={String(hasPaidClient)} showClaimBar forced true (computed={!hasPaidClient ? "true" : "false"})
         </div>
         {scrollSequenceId ? (
           <ScrollHeroSequenceHero
