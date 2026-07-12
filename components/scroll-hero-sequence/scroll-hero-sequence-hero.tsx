@@ -12,7 +12,7 @@ type ScrollHeroSequenceHeroProps = {
   ctaHref?: string;
 };
 
-type LoadState = "loading" | "ready" | "error";
+type LoadState = "loading" | "ready" | "static" | "error";
 
 const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
 
@@ -23,6 +23,12 @@ const AUTO_PLAY_FPS = 8;
 /** Subtle Ken Burns zoom: 1 → 1.08 → 1 over a full cycle. */
 const KEN_BURNS_SCALE_MAX = 1.08;
 const KEN_BURNS_HALF_CYCLE_SEC = 8;
+/** Fail over to a static hero if frames have not loaded by then. */
+const LOAD_TIMEOUT_MS = 4000;
+/** Concurrent image loads — Safari chokes on Promise.all of 100+. */
+const LOAD_BATCH_SIZE = 6;
+/** On mobile, keep every Nth frame after the start offset. */
+const MOBILE_FRAME_STEP = 3;
 
 function findContactTarget(root: Document): HTMLElement | null {
   return (
@@ -51,12 +57,77 @@ function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
   window.scrollTo({ top, behavior: "smooth" });
 }
 
-function getLoopBounds(totalFrames: number): {
+function isMobileOrConstrainedNetwork(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const nav = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  };
+
+  if (nav.connection?.saveData) {
+    return true;
+  }
+
+  const effectiveType = nav.connection?.effectiveType;
+  if (effectiveType === "2g" || effectiveType === "slow-2g") {
+    return true;
+  }
+
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
+  const narrowViewport =
+    window.matchMedia?.("(max-width: 768px)")?.matches ||
+    window.innerWidth <= 768;
+
+  return Boolean(coarsePointer || narrowViewport);
+}
+
+/**
+ * Build the URL list used for playback.
+ * Mobile: start at START_FRAME_OFFSET and keep every Nth frame.
+ * Desktop: keep the full list (playback still starts at START_FRAME_OFFSET).
+ */
+function selectPlaybackUrls(urls: string[], lightweight: boolean): {
+  urls: string[];
+  trimmed: boolean;
+} {
+  if (!urls.length) {
+    return { urls: [], trimmed: false };
+  }
+
+  if (!lightweight) {
+    return { urls, trimmed: false };
+  }
+
+  const start = Math.min(START_FRAME_OFFSET, Math.max(0, urls.length - 1));
+  const sampled: string[] = [];
+  for (let index = start; index < urls.length; index += MOBILE_FRAME_STEP) {
+    const url = urls[index];
+    if (url) {
+      sampled.push(url);
+    }
+  }
+
+  if (!sampled.length && urls[start]) {
+    sampled.push(urls[start]);
+  }
+
+  return { urls: sampled, trimmed: true };
+}
+
+function getLoopBounds(
+  totalFrames: number,
+  framesAlreadyTrimmed: boolean,
+): {
   loopStart: number;
   loopEnd: number;
   loopLength: number;
 } {
-  const loopStart = totalFrames <= START_FRAME_OFFSET + 1 ? 0 : START_FRAME_OFFSET;
+  const loopStart =
+    framesAlreadyTrimmed || totalFrames <= START_FRAME_OFFSET + 1
+      ? 0
+      : START_FRAME_OFFSET;
   const loopEnd = Math.max(loopStart, totalFrames - 1);
   return {
     loopStart,
@@ -104,13 +175,17 @@ function loadImageElement(
   });
 }
 
-async function loadFrameImage(url: string): Promise<HTMLImageElement | null> {
-  if (!isWebpFrameUrl(url)) {
+async function loadFrameImage(
+  url: string,
+  preferSimpleLoad: boolean,
+): Promise<HTMLImageElement | null> {
+  // Mobile Safari is more reliable with direct Image loads than fetch→blob.
+  if (preferSimpleLoad || !isWebpFrameUrl(url)) {
     return loadImageElement(url, "anonymous");
   }
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { mode: "cors", credentials: "omit" });
     if (!response.ok) {
       return loadImageElement(url, "anonymous");
     }
@@ -155,13 +230,17 @@ export function ScrollHeroSequenceHero({
 
     let cancelled = false;
     let frameUrls: string[] = [];
+    let framesAlreadyTrimmed = false;
     const imageCache: Record<number, HTMLImageElement> = {};
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const lightweight = isMobileOrConstrainedNetwork();
 
-    let exactFrame = START_FRAME_OFFSET;
+    let exactFrame = 0;
     let lastTickTime = 0;
     let rafId = 0;
     let allFramesLoaded = false;
+    let fallbackActivated = false;
+    let loadTimeoutId = 0;
 
     const resizeCanvas = () => {
       const width = Math.max(1, Math.floor(window.innerWidth || 1));
@@ -199,34 +278,97 @@ export function ScrollHeroSequenceHero({
         return imageCache[index];
       }
 
-      const img = await loadFrameImage(frameUrls[index]);
-      if (img) {
+      const url = frameUrls[index];
+      if (!url) {
+        return null;
+      }
+
+      const img = await loadFrameImage(url, lightweight);
+      if (img && !cancelled) {
         imageCache[index] = img;
       }
       return img;
     };
 
-    const preloadAllFrames = async (): Promise<boolean> => {
-      const results = await Promise.all(
-        frameUrls.map((_url, index) => loadImageAt(index)),
-      );
-      return results.every(Boolean);
+    const showStaticImage = async (preferredUrl?: string) => {
+      resizeCanvas();
+      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+      const cached =
+        imageCache[0] ||
+        imageCache[Object.keys(imageCache).map(Number).sort((a, b) => a - b)[0] ?? -1];
+
+      if (cached) {
+        drawCover(cached);
+        return true;
+      }
+
+      const candidates = [
+        preferredUrl,
+        posterUrl,
+        frameUrls[0],
+        frameUrls[Math.min(START_FRAME_OFFSET, Math.max(0, frameUrls.length - 1))],
+      ].filter((url): url is string => Boolean(url?.trim()));
+
+      for (const url of candidates) {
+        const img = await loadFrameImage(url, true);
+        if (cancelled) {
+          return false;
+        }
+        if (img) {
+          drawCover(img);
+          return true;
+        }
+      }
+
+      return false;
     };
 
-    const showPosterFallback = () => {
-      if (!posterUrl) {
+    const activateStaticFallback = async (reason: string) => {
+      if (cancelled || fallbackActivated || allFramesLoaded) {
         return;
       }
 
-      resizeCanvas();
-      ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-      const img = new Image();
-      img.onload = () => {
-        if (!cancelled) {
-          drawCover(img);
+      fallbackActivated = true;
+      window.clearTimeout(loadTimeoutId);
+      console.warn("[sequence-hero] Falling back to static hero:", reason);
+
+      const drawn = await showStaticImage();
+      if (cancelled) {
+        return;
+      }
+
+      setLoadState(drawn ? "static" : "error");
+      window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
+    };
+
+    const preloadFramesInBatches = async (): Promise<boolean> => {
+      const indices = frameUrls.map((_, index) => index);
+      let loadedCount = 0;
+
+      for (let i = 0; i < indices.length; i += LOAD_BATCH_SIZE) {
+        if (cancelled || fallbackActivated) {
+          return false;
         }
-      };
-      img.src = posterUrl;
+
+        const batch = indices.slice(i, i + LOAD_BATCH_SIZE);
+        const results = await Promise.all(batch.map((index) => loadImageAt(index)));
+        loadedCount += results.filter(Boolean).length;
+
+        // First successful frame → draw a poster early so mobile isn't blank.
+        if (loadedCount > 0 && i === 0) {
+          const first = results.find(Boolean);
+          if (first) {
+            resizeCanvas();
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+            drawCover(first);
+          }
+        }
+      }
+
+      // Require most frames; allow a few failures on flaky mobile networks.
+      const minRequired = Math.max(1, Math.ceil(frameUrls.length * 0.7));
+      return loadedCount >= minRequired;
     };
 
     const drawExactFrame = (frame: number) => {
@@ -235,7 +377,10 @@ export function ScrollHeroSequenceHero({
       }
 
       const totalFrames = frameUrls.length;
-      const { loopStart, loopEnd, loopLength } = getLoopBounds(totalFrames);
+      const { loopStart, loopEnd, loopLength } = getLoopBounds(
+        totalFrames,
+        framesAlreadyTrimmed,
+      );
       const wrapped = wrapExactFrame(frame, loopStart, loopLength);
       const idx = Math.min(Math.floor(wrapped), loopEnd);
       const next = idx >= loopEnd ? loopStart : idx + 1;
@@ -244,7 +389,6 @@ export function ScrollHeroSequenceHero({
       const imgA = imageCache[idx];
       const imgB = imageCache[next];
       if (!imgA) {
-        showPosterFallback();
         return;
       }
 
@@ -265,7 +409,10 @@ export function ScrollHeroSequenceHero({
         return;
       }
 
-      const { loopStart, loopLength } = getLoopBounds(totalFrames);
+      const { loopStart, loopLength } = getLoopBounds(
+        totalFrames,
+        framesAlreadyTrimmed,
+      );
       exactFrame = wrapExactFrame(
         exactFrame + AUTO_PLAY_FPS * dt,
         loopStart,
@@ -274,7 +421,7 @@ export function ScrollHeroSequenceHero({
     };
 
     const tick = (now: number) => {
-      if (cancelled) {
+      if (cancelled || fallbackActivated) {
         return;
       }
 
@@ -298,7 +445,7 @@ export function ScrollHeroSequenceHero({
 
     const startPlayback = () => {
       const totalFrames = frameUrls.length;
-      const { loopStart } = getLoopBounds(totalFrames);
+      const { loopStart } = getLoopBounds(totalFrames, framesAlreadyTrimmed);
       exactFrame = loopStart;
       lastTickTime = 0;
       drawExactFrame(exactFrame);
@@ -307,21 +454,38 @@ export function ScrollHeroSequenceHero({
     };
 
     const beginSequence = async (urls: string[]) => {
-      frameUrls = urls;
+      const selected = selectPlaybackUrls(urls, lightweight);
+      frameUrls = selected.urls;
+      framesAlreadyTrimmed = selected.trimmed;
+
       if (!frameUrls.length) {
-        setLoadState("error");
-        showPosterFallback();
+        await activateStaticFallback("empty-frame-list");
         return;
       }
 
-      const loaded = await preloadAllFrames();
-      if (cancelled) {
+      // Save-Data / very constrained: skip sequence and use a static hero.
+      if (
+        lightweight &&
+        (navigator as Navigator & { connection?: { saveData?: boolean } })
+          .connection?.saveData
+      ) {
+        await activateStaticFallback("save-data");
         return;
       }
+
+      loadTimeoutId = window.setTimeout(() => {
+        void activateStaticFallback("load-timeout");
+      }, LOAD_TIMEOUT_MS);
+
+      const loaded = await preloadFramesInBatches();
+      if (cancelled || fallbackActivated) {
+        return;
+      }
+
+      window.clearTimeout(loadTimeoutId);
 
       if (!loaded) {
-        setLoadState("error");
-        showPosterFallback();
+        await activateStaticFallback("preload-incomplete");
         return;
       }
 
@@ -334,6 +498,8 @@ export function ScrollHeroSequenceHero({
       resizeCanvas();
       if (allFramesLoaded) {
         drawExactFrame(exactFrame);
+      } else if (fallbackActivated) {
+        void showStaticImage();
       }
     };
 
@@ -353,25 +519,26 @@ export function ScrollHeroSequenceHero({
         if (data.frames_urls?.length) {
           void beginSequence(data.frames_urls);
         } else {
-          setLoadState("error");
-          showPosterFallback();
+          void activateStaticFallback("missing-frames");
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.warn("[sequence-hero] Sequence metadata fetch failed:", error);
         if (!cancelled) {
-          setLoadState("error");
-          showPosterFallback();
+          void activateStaticFallback("metadata-fetch-error");
         }
       });
 
     return () => {
       cancelled = true;
+      window.clearTimeout(loadTimeoutId);
       window.removeEventListener("resize", onResize);
       window.cancelAnimationFrame(rafId);
     };
   }, [sequenceId, posterUrl]);
 
   const showOverlay = Boolean(resolvedHeadline || resolvedTagline || ctaLabel);
+  const heroVisible = loadState === "ready" || loadState === "static";
 
   return (
     <section
@@ -393,7 +560,7 @@ export function ScrollHeroSequenceHero({
       <div className="absolute inset-0">
         <div
           className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
-            loadState === "ready" ? "opacity-100" : "opacity-60"
+            heroVisible ? "opacity-100" : "opacity-60"
           }`}
           aria-hidden
         />
@@ -420,7 +587,7 @@ export function ScrollHeroSequenceHero({
       {showOverlay ? (
         <div
           className={`relative z-20 mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
-            loadState === "ready" ? "opacity-100" : "opacity-0"
+            heroVisible ? "opacity-100" : "opacity-0"
           }`}
         >
           {resolvedHeadline ? (
