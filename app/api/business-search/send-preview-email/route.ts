@@ -6,6 +6,8 @@ import { getResendEnvDiagnostics } from "@/lib/email/resend";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
+  console.log("[send-preview-email] route hit", { timestamp: new Date().toISOString() });
+
   try {
     const body = await request.json();
     const siteSlug = typeof body.siteSlug === "string" ? body.siteSlug.trim() : "";
