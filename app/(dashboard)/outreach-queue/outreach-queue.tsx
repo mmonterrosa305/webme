@@ -674,8 +674,12 @@ export function OutreachQueue() {
         }),
       });
 
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as {
+        error?: string;
+        resendDiagnostics?: unknown;
+      };
       if (!response.ok) {
+        console.error("[outreach-queue] Preview email failed", data);
         throw new Error(data.error ?? "Failed to send preview email.");
       }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPreviewEmail } from "@/lib/email/send-preview-email";
+import { getResendEnvDiagnostics } from "@/lib/email/resend";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -11,11 +12,43 @@ export async function POST(request: Request) {
     const ownerEmail =
       typeof body.ownerEmail === "string" ? body.ownerEmail.trim() : "";
 
+    const resendDiagnostics = getResendEnvDiagnostics();
     console.log("[send-preview-email] Request received", {
       siteSlug,
       ownerEmail,
       bodyKeys: Object.keys(body ?? {}),
+      resendDiagnostics,
     });
+
+    if (!resendDiagnostics.hasApiKey) {
+      console.error(
+        "[send-preview-email] RESEND_API_KEY missing or placeholder",
+        resendDiagnostics,
+      );
+      return NextResponse.json(
+        {
+          error:
+            "RESEND_API_KEY is missing or invalid on this server. Check Render env vars.",
+          resendDiagnostics,
+        },
+        { status: 500 },
+      );
+    }
+
+    if (resendDiagnostics.fromEnvMissing) {
+      console.error(
+        "[send-preview-email] RESEND_FROM_EMAIL missing",
+        resendDiagnostics,
+      );
+      return NextResponse.json(
+        {
+          error:
+            "RESEND_FROM_EMAIL is missing on this server. Set it to a verified sender (e.g. sites@mywebme.com).",
+          resendDiagnostics,
+        },
+        { status: 500 },
+      );
+    }
 
     if (!siteSlug || !ownerEmail) {
       console.error("[send-preview-email] Missing siteSlug or ownerEmail", {
@@ -60,6 +93,7 @@ export async function POST(request: Request) {
       siteSlug: lead.site_slug,
       ownerEmail,
       businessName: lead.business_name,
+      from: resendDiagnostics.fromFormatted,
     });
 
     const { resendMessageId } = await sendPreviewEmail({
@@ -103,12 +137,19 @@ export async function POST(request: Request) {
     const message =
       error instanceof Error ? error.message : "Failed to send preview email.";
 
-    console.error("[send-preview-email] Caught error", {
-      message,
-      error,
+    console.error("[send-preview-email] Caught error — exact message:", message);
+    console.error("[send-preview-email] Caught error — full object:", error);
+    console.error("[send-preview-email] Caught error — stack:", {
       stack: error instanceof Error ? error.stack : undefined,
+      resendDiagnostics: getResendEnvDiagnostics(),
     });
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: message,
+        resendDiagnostics: getResendEnvDiagnostics(),
+      },
+      { status: 500 },
+    );
   }
 }
