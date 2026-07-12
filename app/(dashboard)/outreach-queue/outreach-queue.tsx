@@ -58,6 +58,15 @@ export function OutreachQueue() {
   const [findingEmailIds, setFindingEmailIds] = useState<Set<string>>(new Set());
   const [editingEmailIds, setEditingEmailIds] = useState<Set<string>>(new Set());
   const [savingEmailIds, setSavingEmailIds] = useState<Set<string>>(new Set());
+  const [previewEmailComposerId, setPreviewEmailComposerId] = useState<
+    string | null
+  >(null);
+  const [sendingPreviewEmailIds, setSendingPreviewEmailIds] = useState<
+    Set<string>
+  >(new Set());
+  const [previewEmailSentIds, setPreviewEmailSentIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rebuildModalItem, setRebuildModalItem] = useState<QueueItem | null>(
@@ -616,6 +625,74 @@ export function OutreachQueue() {
     }
   }
 
+  function openPreviewEmailComposer(item: QueueItem) {
+    setActionError(null);
+    setEmails((current) => ({
+      ...current,
+      [item.id]: current[item.id] ?? item.owner_email ?? "",
+    }));
+    setPreviewEmailComposerId(item.id);
+  }
+
+  async function sendPreviewEmail(item: QueueItem) {
+    if (!item.site_slug) {
+      setActionError(`No site built yet for ${item.business_name}.`);
+      return;
+    }
+
+    const email = (emails[item.id] ?? item.owner_email ?? "").trim();
+    if (!email) {
+      setActionError(`Please enter an email for ${item.business_name}.`);
+      return;
+    }
+
+    setSendingPreviewEmailIds((current) => new Set(current).add(item.id));
+    setActionError(null);
+
+    try {
+      await fetch("/api/outreach-queue", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, owner_email: email }),
+      });
+
+      const response = await fetch("/api/business-search/send-preview-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteSlug: item.site_slug,
+          ownerEmail: email,
+        }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to send preview email.");
+      }
+
+      setQueue((current) =>
+        current.map((entry) =>
+          entry.id === item.id
+            ? { ...entry, owner_email: email, status: "outreach_sent" }
+            : entry,
+        ),
+      );
+      setPreviewEmailSentIds((current) => new Set(current).add(item.id));
+      setPreviewEmailComposerId(null);
+      setSuccessMessage(`Preview email sent to ${email}.`);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to send preview email.",
+      );
+    } finally {
+      setSendingPreviewEmailIds((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
+
   async function sendAll() {
     const withEmail = queue.filter((item) => emails[item.id]?.trim());
     if (withEmail.length === 0) {
@@ -784,16 +861,85 @@ export function OutreachQueue() {
             <button
               type="button"
               onClick={() => void sendOutreach(item)}
-              disabled={sending.has(item.id) || sendingAll || buildInProgress}
+              disabled={
+                sending.has(item.id) ||
+                sendingAll ||
+                buildInProgress ||
+                sendingPreviewEmailIds.has(item.id)
+              }
               className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:opacity-60"
             >
               {sending.has(item.id) ? "Sending..." : "Send Outreach"}
             </button>
+            {previewEmailSentIds.has(item.id) ||
+            item.status === "outreach_sent" ? (
+              <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+                <span aria-hidden>✓</span>
+                Preview sent
+              </p>
+            ) : previewEmailComposerId === item.id ? (
+              <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+                <input
+                  type="email"
+                  value={emails[item.id] ?? ""}
+                  onChange={(event) =>
+                    setEmails((current) => ({
+                      ...current,
+                      [item.id]: event.target.value,
+                    }))
+                  }
+                  placeholder="owner@business.com"
+                  disabled={sendingPreviewEmailIds.has(item.id)}
+                  className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void sendPreviewEmail(item)}
+                    disabled={
+                      sendingPreviewEmailIds.has(item.id) ||
+                      buildInProgress ||
+                      sending.has(item.id) ||
+                      sendingAll
+                    }
+                    className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-60"
+                  >
+                    {sendingPreviewEmailIds.has(item.id) ? "Sending..." : "Send"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewEmailComposerId(null)}
+                    disabled={sendingPreviewEmailIds.has(item.id)}
+                    className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openPreviewEmailComposer(item)}
+                disabled={
+                  sending.has(item.id) ||
+                  sendingAll ||
+                  buildInProgress ||
+                  sendingPreviewEmailIds.has(item.id)
+                }
+                className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-60"
+              >
+                Send Preview Email
+              </button>
+            )}
             {!buildInProgress ? (
               <button
                 type="button"
                 onClick={() => openRebuildModal(item)}
-                disabled={sending.has(item.id) || sendingAll}
+                disabled={
+                  sending.has(item.id) ||
+                  sendingAll ||
+                  sendingPreviewEmailIds.has(item.id)
+                }
                 className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-60"
               >
                 Rebuild

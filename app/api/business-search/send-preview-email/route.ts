@@ -48,7 +48,11 @@ export async function POST(request: Request) {
 
     await supabase
       .from("leads")
-      .update({ status: "outreach_sent", owner_email: ownerEmail })
+      .update({
+        status: "outreach_sent",
+        owner_email: ownerEmail,
+        outreach_sent_at: new Date().toISOString(),
+      })
       .eq("id", lead.id);
 
     return NextResponse.json({ success: true, ownerEmail, resendMessageId });
