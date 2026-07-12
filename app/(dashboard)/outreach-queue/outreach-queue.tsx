@@ -67,13 +67,13 @@ export function OutreachQueue() {
   const [previewEmailSentIds, setPreviewEmailSentIds] = useState<Set<string>>(
     new Set(),
   );
-  const [previewEmailToastIds, setPreviewEmailToastIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [previewEmailToastItemId, setPreviewEmailToastItemId] = useState<
+    string | null
+  >(null);
   const [previewEmailErrorById, setPreviewEmailErrorById] = useState<
     Record<string, string>
   >({});
-  const previewEmailToastTimersRef = useRef<Record<string, number>>({});
+  const previewEmailToastTimerRef = useRef<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rebuildModalItem, setRebuildModalItem] = useState<QueueItem | null>(
@@ -128,8 +128,8 @@ export function OutreachQueue() {
 
   useEffect(() => {
     return () => {
-      for (const timerId of Object.values(previewEmailToastTimersRef.current)) {
-        window.clearTimeout(timerId);
+      if (previewEmailToastTimerRef.current) {
+        window.clearTimeout(previewEmailToastTimerRef.current);
       }
     };
   }, []);
@@ -660,32 +660,32 @@ export function OutreachQueue() {
       next.delete(item.id);
       return next;
     });
-    setPreviewEmailToastIds((current) => {
-      const next = new Set(current);
-      next.delete(item.id);
-      return next;
-    });
-    const existingTimer = previewEmailToastTimersRef.current[item.id];
-    if (existingTimer) {
-      window.clearTimeout(existingTimer);
-      delete previewEmailToastTimersRef.current[item.id];
+    if (previewEmailToastItemId === item.id) {
+      setPreviewEmailToastItemId(null);
+    }
+    if (previewEmailToastTimerRef.current) {
+      window.clearTimeout(previewEmailToastTimerRef.current);
+      previewEmailToastTimerRef.current = null;
     }
     openPreviewEmailComposer(item);
   }
 
-  function showPreviewEmailSuccessToast(itemId: string) {
-    setPreviewEmailToastIds((current) => new Set(current).add(itemId));
-    const existingTimer = previewEmailToastTimersRef.current[itemId];
-    if (existingTimer) {
-      window.clearTimeout(existingTimer);
+  function showPreviewEmailSuccessToast(itemId: string, businessName: string) {
+    setPreviewEmailToastItemId(itemId);
+    setSuccessMessage(`✓ Preview email sent! (${businessName})`);
+
+    if (previewEmailToastTimerRef.current) {
+      window.clearTimeout(previewEmailToastTimerRef.current);
     }
-    previewEmailToastTimersRef.current[itemId] = window.setTimeout(() => {
-      setPreviewEmailToastIds((current) => {
-        const next = new Set(current);
-        next.delete(itemId);
-        return next;
-      });
-      delete previewEmailToastTimersRef.current[itemId];
+
+    previewEmailToastTimerRef.current = window.setTimeout(() => {
+      setPreviewEmailToastItemId((current) =>
+        current === itemId ? null : current,
+      );
+      setSuccessMessage((current) =>
+        current?.includes("Preview email sent") ? null : current,
+      );
+      previewEmailToastTimerRef.current = null;
     }, 2500);
   }
 
@@ -708,7 +708,11 @@ export function OutreachQueue() {
       return;
     }
 
-    setSendingPreviewEmailIds((current) => new Set(current).add(item.id));
+    setSendingPreviewEmailIds((current) => {
+      const next = new Set(current);
+      next.add(item.id);
+      return next;
+    });
     setActionError(null);
     setPreviewEmailErrorById((current) => {
       const next = { ...current };
@@ -749,8 +753,12 @@ export function OutreachQueue() {
         ),
       );
       setPreviewEmailComposerId(null);
-      setPreviewEmailSentIds((current) => new Set(current).add(item.id));
-      showPreviewEmailSuccessToast(item.id);
+      setPreviewEmailSentIds((current) => {
+        const next = new Set(current);
+        next.add(item.id);
+        return next;
+      });
+      showPreviewEmailSuccessToast(item.id, item.business_name);
     } catch (err) {
       console.error("[outreach-queue] Preview email send error", err);
       setPreviewEmailComposerId(null);
@@ -950,7 +958,7 @@ export function OutreachQueue() {
             >
               {sending.has(item.id) ? "Sending..." : "Send Outreach"}
             </button>
-            {previewEmailToastIds.has(item.id) ? (
+            {previewEmailToastItemId === item.id ? (
               <p
                 className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
                 role="status"
@@ -1094,6 +1102,15 @@ export function OutreachQueue() {
 
   return (
     <div className="space-y-6">
+      {previewEmailToastItemId ? (
+        <div
+          className="fixed bottom-6 right-6 z-[100] flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900 shadow-lg"
+          role="status"
+        >
+          <span aria-hidden>✓</span>
+          Preview email sent!
+        </div>
+      ) : null}
       {successMessage ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm font-medium text-emerald-800">{successMessage}</p>

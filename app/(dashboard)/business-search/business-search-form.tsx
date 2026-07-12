@@ -398,6 +398,7 @@ export function BusinessSearchForm() {
     if (!email) {
       setPreviewEmailError("Failed to send — try again");
       setPreviewEmailSent(false);
+      setShowPreviewEmailToast(false);
       return;
     }
 
@@ -420,8 +421,10 @@ export function BusinessSearchForm() {
         throw new Error(data.error ?? "Failed to send preview email.");
       }
 
-      setPreviewEmailSent(true);
+      // Show toast first, then mark as sent so the toast branch wins in JSX.
       setShowPreviewEmailToast(true);
+      setPreviewEmailSent(true);
+
       if (previewEmailToastTimerRef.current) {
         window.clearTimeout(previewEmailToastTimerRef.current);
       }
@@ -485,6 +488,15 @@ export function BusinessSearchForm() {
 
   return (
     <div className="space-y-6">
+      {showPreviewEmailToast ? (
+        <div
+          className="fixed bottom-6 right-6 z-[100] flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900 shadow-lg"
+          role="status"
+        >
+          <span aria-hidden>✓</span>
+          Preview email sent!
+        </div>
+      ) : null}
       <Panel
         title="Search by business name"
         subtitle="Look up a business on Google Places, enrich it from their website when available, then build a WebMe site."
