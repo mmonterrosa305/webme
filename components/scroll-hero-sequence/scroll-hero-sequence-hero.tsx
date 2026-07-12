@@ -23,10 +23,10 @@ const AUTO_PLAY_FPS = 8;
 /** Subtle Ken Burns zoom: 1 → 1.08 → 1 over a full cycle. */
 const KEN_BURNS_SCALE_MAX = 1.08;
 const KEN_BURNS_HALF_CYCLE_SEC = 8;
-/** Fail over to a static hero if frames have not loaded by then. */
-const LOAD_TIMEOUT_MS = 4000;
-/** Concurrent image loads — Safari chokes on Promise.all of 100+. */
-const LOAD_BATCH_SIZE = 6;
+/** Fail over to a static hero on mobile if frames have not loaded by then. */
+const MOBILE_LOAD_TIMEOUT_MS = 4000;
+/** Concurrent image loads on mobile — Safari chokes on Promise.all of 100+. */
+const MOBILE_LOAD_BATCH_SIZE = 6;
 /** On mobile, keep every Nth frame after the start offset. */
 const MOBILE_FRAME_STEP = 3;
 
@@ -57,6 +57,11 @@ function scrollToContactSection(event: React.MouseEvent<HTMLAnchorElement>) {
   window.scrollTo({ top, behavior: "smooth" });
 }
 
+/**
+ * Only treat as mobile/low-bandwidth when clearly constrained.
+ * Wide desktop viewports must never match — that was incorrectly
+ * triggering the static poster fallback.
+ */
 function isMobileOrConstrainedNetwork(): boolean {
   if (typeof window === "undefined") {
     return false;
@@ -75,12 +80,21 @@ function isMobileOrConstrainedNetwork(): boolean {
     return true;
   }
 
-  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
   const narrowViewport =
-    window.matchMedia?.("(max-width: 768px)")?.matches ||
+    window.matchMedia?.("(max-width: 768px)")?.matches ??
     window.innerWidth <= 768;
 
-  return Boolean(coarsePointer || narrowViewport);
+  // Desktop (even with a touchscreen) stays on the full sequence when wide.
+  if (!narrowViewport) {
+    return false;
+  }
+
+  const coarsePointer =
+    window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  const noHover = window.matchMedia?.("(hover: none)")?.matches ?? false;
+
+  // Phone-like: narrow AND touch-primary (no fine pointer / hover).
+  return coarsePointer || noHover;
 }
 
 /**
@@ -346,12 +360,12 @@ export function ScrollHeroSequenceHero({
       const indices = frameUrls.map((_, index) => index);
       let loadedCount = 0;
 
-      for (let i = 0; i < indices.length; i += LOAD_BATCH_SIZE) {
+      for (let i = 0; i < indices.length; i += MOBILE_LOAD_BATCH_SIZE) {
         if (cancelled || fallbackActivated) {
           return false;
         }
 
-        const batch = indices.slice(i, i + LOAD_BATCH_SIZE);
+        const batch = indices.slice(i, i + MOBILE_LOAD_BATCH_SIZE);
         const results = await Promise.all(batch.map((index) => loadImageAt(index)));
         loadedCount += results.filter(Boolean).length;
 
@@ -369,6 +383,22 @@ export function ScrollHeroSequenceHero({
       // Require most frames; allow a few failures on flaky mobile networks.
       const minRequired = Math.max(1, Math.ceil(frameUrls.length * 0.7));
       return loadedCount >= minRequired;
+    };
+
+    /** Desktop: load every frame in parallel (original behavior). */
+    const preloadAllFrames = async (): Promise<boolean> => {
+      if (cancelled || fallbackActivated) {
+        return false;
+      }
+
+      const results = await Promise.all(
+        frameUrls.map((_url, index) => loadImageAt(index)),
+      );
+      if (cancelled || fallbackActivated) {
+        return false;
+      }
+
+      return results.every(Boolean);
     };
 
     const drawExactFrame = (frame: number) => {
@@ -473,11 +503,17 @@ export function ScrollHeroSequenceHero({
         return;
       }
 
-      loadTimeoutId = window.setTimeout(() => {
-        void activateStaticFallback("load-timeout");
-      }, LOAD_TIMEOUT_MS);
+      // Timeout only on mobile — desktop full sequences often exceed 4s.
+      if (lightweight) {
+        loadTimeoutId = window.setTimeout(() => {
+          void activateStaticFallback("load-timeout");
+        }, MOBILE_LOAD_TIMEOUT_MS);
+      }
 
-      const loaded = await preloadFramesInBatches();
+      const loaded = lightweight
+        ? await preloadFramesInBatches()
+        : await preloadAllFrames();
+
       if (cancelled || fallbackActivated) {
         return;
       }
