@@ -26,6 +26,7 @@ function NewDomainContent() {
   const [domain, setDomain] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [searchedNamecheap, setSearchedNamecheap] = useState(false);
 
   const searchName = useMemo(
     () => cleanBusinessNameForDomainSearch(data?.businessName ?? ""),
@@ -67,57 +68,121 @@ function NewDomainContent() {
   }
 
   return (
-    <CheckoutPanel
-      title="Get a domain for your site"
-      subtitle={`We'll open Namecheap with a search for “${searchName}” based on ${data.businessName}. Buy a domain you like, then come back here to connect it.`}
-    >
-      <div className="space-y-6">
-        <ExternalPrimaryLink
-          href={namecheapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+    <CheckoutPanel title="Set up your domain">
+      <div className="space-y-8">
+        <section
+          className={`rounded-xl border p-5 sm:p-6 ${
+            searchedNamecheap
+              ? "border-neutral-200 bg-neutral-50"
+              : "border-neutral-900 bg-white shadow-sm ring-1 ring-neutral-900/5"
+          }`}
         >
-          Search domains on Namecheap →
-        </ExternalPrimaryLink>
-
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-          <p className="font-semibold">Come back here after purchasing your domain</p>
-          <p className="mt-1 text-amber-900/90">
-            Keep this tab open (or return to this page). Once you own a domain,
-            enter it below so we can connect it to your site.
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Step 1 of 2
           </p>
-        </div>
+          <h2 className="mt-2 text-xl font-semibold text-neutral-900">
+            Get a domain for your site
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-neutral-600">
+            We&apos;ll open Namecheap with a search for &ldquo;{searchName}&rdquo;
+            based on {data.businessName}. Buy a domain you like, then come back
+            here for step 2.
+          </p>
 
-        <form
-          onSubmit={(event) => void handleSubmit(event)}
-          className="space-y-4"
-        >
-          <div>
-            <label
-              htmlFor="newDomain"
-              className="mb-2 block text-sm font-medium text-neutral-700"
+          <div className="mt-5">
+            <ExternalPrimaryLink
+              href={namecheapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setSearchedNamecheap(true)}
             >
-              Enter your new domain (e.g. {searchName}.com)
-            </label>
-            <CheckoutInput
-              id="newDomain"
-              value={domain}
-              onChange={setDomain}
-              placeholder={`${searchName}.com`}
-              disabled={submitting}
-            />
+              Search domains on Namecheap →
+            </ExternalPrimaryLink>
           </div>
 
-          {submitError ? (
-            <p className="text-sm font-medium text-red-600" role="alert">
-              {submitError}
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+            <p className="font-semibold">
+              Come back here after purchasing your domain
             </p>
-          ) : null}
+            <p className="mt-1 text-amber-900/90">
+              Keep this tab open (or return to this page). Once you own a domain,
+              continue to step 2 below to connect it.
+            </p>
+          </div>
+        </section>
 
-          <PrimaryButton type="submit" disabled={submitting || !domain.trim()}>
-            {submitting ? "Saving…" : "Connect My Domain"}
-          </PrimaryButton>
-        </form>
+        <div
+          className="flex items-center gap-3 px-1"
+          aria-hidden
+        >
+          <div className="h-px flex-1 bg-neutral-200" />
+          <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Then
+          </span>
+          <div className="h-px flex-1 bg-neutral-200" />
+        </div>
+
+        <section
+          className={`rounded-xl border p-5 transition-all sm:p-6 ${
+            searchedNamecheap
+              ? "border-neutral-900 bg-white shadow-sm ring-1 ring-neutral-900/5"
+              : "border-dashed border-neutral-200 bg-neutral-50/80 opacity-60"
+          }`}
+          aria-disabled={!searchedNamecheap}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Step 2 of 2
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-neutral-900">
+            Connect your new domain
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-neutral-600">
+            {searchedNamecheap
+              ? "Enter the domain you purchased and we'll start connecting it to your site."
+              : "This step unlocks after you open Namecheap to search for a domain."}
+          </p>
+
+          {!searchedNamecheap ? (
+            <p className="mt-4 text-sm font-medium text-neutral-500">
+              Complete step 1 first — click &ldquo;Search domains on
+              Namecheap&rdquo; above.
+            </p>
+          ) : (
+            <form
+              onSubmit={(event) => void handleSubmit(event)}
+              className="mt-5 space-y-4"
+            >
+              <div>
+                <label
+                  htmlFor="newDomain"
+                  className="mb-2 block text-sm font-medium text-neutral-700"
+                >
+                  Enter your new domain (e.g. {searchName}.com)
+                </label>
+                <CheckoutInput
+                  id="newDomain"
+                  value={domain}
+                  onChange={setDomain}
+                  placeholder={`${searchName}.com`}
+                  disabled={submitting}
+                />
+              </div>
+
+              {submitError ? (
+                <p className="text-sm font-medium text-red-600" role="alert">
+                  {submitError}
+                </p>
+              ) : null}
+
+              <PrimaryButton
+                type="submit"
+                disabled={submitting || !domain.trim()}
+              >
+                {submitting ? "Saving…" : "Connect My Domain"}
+              </PrimaryButton>
+            </form>
+          )}
+        </section>
       </div>
     </CheckoutPanel>
   );

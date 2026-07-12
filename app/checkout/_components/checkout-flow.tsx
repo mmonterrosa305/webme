@@ -196,14 +196,22 @@ export function ExternalPrimaryLink({
   children,
   target,
   rel,
+  onClick,
 }: {
   href: string;
   children: React.ReactNode;
   target?: string;
   rel?: string;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }) {
   return (
-    <a href={href} target={target} rel={rel} className={primaryButtonClassName}>
+    <a
+      href={href}
+      target={target}
+      rel={rel}
+      onClick={onClick}
+      className={primaryButtonClassName}
+    >
       {children}
     </a>
   );
