@@ -200,7 +200,7 @@ const SITE_ANIMATIONS_INIT_SCRIPT = `<script id="${ANIMATIONS_INIT_ID}">
       el.classList.add("webme-section-animate");
     });
 
-    document.querySelectorAll('[data-webme="service-card"]').forEach(function (el, index) {
+    document.querySelectorAll('[data-webme="service-card"], [data-webme-service-card="true"]').forEach(function (el, index) {
       el.classList.add("webme-service-card");
       var delay = Math.min(index, 2) * 200;
       el.style.setProperty("--webme-stagger", delay + "ms");
@@ -359,13 +359,14 @@ export function injectSiteAnimations(html: string): string {
     return html;
   }
 
+  const $ = cheerio.load(html);
+  // Always restore service-image markers (even when animations already exist).
+  tagServiceCards($);
+
   if (hasCompleteSiteAnimations(html)) {
-    return html;
+    return $.html();
   }
 
-  const $ = cheerio.load(html);
-
-  tagServiceCards($);
   removeLegacyProbeScript($);
   ensureAnimationStyles($);
   ensureAnimationInitScript($);
@@ -375,7 +376,8 @@ export function injectSiteAnimations(html: string): string {
     hadInitScript: hasSiteAnimations(html),
     resultHasStyles: result.includes(ANIMATIONS_STYLE_ID),
     resultHasInitScript: result.includes(ANIMATIONS_INIT_ID),
-    serviceCards: $('[data-webme="service-card"]').length,
+    serviceCards: $('[data-webme="service-card"], [data-webme-service-card="true"]').length,
+    serviceImages: $('[data-webme^="service-image"]').length,
     sections: $("section").length,
     headings: $("section h2").length,
     trustStats: $(".trust-bar .trust-item h3").length,

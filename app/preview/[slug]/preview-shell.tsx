@@ -734,6 +734,10 @@ export function PreviewShell({
         }
 
         function attachOverlay(el, slot, label) {
+          if (el.querySelector && el.querySelector(".webme-photo-replace-overlay")) {
+            return;
+          }
+
           if (getComputedStyle(el).position === "static") {
             el.style.position = "relative";
           }
@@ -756,8 +760,10 @@ export function PreviewShell({
           var button = document.createElement("button");
           button.type = "button";
           button.textContent = label;
-          button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;";
-          button.onclick = function () {
+          button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;pointer-events:auto;";
+          button.onclick = function (event) {
+            event.preventDefault();
+            event.stopPropagation();
             if (slot === "logo") {
               window.parent.postMessage({ type: "upload-logo" }, "*");
             } else {
@@ -776,6 +782,24 @@ export function PreviewShell({
             if (slot === "hero-image" && el.tagName === "VIDEO") return;
 
             attachOverlay(el, slot, slot === "logo" ? "📷 Replace Logo" : "📷 Replace");
+          });
+
+          // Service cards: background often lives on the card (service-card),
+          // with the replaceable slot in data-webme-image-slot.
+          document.querySelectorAll("[data-webme-image-slot]").forEach(function (el) {
+            var slot = el.getAttribute("data-webme-image-slot");
+            if (!slot || !imageSlotPattern.test(slot)) return;
+            if (el.querySelector(".webme-photo-replace-overlay")) return;
+            attachOverlay(el, slot, "📷 Replace");
+          });
+
+          // Fallback: service cards that still lack any image slot marker
+          document.querySelectorAll('[data-webme="service-card"]').forEach(function (el, index) {
+            if (index >= 4) return;
+            if (el.getAttribute("data-webme-image-slot")) return;
+            if (el.querySelector('[data-webme^="service-image"]')) return;
+            if (el.querySelector(".webme-photo-replace-overlay")) return;
+            attachOverlay(el, "service-image-" + (index + 1), "📷 Replace");
           });
 
           if (!document.querySelector('[data-webme="logo"]')) {

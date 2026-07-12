@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 
 import { fetchReplacementPhotoUrl } from "@/lib/agents/fetch-pexels-photos";
+import {
+  SERVICE_CARD_ATTR,
+  SERVICE_IMAGE_SLOT_ATTR,
+} from "@/lib/agents/service-card-hover";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SiteMetadata } from "@/lib/site-editor/types";
+import type { AnyNode } from "domhandler";
 
 const VALID_SLOTS = new Set([
   "hero-image",
@@ -21,8 +26,8 @@ function extractCurrentImageUrl(
   $: cheerio.CheerioAPI,
   slot: string,
 ): string | null {
-  const $el = $(`[data-webme="${slot}"]`).first();
-  if (!$el.length) {
+  const $el = findSlotElement($, slot);
+  if (!$el?.length) {
     return null;
   }
 
@@ -40,16 +45,57 @@ function extractCurrentImageUrl(
   return match?.[2]?.trim() || null;
 }
 
+/** Prefer service-image-N; fall back to image-slot attr or Nth service card. */
+function findSlotElement(
+  $: cheerio.CheerioAPI,
+  slot: string,
+): cheerio.Cheerio<AnyNode> | null {
+  const $direct = $(`[data-webme="${slot}"]`).first();
+  if ($direct.length) {
+    return $direct;
+  }
+
+  const $byImageSlot = $(`[${SERVICE_IMAGE_SLOT_ATTR}="${slot}"]`).first();
+  if ($byImageSlot.length) {
+    return $byImageSlot;
+  }
+
+  if (!slot.startsWith("service-image-")) {
+    return null;
+  }
+
+  const index = Number.parseInt(slot.replace("service-image-", ""), 10) - 1;
+  if (index < 0 || index > 3) {
+    return null;
+  }
+
+  const $cards = $(
+    `[data-webme="service-card"], [${SERVICE_CARD_ATTR}="true"]`,
+  );
+  const $card = $cards.eq(index);
+  return $card.length ? $card : null;
+}
+
 function replaceSlotImageHtml(
   html: string,
   slot: string,
   newPhotoUrl: string,
 ): { html: string; replaced: boolean } {
   const $ = cheerio.load(html);
-  const $el = $(`[data-webme="${slot}"]`).first();
+  const $el = findSlotElement($, slot);
 
-  if (!$el.length) {
+  if (!$el?.length) {
     return { html, replaced: false };
+  }
+
+  // Keep service-card hover working while recording the replaceable slot.
+  if (slot.startsWith("service-image-")) {
+    if (($el.attr("data-webme") ?? "") === "service-card") {
+      $el.attr(SERVICE_IMAGE_SLOT_ATTR, slot);
+    } else if (!$el.attr("data-webme")?.startsWith("service-image")) {
+      $el.attr("data-webme", slot);
+      $el.attr(SERVICE_CARD_ATTR, "true");
+    }
   }
 
   let replaced = false;

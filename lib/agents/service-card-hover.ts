@@ -3,8 +3,15 @@ import type { AnyNode } from "domhandler";
 
 import { GSAP_CDN } from "./scroll-hero-video";
 
+/** Hover/animation marker when the card element also holds service-image-N. */
+export const SERVICE_CARD_ATTR = "data-webme-service-card";
+/** Replace Photos slot when data-webme is already "service-card" on the same node. */
+export const SERVICE_IMAGE_SLOT_ATTR = "data-webme-image-slot";
+
+const SERVICE_CARD_SELECTOR = `[data-webme="service-card"], [${SERVICE_CARD_ATTR}="true"]`;
+
 const SERVICE_CARD_HOVER_STYLES = `<style id="webme-service-card-hover-styles">
-[data-webme="service-card"] {
+${SERVICE_CARD_SELECTOR} {
   position: relative;
   overflow: hidden;
   transform-style: preserve-3d;
@@ -33,7 +40,7 @@ const SERVICE_CARD_HOVER_INIT_SCRIPT = `<script id="webme-service-card-hover-ini
   function initServiceCardHover() {
     if (typeof gsap === "undefined") return;
 
-    var cards = document.querySelectorAll('[data-webme="service-card"]');
+    var cards = document.querySelectorAll('${SERVICE_CARD_SELECTOR}');
     if (!cards.length) return;
 
     cards.forEach(function (card) {
@@ -182,6 +189,33 @@ function findServiceCardWrapper(
   return $parent.length ? $parent : null;
 }
 
+function isSameElement(
+  $a: cheerio.Cheerio<AnyNode>,
+  $b: cheerio.Cheerio<AnyNode>,
+): boolean {
+  return Boolean($a.length && $b.length && $a.get(0) === $b.get(0));
+}
+
+function cardHasReplaceableVisual(
+  $card: cheerio.Cheerio<AnyNode>,
+): boolean {
+  if ($card.is("img") || $card.is("video")) {
+    return true;
+  }
+
+  if ($card.find("img").length > 0) {
+    return true;
+  }
+
+  const style = $card.attr("style") ?? "";
+  return /url\(/i.test(style) || /background-image/i.test(style);
+}
+
+/**
+ * Ensure service cards keep replaceable image slot markers.
+ * Many templates put the background on the card itself — never overwrite
+ * service-image-* with service-card on that same element (that broke Replace Photos).
+ */
 export function tagServiceCards($: cheerio.CheerioAPI): void {
   for (let index = 1; index <= 4; index += 1) {
     const $serviceImage = $(`[data-webme="service-image-${index}"]`).first();
@@ -194,15 +228,48 @@ export function tagServiceCards($: cheerio.CheerioAPI): void {
       continue;
     }
 
-    const existingWebme = $card.attr("data-webme");
-    if (existingWebme?.startsWith("service-image")) {
-      $card.removeAttr("data-webme");
+    // Same node = background + card. Keep service-image-N for Replace Photos.
+    if (isSameElement($card, $serviceImage)) {
+      $card.attr(SERVICE_CARD_ATTR, "true");
+      $card.attr(SERVICE_IMAGE_SLOT_ATTR, `service-image-${index}`);
+      continue;
     }
 
-    if ($card.attr("data-webme") !== "service-card") {
+    const existingWebme = $card.attr("data-webme");
+    if (!existingWebme || existingWebme === "service-card") {
       $card.attr("data-webme", "service-card");
+    } else {
+      $card.attr(SERVICE_CARD_ATTR, "true");
     }
   }
+
+  // Recover cards whose service-image-* was previously stripped to service-card.
+  // Keep data-webme="service-card" so existing hover scripts still match.
+  $('[data-webme="service-card"]').each((cardIndex, element) => {
+    const index = cardIndex + 1;
+    if (index > 4) {
+      return;
+    }
+
+    const $card = $(element);
+    const slot = `service-image-${index}`;
+
+    if ($card.find(`[data-webme="${slot}"]`).length > 0) {
+      return;
+    }
+
+    if (($card.attr("data-webme") ?? "").startsWith("service-image")) {
+      $card.attr(SERVICE_CARD_ATTR, "true");
+      $card.attr(SERVICE_IMAGE_SLOT_ATTR, $card.attr("data-webme")!);
+      return;
+    }
+
+    if (!cardHasReplaceableVisual($card)) {
+      return;
+    }
+
+    $card.attr(SERVICE_IMAGE_SLOT_ATTR, slot);
+  });
 }
 
 /** Inject GSAP 3D tilt + shine hover on service cards. Idempotent. */
@@ -210,7 +277,7 @@ export function applyServiceCardHoverEffect(html: string): string {
   const $ = cheerio.load(html);
   tagServiceCards($);
 
-  if ($('[data-webme="service-card"]').length === 0) {
+  if ($(SERVICE_CARD_SELECTOR).length === 0) {
     return html;
   }
 
