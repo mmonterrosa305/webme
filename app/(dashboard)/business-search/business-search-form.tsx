@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
 import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
@@ -231,12 +231,12 @@ export function BusinessSearchForm() {
   const [queueError, setQueueError] = useState<string | null>(null);
   const [previewEmail, setPreviewEmail] = useState("");
   const [sendingPreviewEmail, setSendingPreviewEmail] = useState(false);
-  const [previewEmailSuccess, setPreviewEmailSuccess] = useState<string | null>(
-    null,
-  );
   const [previewEmailError, setPreviewEmailError] = useState<string | null>(
     null,
   );
+  const [previewEmailSent, setPreviewEmailSent] = useState(false);
+  const [showPreviewEmailToast, setShowPreviewEmailToast] = useState(false);
+  const previewEmailToastTimerRef = useRef<number | null>(null);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
   const [cardHoverEffect, setCardHoverEffect] = useState(false);
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
@@ -254,6 +254,14 @@ export function BusinessSearchForm() {
   const isSearching = phase === "searching";
   const isBuilding = phase === "building";
 
+  useEffect(() => {
+    return () => {
+      if (previewEmailToastTimerRef.current) {
+        window.clearTimeout(previewEmailToastTimerRef.current);
+      }
+    };
+  }, []);
+
   async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -262,8 +270,9 @@ export function BusinessSearchForm() {
     setQueueSuccessMessage(null);
     setQueueError(null);
     setPreviewEmail("");
-    setPreviewEmailSuccess(null);
     setPreviewEmailError(null);
+    setPreviewEmailSent(false);
+    setShowPreviewEmailToast(false);
     setPhase("searching");
 
     try {
@@ -304,8 +313,9 @@ export function BusinessSearchForm() {
     setResult(null);
     setQueueSuccessMessage(null);
     setQueueError(null);
-    setPreviewEmailSuccess(null);
     setPreviewEmailError(null);
+    setPreviewEmailSent(false);
+    setShowPreviewEmailToast(false);
 
     try {
       let response: Response;
@@ -383,15 +393,15 @@ export function BusinessSearchForm() {
       return;
     }
 
-    const email = previewEmail.trim();
+    const email = previewEmail.trim() || result.ownerEmail?.trim() || "";
 
     if (!email) {
-      setPreviewEmailError("Enter an email address to send the preview.");
+      setPreviewEmailError("Failed to send — try again");
+      setPreviewEmailSent(false);
       return;
     }
 
     setSendingPreviewEmail(true);
-    setPreviewEmailSuccess(null);
     setPreviewEmailError(null);
 
     try {
@@ -410,15 +420,32 @@ export function BusinessSearchForm() {
         throw new Error(data.error ?? "Failed to send preview email.");
       }
 
-      setPreviewEmailSuccess(`Preview email sent to ${email}.`);
+      setPreviewEmailSent(true);
+      setShowPreviewEmailToast(true);
+      if (previewEmailToastTimerRef.current) {
+        window.clearTimeout(previewEmailToastTimerRef.current);
+      }
+      previewEmailToastTimerRef.current = window.setTimeout(() => {
+        setShowPreviewEmailToast(false);
+        previewEmailToastTimerRef.current = null;
+      }, 2500);
     } catch (sendError) {
-      setPreviewEmailError(
-        sendError instanceof Error
-          ? sendError.message
-          : "Failed to send preview email.",
-      );
+      console.error("[business-search] Preview email send error", sendError);
+      setPreviewEmailSent(false);
+      setShowPreviewEmailToast(false);
+      setPreviewEmailError("Failed to send — try again");
     } finally {
       setSendingPreviewEmail(false);
+    }
+  }
+
+  function handleSendPreviewEmailAgain() {
+    setPreviewEmailSent(false);
+    setShowPreviewEmailToast(false);
+    setPreviewEmailError(null);
+    if (previewEmailToastTimerRef.current) {
+      window.clearTimeout(previewEmailToastTimerRef.current);
+      previewEmailToastTimerRef.current = null;
     }
   }
 
@@ -633,28 +660,44 @@ export function BusinessSearchForm() {
                     onChange={(event) => setPreviewEmail(event.target.value)}
                     placeholder="owner@business.com"
                     className={inputClassName}
-                    disabled={sendingPreviewEmail}
+                    disabled={sendingPreviewEmail || showPreviewEmailToast}
                   />
                   <p className="mt-1.5 text-xs text-neutral-500">
                     No email found from Google Places — enter one manually.
                   </p>
                 </div>
               )}
-              <button
-                type="button"
-                disabled={sendingPreviewEmail || (!result.ownerEmail && !previewEmail.trim())}
-                onClick={() => void handleSendPreviewEmail()}
-                className="mt-3 inline-flex rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {sendingPreviewEmail ? "Sending..." : "Send Preview Email"}
-              </button>
+              {showPreviewEmailToast ? (
+                <p
+                  className="mt-3 flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
+                  role="status"
+                >
+                  <span aria-hidden>✓</span>
+                  Preview email sent!
+                </p>
+              ) : previewEmailSent ? (
+                <button
+                  type="button"
+                  onClick={handleSendPreviewEmailAgain}
+                  className="mt-3 inline-flex rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-100"
+                >
+                  Send Again
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={
+                    sendingPreviewEmail ||
+                    (!result.ownerEmail && !previewEmail.trim())
+                  }
+                  onClick={() => void handleSendPreviewEmail()}
+                  className="mt-3 inline-flex rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {sendingPreviewEmail ? "Sending..." : "Send Preview Email"}
+                </button>
+              )}
             </div>
 
-            {previewEmailSuccess ? (
-              <p className="mt-3 text-sm font-medium text-emerald-700" role="status">
-                {previewEmailSuccess}
-              </p>
-            ) : null}
             {previewEmailError ? (
               <p className="mt-3 text-sm font-medium text-red-700" role="alert">
                 {previewEmailError}

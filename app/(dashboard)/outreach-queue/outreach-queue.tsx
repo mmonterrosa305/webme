@@ -67,6 +67,13 @@ export function OutreachQueue() {
   const [previewEmailSentIds, setPreviewEmailSentIds] = useState<Set<string>>(
     new Set(),
   );
+  const [previewEmailToastIds, setPreviewEmailToastIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [previewEmailErrorById, setPreviewEmailErrorById] = useState<
+    Record<string, string>
+  >({});
+  const previewEmailToastTimersRef = useRef<Record<string, number>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rebuildModalItem, setRebuildModalItem] = useState<QueueItem | null>(
@@ -118,6 +125,14 @@ export function OutreachQueue() {
   useEffect(() => {
     void loadQueue();
   }, [loadQueue]);
+
+  useEffect(() => {
+    return () => {
+      for (const timerId of Object.values(previewEmailToastTimersRef.current)) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -627,6 +642,11 @@ export function OutreachQueue() {
 
   function openPreviewEmailComposer(item: QueueItem) {
     setActionError(null);
+    setPreviewEmailErrorById((current) => {
+      const next = { ...current };
+      delete next[item.id];
+      return next;
+    });
     setEmails((current) => ({
       ...current,
       [item.id]: current[item.id] ?? item.owner_email ?? "",
@@ -640,23 +660,61 @@ export function OutreachQueue() {
       next.delete(item.id);
       return next;
     });
+    setPreviewEmailToastIds((current) => {
+      const next = new Set(current);
+      next.delete(item.id);
+      return next;
+    });
+    const existingTimer = previewEmailToastTimersRef.current[item.id];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+      delete previewEmailToastTimersRef.current[item.id];
+    }
     openPreviewEmailComposer(item);
+  }
+
+  function showPreviewEmailSuccessToast(itemId: string) {
+    setPreviewEmailToastIds((current) => new Set(current).add(itemId));
+    const existingTimer = previewEmailToastTimersRef.current[itemId];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+    }
+    previewEmailToastTimersRef.current[itemId] = window.setTimeout(() => {
+      setPreviewEmailToastIds((current) => {
+        const next = new Set(current);
+        next.delete(itemId);
+        return next;
+      });
+      delete previewEmailToastTimersRef.current[itemId];
+    }, 2500);
   }
 
   async function sendPreviewEmail(item: QueueItem) {
     if (!item.site_slug) {
-      setActionError(`No site built yet for ${item.business_name}.`);
+      setPreviewEmailErrorById((current) => ({
+        ...current,
+        [item.id]: "Failed to send — try again",
+      }));
+      setPreviewEmailComposerId(null);
       return;
     }
 
     const email = (emails[item.id] ?? item.owner_email ?? "").trim();
     if (!email) {
-      setActionError(`Please enter an email for ${item.business_name}.`);
+      setPreviewEmailErrorById((current) => ({
+        ...current,
+        [item.id]: "Failed to send — try again",
+      }));
       return;
     }
 
     setSendingPreviewEmailIds((current) => new Set(current).add(item.id));
     setActionError(null);
+    setPreviewEmailErrorById((current) => {
+      const next = { ...current };
+      delete next[item.id];
+      return next;
+    });
 
     try {
       await fetch("/api/outreach-queue", {
@@ -690,13 +748,21 @@ export function OutreachQueue() {
             : entry,
         ),
       );
-      setPreviewEmailSentIds((current) => new Set(current).add(item.id));
       setPreviewEmailComposerId(null);
-      setSuccessMessage(`Preview email sent to ${email}.`);
+      setPreviewEmailSentIds((current) => new Set(current).add(item.id));
+      showPreviewEmailSuccessToast(item.id);
     } catch (err) {
-      setActionError(
-        err instanceof Error ? err.message : "Failed to send preview email.",
-      );
+      console.error("[outreach-queue] Preview email send error", err);
+      setPreviewEmailComposerId(null);
+      setPreviewEmailSentIds((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
+      setPreviewEmailErrorById((current) => ({
+        ...current,
+        [item.id]: "Failed to send — try again",
+      }));
     } finally {
       setSendingPreviewEmailIds((current) => {
         const next = new Set(current);
@@ -884,7 +950,15 @@ export function OutreachQueue() {
             >
               {sending.has(item.id) ? "Sending..." : "Send Outreach"}
             </button>
-            {previewEmailSentIds.has(item.id) ? (
+            {previewEmailToastIds.has(item.id) ? (
+              <p
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
+                role="status"
+              >
+                <span aria-hidden>✓</span>
+                Preview email sent!
+              </p>
+            ) : previewEmailSentIds.has(item.id) ? (
               <button
                 type="button"
                 onClick={() => resetPreviewEmailComposer(item)}
@@ -938,19 +1012,26 @@ export function OutreachQueue() {
                 </div>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => openPreviewEmailComposer(item)}
-                disabled={
-                  sending.has(item.id) ||
-                  sendingAll ||
-                  buildInProgress ||
-                  sendingPreviewEmailIds.has(item.id)
-                }
-                className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-60"
-              >
-                Send Preview Email
-              </button>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => openPreviewEmailComposer(item)}
+                  disabled={
+                    sending.has(item.id) ||
+                    sendingAll ||
+                    buildInProgress ||
+                    sendingPreviewEmailIds.has(item.id)
+                  }
+                  className="w-full rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-60"
+                >
+                  Send Preview Email
+                </button>
+                {previewEmailErrorById[item.id] ? (
+                  <p className="text-xs font-medium text-red-600" role="alert">
+                    {previewEmailErrorById[item.id]}
+                  </p>
+                ) : null}
+              </div>
             )}
             {!buildInProgress ? (
               <button
