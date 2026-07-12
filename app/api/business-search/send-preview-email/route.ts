@@ -11,7 +11,17 @@ export async function POST(request: Request) {
     const ownerEmail =
       typeof body.ownerEmail === "string" ? body.ownerEmail.trim() : "";
 
+    console.log("[send-preview-email] Request received", {
+      siteSlug,
+      ownerEmail,
+      bodyKeys: Object.keys(body ?? {}),
+    });
+
     if (!siteSlug || !ownerEmail) {
+      console.error("[send-preview-email] Missing siteSlug or ownerEmail", {
+        siteSlug,
+        ownerEmail,
+      });
       return NextResponse.json(
         { error: "siteSlug and ownerEmail are required." },
         { status: 400 },
@@ -19,6 +29,7 @@ export async function POST(request: Request) {
     }
 
     if (!EMAIL_PATTERN.test(ownerEmail)) {
+      console.error("[send-preview-email] Invalid email", { ownerEmail });
       return NextResponse.json(
         { error: "Please enter a valid email address." },
         { status: 400 },
@@ -33,12 +44,23 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (error) {
+      console.error("[send-preview-email] Lead lookup failed", {
+        siteSlug,
+        error: error.message,
+      });
       throw new Error(error.message);
     }
 
     if (!lead?.site_slug) {
+      console.error("[send-preview-email] Lead not found", { siteSlug });
       return NextResponse.json({ error: "Lead not found." }, { status: 404 });
     }
+
+    console.log("[send-preview-email] Sending via Resend", {
+      siteSlug: lead.site_slug,
+      ownerEmail,
+      businessName: lead.business_name,
+    });
 
     const { resendMessageId } = await sendPreviewEmail({
       businessName: lead.business_name,
@@ -46,7 +68,14 @@ export async function POST(request: Request) {
       siteSlug: lead.site_slug,
     });
 
-    await supabase
+    console.log("[send-preview-email] Resend result", {
+      siteSlug: lead.site_slug,
+      ownerEmail,
+      resendMessageId,
+      success: Boolean(resendMessageId),
+    });
+
+    const { error: updateError } = await supabase
       .from("leads")
       .update({
         status: "outreach_sent",
@@ -55,10 +84,30 @@ export async function POST(request: Request) {
       })
       .eq("id", lead.id);
 
+    if (updateError) {
+      console.error("[send-preview-email] Failed to mark lead outreach_sent", {
+        leadId: lead.id,
+        error: updateError.message,
+      });
+      throw new Error(updateError.message);
+    }
+
+    console.log("[send-preview-email] Lead marked outreach_sent", {
+      leadId: lead.id,
+      siteSlug: lead.site_slug,
+      ownerEmail,
+    });
+
     return NextResponse.json({ success: true, ownerEmail, resendMessageId });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to send preview email.";
+
+    console.error("[send-preview-email] Caught error", {
+      message,
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

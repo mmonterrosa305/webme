@@ -25,6 +25,15 @@ export async function sendPreviewEmail({
     text,
   });
 
+  console.log("[email/send-preview-email] Resend response", {
+    siteSlug,
+    ownerEmail,
+    previewUrl,
+    subject,
+    data: sendResult.data ?? null,
+    error: sendResult.error ?? null,
+  });
+
   if (sendResult.error) {
     throw new Error(sendResult.error.message);
   }

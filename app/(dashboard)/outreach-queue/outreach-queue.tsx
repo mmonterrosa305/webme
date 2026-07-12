@@ -634,6 +634,15 @@ export function OutreachQueue() {
     setPreviewEmailComposerId(item.id);
   }
 
+  function resetPreviewEmailComposer(item: QueueItem) {
+    setPreviewEmailSentIds((current) => {
+      const next = new Set(current);
+      next.delete(item.id);
+      return next;
+    });
+    openPreviewEmailComposer(item);
+  }
+
   async function sendPreviewEmail(item: QueueItem) {
     if (!item.site_slug) {
       setActionError(`No site built yet for ${item.business_name}.`);
@@ -871,12 +880,20 @@ export function OutreachQueue() {
             >
               {sending.has(item.id) ? "Sending..." : "Send Outreach"}
             </button>
-            {previewEmailSentIds.has(item.id) ||
-            item.status === "outreach_sent" ? (
-              <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-700">
-                <span aria-hidden>✓</span>
-                Preview sent
-              </p>
+            {previewEmailSentIds.has(item.id) ? (
+              <button
+                type="button"
+                onClick={() => resetPreviewEmailComposer(item)}
+                disabled={
+                  sending.has(item.id) ||
+                  sendingAll ||
+                  buildInProgress ||
+                  sendingPreviewEmailIds.has(item.id)
+                }
+                className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-60"
+              >
+                Send Again
+              </button>
             ) : previewEmailComposerId === item.id ? (
               <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
                 <input
