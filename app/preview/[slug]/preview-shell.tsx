@@ -184,7 +184,9 @@ export function PreviewShell({
 
   /** Unlock document scroll so page content flows below the 100vh autoplay hero. */
   useEffect(() => {
-    if (!isPublicMode) {
+    // Public mode always unlocks. Edit mode must unlock too when the external
+    // sequence hero is present — otherwise body `h-full` + flex shrink clips it.
+    if (!isPublicMode && !scrollSequenceId) {
       return;
     }
 
@@ -298,7 +300,7 @@ export function PreviewShell({
       body.style.flexDirection = previous.bodyFlexDirection;
       body.classList.add("h-full", "min-h-0");
     };
-  }, [isPublicMode]);
+  }, [isPublicMode, scrollSequenceId]);
 
   /** Size the public-mode iframe to its content so the PAGE scrolls, not the iframe. */
   useEffect(() => {
@@ -1404,16 +1406,18 @@ export function PreviewShell({
       </div>
 
       {scrollSequenceId ? (
-        <ScrollHeroSequenceHero
-          key={scrollSequenceId}
-          sequenceId={scrollSequenceId}
-          businessName={lead.business_name}
-          posterUrl={heroOverlay?.posterUrl || lead.site_metadata?.heroImageUrl}
-          headline={
-            heroOverlay?.headline || fields.headline || lead.business_name
-          }
-          tagline={heroOverlay?.tagline || fields.tagline}
-        />
+        <div className="shrink-0">
+          <ScrollHeroSequenceHero
+            key={scrollSequenceId}
+            sequenceId={scrollSequenceId}
+            businessName={lead.business_name}
+            posterUrl={heroOverlay?.posterUrl || lead.site_metadata?.heroImageUrl}
+            headline={
+              heroOverlay?.headline || fields.headline || lead.business_name
+            }
+            tagline={heroOverlay?.tagline || fields.tagline}
+          />
+        </div>
       ) : null}
 
       <iframe

@@ -84,6 +84,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
     lead.site_html,
     lead.site_metadata,
     lead.industry,
+    lead.business_name,
   );
 
   const sequenceId = resolveScrollHeroSequenceId(lead.site_metadata);

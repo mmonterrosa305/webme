@@ -1,7 +1,11 @@
 import { applyStoredSiteEnrichmentsToHtml } from "@/lib/leads/enrich-built-site-html";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeHeroSection } from "@/lib/site-editor/normalize-hero-section";
+import {
+  isInvalidHeroTagline,
+  normalizeHeroSection,
+} from "@/lib/site-editor/normalize-hero-section";
 import type { SiteMetadata } from "@/lib/site-editor/types";
+import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
 import {
@@ -55,33 +59,72 @@ export async function prepareLeadSiteHtml(
   );
 }
 
+function healPollutedTaglineMetadata(
+  html: string,
+  metadata: SiteMetadata,
+  businessName: string,
+): { metadata: SiteMetadata; changed: boolean } {
+  const current = metadata.tagline?.trim() ?? "";
+  if (current && !isInvalidHeroTagline(current)) {
+    return { metadata, changed: false };
+  }
+
+  const resolved = resolveSequenceHeroCopy({
+    html,
+    metadata: { ...metadata, tagline: undefined },
+    businessName,
+  });
+
+  const next: SiteMetadata = { ...metadata };
+  if (resolved.tagline) {
+    if (next.tagline === resolved.tagline) {
+      return { metadata: next, changed: false };
+    }
+    next.tagline = resolved.tagline;
+  } else if (next.tagline) {
+    delete next.tagline;
+  } else {
+    return { metadata: next, changed: false };
+  }
+
+  return { metadata: next, changed: true };
+}
+
 export async function prepareAndPersistLeadSiteHtml(
   siteSlug: string,
   html: string,
   metadata?: Record<string, unknown> | SiteMetadata | null,
   industry?: string | null,
+  businessName?: string | null,
 ): Promise<string> {
   const prepared = await prepareLeadSiteHtml(html, metadata, industry);
+  const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
 
-  if (prepared === html) {
+  const baseMetadata: SiteMetadata = {
+    ...((metadata as SiteMetadata | null) ?? {}),
+    ...(sequenceId ? { scrollHeroSequenceId: sequenceId } : {}),
+  };
+
+  const { metadata: nextMetadata, changed: taglineHealed } =
+    healPollutedTaglineMetadata(
+      prepared,
+      baseMetadata,
+      businessName?.trim() || siteSlug,
+    );
+
+  if (prepared === html && !taglineHealed) {
     return prepared;
   }
-
-  const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
 
   console.log(`[prepare-lead-site-html] Persisting cleaned HTML for ${siteSlug}`, {
     beforeLength: html.length,
     afterLength: prepared.length,
     staleInitScript: hasStaleSequenceInitScript(html),
     sequenceId: sequenceId ?? null,
+    taglineHealed,
   });
 
   const supabase = createAdminClient();
-  const nextMetadata: SiteMetadata = {
-    ...((metadata as SiteMetadata | null) ?? {}),
-    ...(sequenceId ? { scrollHeroSequenceId: sequenceId } : {}),
-  };
-
   const { error } = await supabase
     .from("leads")
     .update({

@@ -580,7 +580,7 @@ export function ScrollHeroSequenceHero({
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative h-screen w-full overflow-hidden bg-black"
+      className="relative h-screen w-full shrink-0 overflow-hidden bg-black"
     >
       <style>{`
         @keyframes webme-sequence-ken-burns {

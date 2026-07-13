@@ -630,3 +630,76 @@ export function normalizeHeroSection(
 export function isPlaceholderRatingCopy(text: string): boolean {
   return isPlaceholderRatingText(text);
 }
+
+const KNOWN_TRUST_BAR_STAT_LABELS = new Set([
+  "customer reviews",
+  "google reviews",
+  "verified reviews",
+  "average rating",
+  "overall rating",
+  "star rating",
+  "years experience",
+  "years of experience",
+  "happy customers",
+  "satisfied customers",
+  "projects completed",
+  "homes serviced",
+  "jobs completed",
+  "open 6 days",
+  "open 7 days",
+  "5-star reviews",
+  "5 star reviews",
+]);
+
+/**
+ * True when copy looks like a trust-bar stat label (e.g. "Customer Reviews")
+ * rather than a real hero tagline.
+ */
+export function isTrustBarStatLabel(text: string): boolean {
+  const normalized = text
+    .trim()
+    .replace(/^[\s⭐★✩✪✫✬✭✮✯✰🌟]+/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (isPlaceholderRatingText(normalized)) {
+    return true;
+  }
+
+  if (KNOWN_TRUST_BAR_STAT_LABELS.has(normalized)) {
+    return true;
+  }
+
+  if (/^(customer|google|verified)?\s*reviews?$/i.test(normalized)) {
+    return true;
+  }
+
+  if (/^(average|overall)?\s*rating$/i.test(normalized)) {
+    return true;
+  }
+
+  if (/^years?\s+(of\s+)?experience$/i.test(normalized)) {
+    return true;
+  }
+
+  if (/^(happy|satisfied)\s+customers?$/i.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Rejects placeholder rating copy and trust-bar stat labels. */
+export function isInvalidHeroTagline(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  return isPlaceholderRatingCopy(trimmed) || isTrustBarStatLabel(trimmed);
+}

@@ -1,7 +1,9 @@
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 
 import type { SiteContent, SiteImageSlot, SiteMetadata } from "./types";
 import { IMAGE_SLOTS } from "./types";
+import { isInvalidHeroTagline } from "./normalize-hero-section";
 
 const BACKGROUND_URL_PATTERN =
   /url\(\s*['"]?(https?:\/\/[^'")\s]+|data:[^'")\s]+)['"]?\s*\)/gi;
@@ -29,6 +31,52 @@ function getAttrValue(
   attr: string,
 ): string {
   return $(selector).first().attr(attr)?.trim() ?? "";
+}
+
+function isTrustBarSection($section: cheerio.Cheerio<AnyNode>): boolean {
+  const className = ($section.attr("class") ?? "").toLowerCase();
+  const id = ($section.attr("id") ?? "").toLowerCase();
+  return className.includes("trust-bar") || id.includes("trust-bar");
+}
+
+function extractTaglineFromTitle($: cheerio.CheerioAPI): string {
+  const title = $("title").first().text().trim();
+  if (!title) {
+    return "";
+  }
+
+  const parts = title.split("|").map((part) => part.trim());
+  return parts.slice(1).join(" | ").trim();
+}
+
+function findTaglineHeroSection(
+  $: cheerio.CheerioAPI,
+): cheerio.Cheerio<AnyNode> {
+  const byId = $("#hero, #webme-scroll-hero").first();
+  if (byId.length && !isTrustBarSection(byId)) {
+    return byId;
+  }
+
+  const byHeroContent = $(".hero-content, .webme-scroll-hero-content")
+    .closest("section")
+    .first();
+  if (byHeroContent.length && !isTrustBarSection(byHeroContent)) {
+    return byHeroContent;
+  }
+
+  const byHeadline = $('[data-webme="headline"]').closest("section").first();
+  if (byHeadline.length && !isTrustBarSection(byHeadline)) {
+    return byHeadline;
+  }
+
+  for (const element of $("section").toArray()) {
+    const $section = $(element);
+    if (!isTrustBarSection($section)) {
+      return $section;
+    }
+  }
+
+  return $();
 }
 
 function extractBusinessName($: cheerio.CheerioAPI, fallback: string): string {
@@ -76,18 +124,50 @@ function extractHeadline($: cheerio.CheerioAPI): string {
 }
 
 function extractTagline($: cheerio.CheerioAPI): string {
-  const tagged = $('[data-webme="tagline"]').first().text().trim();
-  if (tagged) {
-    return tagged;
+  const taggedNodes = $('[data-webme="tagline"]').toArray();
+  for (const element of taggedNodes) {
+    const $el = $(element);
+    if ($el.closest("section.trust-bar, section[class*='trust-bar']").length) {
+      continue;
+    }
+
+    const text = $el.text().trim();
+    if (text && !isInvalidHeroTagline(text)) {
+      return text;
+    }
   }
 
-  const heroSection = $("section").first();
-  const heroParagraph = heroSection.find("p").first().text().trim();
-  if (heroParagraph) {
-    return heroParagraph;
+  const heroSection = findTaglineHeroSection($);
+  if (heroSection.length) {
+    const heroParagraph = heroSection.find("p").first().text().trim();
+    if (heroParagraph && !isInvalidHeroTagline(heroParagraph)) {
+      return heroParagraph;
+    }
+
+    const heroSubhead = heroSection.find("h2").first().text().trim();
+    if (heroSubhead && !isInvalidHeroTagline(heroSubhead)) {
+      return heroSubhead;
+    }
   }
 
-  return heroSection.find("h2").first().text().trim();
+  const titleTagline = extractTaglineFromTitle($);
+  if (titleTagline && !isInvalidHeroTagline(titleTagline)) {
+    return titleTagline;
+  }
+
+  return "";
+}
+
+function resolveTagline(
+  $: cheerio.CheerioAPI,
+  metadata?: SiteMetadata | null,
+): string {
+  const metaTagline = metadata?.tagline?.trim() ?? "";
+  if (metaTagline && !isInvalidHeroTagline(metaTagline)) {
+    return metaTagline;
+  }
+
+  return extractTagline($);
 }
 
 export function normalizeLogoUrl(url: string | undefined | null): string {
@@ -323,7 +403,7 @@ export function extractSiteContent(
     address: extractAddress($, address?.trim() ?? ""),
     hours: metadata?.hours?.trim() ?? extractHours($),
     headline: metadata?.headline?.trim() ?? extractHeadline($),
-    tagline: metadata?.tagline?.trim() ?? extractTagline($),
+    tagline: resolveTagline($, metadata),
     logoUrl: metadata?.logoUrl?.trim() ?? extractLogoUrl($),
     images: classifyImageUrls($, siteHtml, metadata),
   };

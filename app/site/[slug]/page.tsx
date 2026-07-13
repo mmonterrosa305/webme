@@ -51,6 +51,7 @@ export default async function SitePage({ params }: PageProps) {
     lead.site_html,
     lead.site_metadata,
     lead.industry,
+    lead.business_name,
   );
 
   const html = injectAnalyticsScript(siteHtml);

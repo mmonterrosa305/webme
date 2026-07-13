@@ -38,6 +38,7 @@ export async function GET(_request: Request, context: RouteContext) {
         lead.site_html,
         lead.site_metadata,
         null,
+        lead.business_name,
       ),
     });
   } catch (error) {
@@ -103,6 +104,7 @@ export async function POST(request: Request, context: RouteContext) {
         result.html,
         lead.site_metadata,
         null,
+        lead.business_name,
       ),
       fields: result.fields,
       editsUsed,

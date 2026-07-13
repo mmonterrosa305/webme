@@ -17,7 +17,7 @@ import {
   contentToMetadata,
   extractSiteContent,
 } from "@/lib/site-editor/extract-content";
-import { isPlaceholderRatingCopy } from "@/lib/site-editor/normalize-hero-section";
+import { isInvalidHeroTagline } from "@/lib/site-editor/normalize-hero-section";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -64,11 +64,16 @@ function preserveHeroCopy(
   extracted: string | undefined,
 ): string | undefined {
   const storedValue = stored?.trim();
-  if (storedValue && !isPlaceholderRatingCopy(storedValue)) {
+  if (storedValue && !isInvalidHeroTagline(storedValue)) {
     return storedValue;
   }
 
-  return extracted?.trim() || undefined;
+  const extractedValue = extracted?.trim();
+  if (extractedValue && !isInvalidHeroTagline(extractedValue)) {
+    return extractedValue;
+  }
+
+  return undefined;
 }
 
 export type RebuildLeadSiteOptions = {

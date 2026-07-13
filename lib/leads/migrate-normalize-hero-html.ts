@@ -1,4 +1,4 @@
-import { normalizeHeroSection, isPlaceholderRatingCopy } from "@/lib/site-editor/normalize-hero-section";
+import { normalizeHeroSection, isInvalidHeroTagline } from "@/lib/site-editor/normalize-hero-section";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -26,12 +26,12 @@ function cleanSiteMetadata(
   const next: SiteMetadata = { ...metadata };
   let changed = false;
 
-  if (next.headline && isPlaceholderRatingCopy(next.headline)) {
+  if (next.headline && isInvalidHeroTagline(next.headline)) {
     delete next.headline;
     changed = true;
   }
 
-  if (next.tagline && isPlaceholderRatingCopy(next.tagline)) {
+  if (next.tagline && isInvalidHeroTagline(next.tagline)) {
     delete next.tagline;
     changed = true;
   }
