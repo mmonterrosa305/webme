@@ -18,9 +18,9 @@ const HERO_TEXT_SHADOW = "0 2px 16px rgba(0, 0, 0, 0.65)";
 
 /** Skip washed-out opening frames — sequence starts at frame 81 (index 80). */
 const START_FRAME_OFFSET = 80;
-/** Steady cinematic playback rate. */
-const AUTO_PLAY_FPS = 8;
-/** Subtle Ken Burns zoom: 1 → 1.08 → 1 over a full cycle. */
+/** Viewport heights of scroll required to scrub from first to last frame. */
+const SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER = 3;
+/** Subtle Ken Burns zoom: 1 → 1.08 → 1 over a full cycle (transform only — not frames). */
 const KEN_BURNS_SCALE_MAX = 1.08;
 const KEN_BURNS_HALF_CYCLE_SEC = 8;
 /** Fail over to a static hero on mobile if frames have not loaded by then. */
@@ -29,6 +29,11 @@ const MOBILE_LOAD_TIMEOUT_MS = 4000;
 const MOBILE_LOAD_BATCH_SIZE = 6;
 /** On mobile, keep every Nth frame after the start offset. */
 const MOBILE_FRAME_STEP = 3;
+
+function getSequenceSectionHeightVh(): number {
+  // Sticky 100vh hero + scroll runway for scrub distance.
+  return 100 + SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER * 100;
+}
 
 function findContactTarget(root: Document): HTMLElement | null {
   return (
@@ -100,7 +105,7 @@ function isMobileOrConstrainedNetwork(): boolean {
 /**
  * Build the URL list used for playback.
  * Mobile: start at START_FRAME_OFFSET and keep every Nth frame.
- * Desktop: keep the full list (playback still starts at START_FRAME_OFFSET).
+ * Desktop: keep the full list (scrub still starts at START_FRAME_OFFSET).
  */
 function selectPlaybackUrls(urls: string[], lightweight: boolean): {
   urls: string[];
@@ -150,21 +155,19 @@ function getLoopBounds(
   };
 }
 
-/** Keep exact frame in [loopStart, loopStart + loopLength). */
-function wrapExactFrame(
-  frame: number,
-  loopStart: number,
-  loopLength: number,
+/** Map scroll progress 0→1 to an exact frame within the scrub range. */
+function progressToExactFrame(
+  progress: number,
+  totalFrames: number,
+  framesAlreadyTrimmed: boolean,
 ): number {
-  if (loopLength <= 0) {
-    return loopStart;
-  }
-
-  let t = (frame - loopStart) % loopLength;
-  if (t < 0) {
-    t += loopLength;
-  }
-  return loopStart + t;
+  const { loopStart, loopEnd } = getLoopBounds(
+    totalFrames,
+    framesAlreadyTrimmed,
+  );
+  const span = Math.max(0, loopEnd - loopStart);
+  const clamped = Math.min(1, Math.max(0, progress));
+  return loopStart + clamped * span;
 }
 
 function isWebpFrameUrl(url: string): boolean {
@@ -214,7 +217,7 @@ async function loadFrameImage(
   }
 }
 
-/** Force the document to remain scrollable — never pin/lock past the 100vh hero. */
+/** Force the document to remain scrollable through the scrub runway. */
 function unlockDocumentScroll() {
   if (typeof document === "undefined") {
     return;
@@ -256,9 +259,10 @@ export function ScrollHeroSequenceHero({
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const sectionRef = useRef<HTMLElement>(null);
+  const pinRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Critical: keep page scroll available regardless of sequence load/playback state.
+  // Keep page scroll available for the scrub runway.
   useEffect(() => {
     unlockDocumentScroll();
     const timers = [0, 250, 1000, 4000].map((ms) =>
@@ -269,15 +273,15 @@ export function ScrollHeroSequenceHero({
       for (const id of timers) {
         window.clearTimeout(id);
       }
-      // Leave document unlocked on unmount — re-locking trapped live customers.
       unlockDocumentScroll();
     };
   }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
+    const pin = pinRef.current;
     const canvas = canvasRef.current;
-    if (!section || !canvas) {
+    if (!section || !pin || !canvas) {
       return;
     }
 
@@ -294,8 +298,7 @@ export function ScrollHeroSequenceHero({
     const lightweight = isMobileOrConstrainedNetwork();
 
     let exactFrame = 0;
-    let lastTickTime = 0;
-    let rafId = 0;
+    let scrollRafId = 0;
     let allFramesLoaded = false;
     let fallbackActivated = false;
     let loadTimeoutId = 0;
@@ -429,7 +432,7 @@ export function ScrollHeroSequenceHero({
       return loadedCount >= minRequired;
     };
 
-    /** Desktop: load every frame in parallel (original behavior). */
+    /** Desktop: load every frame in parallel. */
     const preloadAllFrames = async (): Promise<boolean> => {
       if (cancelled || fallbackActivated) {
         return false;
@@ -451,14 +454,14 @@ export function ScrollHeroSequenceHero({
       }
 
       const totalFrames = frameUrls.length;
-      const { loopStart, loopEnd, loopLength } = getLoopBounds(
+      const { loopStart, loopEnd } = getLoopBounds(
         totalFrames,
         framesAlreadyTrimmed,
       );
-      const wrapped = wrapExactFrame(frame, loopStart, loopLength);
-      const idx = Math.min(Math.floor(wrapped), loopEnd);
-      const next = idx >= loopEnd ? loopStart : idx + 1;
-      const blend = wrapped - idx;
+      const clamped = Math.min(Math.max(frame, loopStart), loopEnd);
+      const idx = Math.min(Math.floor(clamped), loopEnd);
+      const next = Math.min(idx + 1, loopEnd);
+      const blend = clamped - idx;
 
       const imgA = imageCache[idx];
       const imgB = imageCache[next];
@@ -477,53 +480,52 @@ export function ScrollHeroSequenceHero({
       }
     };
 
-    const advancePlayback = (dt: number) => {
-      const totalFrames = frameUrls.length;
-      if (!totalFrames) {
+    /** Scroll progress through the runway → frame. No timer-driven advance. */
+    const getScrollProgress = (): number => {
+      const rect = section.getBoundingClientRect();
+      const sectionTop = window.scrollY + rect.top;
+      const viewportHeight = Math.max(1, window.innerHeight);
+      const scrubDistance = SEQUENCE_SCROLL_VIEWPORT_MULTIPLIER * viewportHeight;
+      const scrollPast = window.scrollY - sectionTop;
+      return Math.min(1, Math.max(0, scrollPast / scrubDistance));
+    };
+
+    const syncFrameToScroll = () => {
+      if (cancelled || fallbackActivated || !allFramesLoaded) {
         return;
       }
 
-      const { loopStart, loopLength } = getLoopBounds(
-        totalFrames,
+      const progress = getScrollProgress();
+      exactFrame = progressToExactFrame(
+        progress,
+        frameUrls.length,
         framesAlreadyTrimmed,
       );
-      exactFrame = wrapExactFrame(
-        exactFrame + AUTO_PLAY_FPS * dt,
-        loopStart,
-        loopLength,
+      drawExactFrame(exactFrame);
+    };
+
+    const onScrollOrResize = () => {
+      if (scrollRafId) {
+        return;
+      }
+      scrollRafId = window.requestAnimationFrame(() => {
+        scrollRafId = 0;
+        syncFrameToScroll();
+      });
+    };
+
+    const startScrollScrub = () => {
+      const { loopStart } = getLoopBounds(
+        frameUrls.length,
+        framesAlreadyTrimmed,
       );
-    };
-
-    const tick = (now: number) => {
-      if (cancelled || fallbackActivated) {
-        return;
-      }
-
-      if (!allFramesLoaded) {
-        rafId = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      if (!lastTickTime) {
-        lastTickTime = now;
-      }
-
-      const dt = Math.min((now - lastTickTime) / 1000, 0.05);
-      lastTickTime = now;
-
-      advancePlayback(dt);
-      drawExactFrame(exactFrame);
-
-      rafId = window.requestAnimationFrame(tick);
-    };
-
-    const startPlayback = () => {
-      const totalFrames = frameUrls.length;
-      const { loopStart } = getLoopBounds(totalFrames, framesAlreadyTrimmed);
       exactFrame = loopStart;
-      lastTickTime = 0;
       drawExactFrame(exactFrame);
-      rafId = window.requestAnimationFrame(tick);
+      syncFrameToScroll();
+      window.addEventListener("scroll", onScrollOrResize, { passive: true });
+      window.addEventListener("resize", onScrollOrResize, { passive: true });
+      // iOS momentum scroll can settle after the last scroll event.
+      window.addEventListener("touchmove", onScrollOrResize, { passive: true });
       window.dispatchEvent(new CustomEvent("webme-sequence-hero-ready"));
     };
 
@@ -571,13 +573,13 @@ export function ScrollHeroSequenceHero({
 
       allFramesLoaded = true;
       setLoadState("ready");
-      startPlayback();
+      startScrollScrub();
     };
 
     const onResize = () => {
       resizeCanvas();
       if (allFramesLoaded) {
-        drawExactFrame(exactFrame);
+        syncFrameToScroll();
       } else if (fallbackActivated) {
         void showStaticImage();
       }
@@ -613,18 +615,26 @@ export function ScrollHeroSequenceHero({
       cancelled = true;
       window.clearTimeout(loadTimeoutId);
       window.removeEventListener("resize", onResize);
-      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("touchmove", onScrollOrResize);
+      window.cancelAnimationFrame(scrollRafId);
     };
   }, [sequenceId, posterUrl]);
 
   const showOverlay = Boolean(resolvedHeadline || resolvedTagline || ctaLabel);
   const heroVisible = loadState === "ready" || loadState === "static";
+  const isStaticFallback = loadState === "static" || loadState === "error";
 
   return (
     <section
       ref={sectionRef}
       id="webme-scroll-hero-external"
-      className="relative h-screen w-full shrink-0 overflow-hidden bg-black"
+      className="relative w-full bg-black"
+      style={{
+        // Static fallback is a single viewport; scrub mode needs the runway.
+        height: isStaticFallback ? "100vh" : `${getSequenceSectionHeightVh()}vh`,
+      }}
     >
       <style>{`
         html.webme-seq-hero-page,
@@ -648,71 +658,80 @@ export function ScrollHeroSequenceHero({
           will-change: transform;
         }
       `}</style>
-      <div className="absolute inset-0">
-        <div
-          className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
-            heroVisible ? "opacity-100" : "opacity-60"
-          }`}
-          aria-hidden
-        />
-        <div className="absolute inset-0 z-[1] overflow-hidden">
-          <div className="webme-sequence-canvas-ken-burns absolute inset-0">
-            <canvas ref={canvasRef} className="block h-full w-full" />
-          </div>
-        </div>
-        {loadState === "loading" ? (
+      <div
+        ref={pinRef}
+        className="sticky top-0 h-screen w-full shrink-0 overflow-hidden bg-black"
+      >
+        <div className="absolute inset-0">
           <div
-            className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
-              <span className="text-sm font-medium tracking-wide text-white/80">
-                Loading sequence…
-              </span>
+            className={`pointer-events-none absolute inset-0 z-0 bg-black/50 transition-opacity duration-700 ${
+              heroVisible ? "opacity-100" : "opacity-60"
+            }`}
+            aria-hidden
+          />
+          <div className="absolute inset-0 z-[1] overflow-hidden">
+            <div
+              className={`absolute inset-0 ${
+                isStaticFallback ? "webme-sequence-canvas-ken-burns" : ""
+              }`}
+            >
+              <canvas ref={canvasRef} className="block h-full w-full" />
             </div>
+          </div>
+          {loadState === "loading" ? (
+            <div
+              className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                <span className="text-sm font-medium tracking-wide text-white/80">
+                  Loading sequence…
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        {showOverlay ? (
+          <div
+            className={`relative z-20 mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
+              heroVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {resolvedHeadline ? (
+              <h1
+                className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
+                style={{ textShadow: HERO_TEXT_SHADOW }}
+              >
+                {resolvedHeadline}
+              </h1>
+            ) : null}
+            {resolvedTagline ? (
+              <p
+                className="max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
+                style={{ textShadow: HERO_TEXT_SHADOW }}
+              >
+                {resolvedTagline}
+              </p>
+            ) : null}
+            {ctaLabel ? (
+              <a
+                href={ctaHref}
+                onClick={scrollToContactSection}
+                className="pointer-events-auto mt-2 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
+                style={{
+                  background: "#ffffff",
+                  border: "2px solid #ffffff",
+                  boxShadow: HERO_TEXT_SHADOW,
+                }}
+              >
+                {ctaLabel}
+              </a>
+            ) : null}
           </div>
         ) : null}
       </div>
-      {showOverlay ? (
-        <div
-          className={`relative z-20 mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-start gap-4 px-6 pt-[120px] text-center text-white transition-opacity duration-700 ${
-            heroVisible ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          {resolvedHeadline ? (
-            <h1
-              className="font-serif text-4xl font-bold leading-tight text-white md:text-5xl"
-              style={{ textShadow: HERO_TEXT_SHADOW }}
-            >
-              {resolvedHeadline}
-            </h1>
-          ) : null}
-          {resolvedTagline ? (
-            <p
-              className="max-w-2xl text-xl font-medium leading-relaxed text-white md:text-2xl"
-              style={{ textShadow: HERO_TEXT_SHADOW }}
-            >
-              {resolvedTagline}
-            </p>
-          ) : null}
-          {ctaLabel ? (
-            <a
-              href={ctaHref}
-              onClick={scrollToContactSection}
-              className="pointer-events-auto mt-2 inline-block rounded px-10 py-4 text-base font-semibold text-neutral-900 no-underline transition hover:-translate-y-0.5"
-              style={{
-                background: "#ffffff",
-                border: "2px solid #ffffff",
-                boxShadow: HERO_TEXT_SHADOW,
-              }}
-            >
-              {ctaLabel}
-            </a>
-          ) : null}
-        </div>
-      ) : null}
     </section>
   );
 }
