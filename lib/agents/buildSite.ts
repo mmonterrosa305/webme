@@ -13,7 +13,9 @@ import { normalizeHeroVideoAttributes } from "./normalize-hero-video";
 import { applyServiceCardHoverEffect } from "./service-card-hover";
 import {
   applyScrollHeroVideo,
+  convertScrollHeroToSimpleLoopHero,
   fetchScrollHeroVideoFromPexels,
+  replaceScrollHeroVideoUrl,
 } from "./scroll-hero-video";
 import { prepareSiteHtmlForSequenceBuild } from "./scroll-hero-sequence";
 import type { ScrollHeroMediaType } from "./scroll-build-options";
@@ -466,16 +468,19 @@ export async function buildSite(
   });
 
   // Retail/product sites: skip cinematic scroll-scrub — use a simple looping hero.
+  // Still honor an explicitly selected preset / upload URL for those sites.
   const useScrollScrub =
     Boolean(input.scrollAnimationEffect) && !isRetailLikeIndustry(industry);
+  const hasExplicitHeroVideo = Boolean(input.scrollHeroVideoUrl?.trim());
 
   const heroVideoUrl = useImageSequence
     ? null
-    : useScrollScrub
-      ? input.scrollHeroVideoUrl ??
-        (await fetchScrollHeroVideoFromPexels(industry)) ??
-        (await fetchHeroVideo(industry))
-      : input.scrollHeroVideoUrl ?? (await fetchHeroVideo(industry));
+    : hasExplicitHeroVideo
+      ? input.scrollHeroVideoUrl!.trim()
+      : useScrollScrub
+        ? (await fetchScrollHeroVideoFromPexels(industry)) ??
+          (await fetchHeroVideo(industry))
+        : await fetchHeroVideo(industry);
   // Boutique/retail with curated Unsplash: fetchIndustryPhotos returns null
   // unless name/tagline have strong product cues (e.g. soccer jersey).
   const pixabayPhotos = await fetchIndustryPhotos(industry, {
@@ -522,8 +527,16 @@ export async function buildSite(
 
   if (useImageSequence && input.scrollHeroSequencePresetId) {
     html = prepareSiteHtmlForSequenceBuild(html);
-  } else if (useScrollScrub && heroVideoUrl) {
+  } else if (input.scrollAnimationEffect && heroVideoUrl) {
+    // Always pin the resolved URL into the DOM — for retail this was previously
+    // skipped (no scrub), so the model could ignore a selected preset and a
+    // Pexels auto-pick would appear instead.
     html = applyScrollHeroVideo(html, heroVideoUrl, heroUrl);
+    if (!useScrollScrub) {
+      html = convertScrollHeroToSimpleLoopHero(html);
+    }
+  } else if (hasExplicitHeroVideo && heroVideoUrl) {
+    html = replaceScrollHeroVideoUrl(html, heroVideoUrl) ?? html;
   }
 
   if (input.cardHoverEffect) {
