@@ -1,3 +1,4 @@
+import { isRetailLikeIndustry } from "./retail-industry";
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages";
 import slugify from "slugify";
@@ -57,7 +58,7 @@ ${buildIndustryHeroListForPrompt()}
 - Hero (video): when user prompt includes Hero video URL — min-height 100vh section with absolutely positioned <video> tag MUST be exactly: <video autoplay muted loop playsinline data-webme="hero-image" ...> — NEVER add the controls attribute. Style: object-fit:cover, width/height 100%. Poster set to Hero URL, dark overlay rgba(0,0,0,0.5), white headline content above video.
 - Hero (image fallback): when no Hero video URL — full-screen cinematic background-image (min-height 100vh, background-size: cover, background-position: center).
 - Hero overlay: rgba(0,0,0,0.5) for text readability.
-- Hero text spacing (required): the hero headline/content wrapper must have generous top padding — at least padding-top: 120px (or equivalent, e.g. pt-30) — so the headline never sits too close to the top edge or nav.
+- Hero text wrapper: padding-top at least 180px (or equivalent, e.g. pt-40 / max(11rem, 22vh)) — so the headline never sits under or overlaps the fixed nav logo.
 - Service cards: min-height 250px, cover background, dark overlay, white text — each card uses its own ServiceN URL.
 - About: 2-column layout, large image on right using About URL only.
 - Gallery row: 3 side-by-side images using Gallery1, Gallery2, Gallery3 only.
@@ -322,14 +323,14 @@ Use this exact MP4 as the full-screen hero background (not a static image):
 - Style video: position absolute, inset 0, width 100%, height 100%, object-fit cover, z-index 0
 - Section: position relative, min-height 100vh, overflow hidden
 - Overlay div above video: rgba(0,0,0,0.5)
-- Hero text content above overlay (z-index 2), white typography, padding-top at least 120px on the text wrapper
+- Hero text content above overlay (z-index 2), white typography, padding-top at least 180px (or max(11rem, 22vh)) on the text wrapper so headline never overlaps the fixed nav logo
 - Do NOT use background-image for the hero when this video URL is provided`
     : `## Hero background
-No hero video available — use the Hero URL above as a full-screen background-image. Hero text wrapper: padding-top at least 120px.`
+No hero video available — use the Hero URL above as a full-screen background-image. Hero text wrapper: padding-top at least 180px so headline never overlaps the fixed nav logo.`
 }
 
 ## Sections to include (exactly eight, in order — no extra sections)
-1. Hero — full screen, ${heroVideoUrl ? "Hero video URL with poster fallback" : "exact Hero URL"}, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA, hero text padding-top at least 120px
+1. Hero — full screen, ${heroVideoUrl ? "Hero video URL with poster fallback" : "exact Hero URL"}, rgba(0,0,0,0.5) overlay, large white headline, subheadline, CTA, hero text padding-top at least 180px
 2. Trust bar — 4 stats (rating: ${profile.rating ?? "use 4.9"}, reviews: ${profile.reviewCount ?? "use plausible count"})
 3. Services — 4 cards from: ${formatList(profile.services, "invent 4 typical services")} — backgrounds: Service1, Service2, Service3, Service4 (one URL per card)
 4. About — 2 columns: text/stats on left; right = exact About URL
@@ -461,13 +462,18 @@ export async function buildSite(
     useImageSequence,
   });
 
+  // Retail/product sites: skip cinematic scroll-scrub — use a simple looping hero.
+  const useScrollScrub =
+    Boolean(input.scrollAnimationEffect) && !isRetailLikeIndustry(industry);
+
   const heroVideoUrl = useImageSequence
     ? null
-    : input.scrollAnimationEffect
+    : useScrollScrub
       ? input.scrollHeroVideoUrl ??
         (await fetchScrollHeroVideoFromPexels(industry)) ??
         (await fetchHeroVideo(industry))
-      : await fetchHeroVideo(industry);
+      : input.scrollHeroVideoUrl ?? (await fetchHeroVideo(industry));
+  // Boutique/retail with curated Unsplash: fetchIndustryPhotos returns null on purpose.
   const pixabayPhotos = await fetchIndustryPhotos(industry);
   const siteSlug =
     input.existingSiteSlug?.trim() ||
@@ -508,7 +514,7 @@ export async function buildSite(
 
   if (useImageSequence && input.scrollHeroSequencePresetId) {
     html = prepareSiteHtmlForSequenceBuild(html);
-  } else if (input.scrollAnimationEffect && heroVideoUrl) {
+  } else if (useScrollScrub && heroVideoUrl) {
     html = applyScrollHeroVideo(html, heroVideoUrl, heroUrl);
   }
 

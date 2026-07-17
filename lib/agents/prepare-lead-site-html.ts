@@ -8,11 +8,16 @@ import type { SiteMetadata } from "@/lib/site-editor/types";
 import { resolveSequenceHeroCopy } from "@/lib/scroll-hero/resolve-sequence-hero-copy";
 import { stripSequenceHeroFromSiteHtml } from "@/lib/scroll-hero/strip-sequence-hero-html";
 
+import { applyCuratedRetailImagesToHtml } from "./apply-curated-retail-images";
 import {
   hasScrollHeroSequence,
   hasStaleSequenceInitScript,
 } from "./scroll-hero-sequence";
 import { prepareScrollHeroVideoSiteHtml } from "./scroll-hero-video";
+import {
+  isRetailLikeIndustry,
+  prefersCuratedIndustryImages,
+} from "./retail-industry";
 
 export function getScrollHeroSequenceIdFromMetadata(
   metadata: Record<string, unknown> | SiteMetadata | null | undefined,
@@ -40,18 +45,23 @@ export async function prepareLeadSiteHtml(
   metadata?: Record<string, unknown> | SiteMetadata | null,
   industry?: string | null,
 ): Promise<string> {
-  void industry;
-
   const sequenceId = resolveScrollHeroSequenceId(metadata);
+  const retailLike = isRetailLikeIndustry(industry ?? "");
   let prepared = normalizeHeroSection(html);
 
   if (sequenceId || hasScrollHeroSequence(html) || hasStaleSequenceInitScript(html)) {
     prepared = stripSequenceHeroFromSiteHtml(prepared).html;
   } else {
-    prepared = prepareScrollHeroVideoSiteHtml(prepared);
+    prepared = prepareScrollHeroVideoSiteHtml(prepared, {
+      simpleLoop: retailLike,
+    });
   }
 
   prepared = normalizeHeroSection(prepared);
+
+  if (industry && prefersCuratedIndustryImages(industry)) {
+    prepared = applyCuratedRetailImagesToHtml(prepared, industry).html;
+  }
 
   return applyStoredSiteEnrichmentsToHtml(
     prepared,
@@ -100,10 +110,27 @@ export async function prepareAndPersistLeadSiteHtml(
   const prepared = await prepareLeadSiteHtml(html, metadata, industry);
   const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
 
-  const baseMetadata: SiteMetadata = {
+  let baseMetadata: SiteMetadata = {
     ...((metadata as SiteMetadata | null) ?? {}),
     ...(sequenceId ? { scrollHeroSequenceId: sequenceId } : {}),
   };
+
+  if (industry && prefersCuratedIndustryImages(industry)) {
+    const { images } = applyCuratedRetailImagesToHtml(prepared, industry);
+    if (images) {
+      baseMetadata = {
+        ...baseMetadata,
+        aboutImageUrl: images.about,
+        serviceImageUrls: [
+          images.service1,
+          images.service2,
+          images.service3,
+          images.service4,
+        ],
+        galleryImageUrls: [images.gallery1, images.gallery2, images.gallery3],
+      };
+    }
+  }
 
   const { metadata: nextMetadata, changed: taglineHealed } =
     healPollutedTaglineMetadata(
@@ -122,6 +149,7 @@ export async function prepareAndPersistLeadSiteHtml(
     staleInitScript: hasStaleSequenceInitScript(html),
     sequenceId: sequenceId ?? null,
     taglineHealed,
+    retailSimpleLoop: isRetailLikeIndustry(industry ?? ""),
   });
 
   const supabase = createAdminClient();

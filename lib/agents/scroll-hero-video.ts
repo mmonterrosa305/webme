@@ -14,6 +14,9 @@ export const SCROLL_TRIGGER_CDN =
 const SCROLL_HERO_PIN_SCROLL_VH = 300;
 const SCROLL_HERO_SECTION_HEIGHT_VH = 100 + SCROLL_HERO_PIN_SCROLL_VH;
 
+/** Clear the fixed nav wordmark — long headlines must not collide with the logo. */
+const HERO_CONTENT_PADDING_TOP = "max(11rem, calc(env(safe-area-inset-top, 0px) + 8.5rem))";
+
 const SCROLL_HERO_STYLES = `<style id="webme-scroll-hero-styles">
 html.webme-scroll-hero-page,
 html.webme-scroll-hero-page body {
@@ -105,14 +108,15 @@ header.webme-scroll-hero-nav,
   outline: none !important;
 }
 .webme-scroll-hero-content,
-.webme-scroll-hero-pin .hero-content {
+.webme-scroll-hero-pin .hero-content,
+.hero-content {
   position: relative !important;
   z-index: 2 !important;
   width: 100%;
   max-width: 960px;
   margin: 0 auto !important;
   padding: 24px !important;
-  padding-top: 120px !important;
+  padding-top: ${HERO_CONTENT_PADDING_TOP} !important;
   text-align: center !important;
   color: #fff !important;
   display: flex !important;
@@ -147,6 +151,142 @@ header.webme-scroll-hero-nav,
   margin-top: 0 !important;
 }
 </style>`;
+
+/** Simple 100vh looping hero — no 300vh scrub runway (retail / product sites). */
+const SIMPLE_LOOP_HERO_STYLES = `<style id="webme-scroll-hero-styles">
+html.webme-scroll-hero-page,
+html.webme-scroll-hero-page body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  overflow-x: visible !important;
+  overflow-y: auto !important;
+}
+#webme-scroll-hero,
+#webme-scroll-hero.hero {
+  display: block !important;
+  position: relative !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  background: #000 !important;
+  box-sizing: border-box;
+}
+.webme-scroll-hero-pin {
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+.webme-scroll-hero-pin video[data-webme-scroll-hero="true"],
+.webme-scroll-hero-pin .hero-video,
+#webme-scroll-hero video[data-webme="hero-image"] {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  z-index: 0 !important;
+}
+.webme-scroll-hero-pin .hero-overlay,
+.webme-scroll-hero-pin [class*="overlay"] {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+}
+nav.webme-scroll-hero-nav,
+header.webme-scroll-hero-nav,
+.webme-scroll-hero-nav {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 100 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.webme-scroll-hero-content,
+.webme-scroll-hero-pin .hero-content,
+.hero-content {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto !important;
+  padding: 24px !important;
+  padding-top: ${HERO_CONTENT_PADDING_TOP} !important;
+  text-align: center !important;
+  color: #fff !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 1rem !important;
+  box-sizing: border-box;
+}
+.webme-scroll-hero-rest {
+  position: relative;
+  z-index: 1;
+  margin: 0 !important;
+  padding: 0;
+}
+.webme-scroll-hero-rest > section:first-child,
+#webme-scroll-hero + .webme-scroll-hero-rest > section:first-child,
+#webme-scroll-hero + section {
+  margin-top: 0 !important;
+}
+</style>`;
+
+const SIMPLE_LOOP_HERO_INIT_SCRIPT = `<script id="webme-simple-loop-hero-init">
+(function () {
+  function initSimpleLoopHero() {
+    var video = document.querySelector('#webme-scroll-hero video[data-webme="hero-image"], video[data-webme-scroll-hero="true"]');
+    if (!video) return;
+    video.setAttribute("autoplay", "");
+    video.setAttribute("muted", "");
+    video.setAttribute("loop", "");
+    video.setAttribute("playsinline", "");
+    video.removeAttribute("controls");
+    video.muted = true;
+    var playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(function () {});
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initSimpleLoopHero);
+  } else {
+    initSimpleLoopHero();
+  }
+})();
+</script>`;
 
 const SCROLL_VIDEO_SEARCH_TERMS: Record<string, string[]> = {
   "Pool Service": ["pool splash", "swimming pool", "pool cleaning"],
@@ -335,6 +475,7 @@ function ensureGsapScripts($: cheerio.CheerioAPI): void {
 
 function ensureScrollHeroInitScript($: cheerio.CheerioAPI): void {
   $("#webme-scroll-hero-init").remove();
+  $("#webme-simple-loop-hero-init").remove();
   $("body").append(SCROLL_HERO_INIT_SCRIPT);
 }
 
@@ -347,6 +488,97 @@ function ensureScrollHeroStyles($: cheerio.CheerioAPI): void {
 
   head.append(SCROLL_HERO_STYLES);
   $("html").addClass("webme-scroll-hero-page");
+}
+
+function ensureSimpleLoopHeroStyles($: cheerio.CheerioAPI): void {
+  $("#webme-scroll-hero-styles").remove();
+  const head = $("head");
+  if (head.length === 0) {
+    return;
+  }
+
+  head.append(SIMPLE_LOOP_HERO_STYLES);
+  $("html").addClass("webme-scroll-hero-page");
+}
+
+function ensureSimpleLoopHeroInitScript($: cheerio.CheerioAPI): void {
+  $("#webme-scroll-hero-init").remove();
+  $("#webme-simple-loop-hero-init").remove();
+  $("body").append(SIMPLE_LOOP_HERO_INIT_SCRIPT);
+}
+
+/**
+ * Convert a 400vh scroll-scrub hero into a 100vh autoplay/loop hero.
+ * Used for retail / product businesses where the scrub runway looks broken.
+ */
+export function convertScrollHeroToSimpleLoopHero(html: string): string {
+  if (!hasScrollHeroLayout(html)) {
+    return html;
+  }
+
+  if (html.includes('data-webme-scroll-hero="sequence"')) {
+    return html;
+  }
+
+  const $ = cheerio.load(html);
+  ensureScrollHeroNav($);
+  ensureScrollHeroPinLayout($);
+  ensureScrollHeroContentLayout($);
+  wrapPostHeroContent($);
+  ensureSimpleLoopHeroStyles($);
+  ensureSimpleLoopHeroInitScript($);
+
+  const $video = $(
+    '#webme-scroll-hero video, video[data-webme-scroll-hero="true"], video[data-webme="hero-image"]',
+  ).first();
+
+  if ($video.length) {
+    $video.attr("autoplay", "");
+    $video.attr("muted", "");
+    $video.attr("loop", "");
+    $video.attr("playsinline", "");
+    $video.attr("preload", "auto");
+    $video.removeAttr("controls");
+    $video.attr("data-webme", "hero-image");
+    $video.attr("data-webme-scroll-hero", "true");
+  }
+
+  // Drop GSAP scroll-scrub scripts — not needed for a looping hero.
+  $(`script[src="${GSAP_CDN}"]`).remove();
+  $(`script[src="${SCROLL_TRIGGER_CDN}"]`).remove();
+  $("#webme-scroll-hero-init").remove();
+
+  return $.html();
+}
+
+/** Idempotent hero prep — retail gets a simple loop; service trades keep scrub. */
+export function prepareScrollHeroVideoSiteHtml(
+  html: string,
+  options?: { simpleLoop?: boolean },
+): string {
+  if (!hasScrollHeroLayout(html)) {
+    return html;
+  }
+
+  const isSequence = html.includes('data-webme-scroll-hero="sequence"');
+  if (isSequence) {
+    return html;
+  }
+
+  if (options?.simpleLoop) {
+    return convertScrollHeroToSimpleLoopHero(html);
+  }
+
+  const $ = cheerio.load(html);
+  ensureScrollHeroStyles($);
+  ensureScrollHeroNav($);
+  ensureScrollHeroPinLayout($);
+  ensureScrollHeroContentLayout($);
+  wrapPostHeroContent($);
+  ensureGsapScripts($);
+  ensureScrollHeroInitScript($);
+
+  return $.html();
 }
 
 function findSiteNav($: cheerio.CheerioAPI): cheerio.Cheerio<AnyNode> {
@@ -476,29 +708,6 @@ function wrapPostHeroContent($: cheerio.CheerioAPI): void {
   for (const sibling of siblings) {
     $wrapper.append(sibling);
   }
-}
-
-/** Idempotent fullscreen layout fixes for scroll-hero sites (new and existing HTML). */
-export function prepareScrollHeroVideoSiteHtml(html: string): string {
-  if (!hasScrollHeroLayout(html)) {
-    return html;
-  }
-
-  const isSequence = html.includes('data-webme-scroll-hero="sequence"');
-
-  const $ = cheerio.load(html);
-  ensureScrollHeroStyles($);
-  ensureScrollHeroNav($);
-  ensureScrollHeroPinLayout($);
-  ensureScrollHeroContentLayout($);
-  wrapPostHeroContent($);
-  ensureGsapScripts($);
-
-  if (!isSequence) {
-    ensureScrollHeroInitScript($);
-  }
-
-  return $.html();
 }
 
 export function prepareScrollHeroSiteHtml(html: string): string {
