@@ -192,113 +192,37 @@ export function PreviewShell({
 
     const html = document.documentElement;
     const body = document.body;
-    const previous = {
-      htmlOverflow: html.style.overflow,
-      htmlHeight: html.style.height,
-      htmlMinHeight: html.style.minHeight,
-      bodyOverflow: body.style.overflow,
-      bodyHeight: body.style.height,
-      bodyMinHeight: body.style.minHeight,
-      bodyDisplay: body.style.display,
-      bodyFlexDirection: body.style.flexDirection,
+
+    const unlock = () => {
+      html.classList.remove("h-full");
+      html.classList.add("webme-seq-hero-page");
+      body.classList.remove("h-full", "min-h-0");
+      body.classList.add("webme-seq-hero-page");
+
+      html.style.setProperty("overflow", "auto", "important");
+      html.style.setProperty("overflow-y", "auto", "important");
+      html.style.setProperty("height", "auto", "important");
+      html.style.setProperty("max-height", "none", "important");
+      html.style.setProperty("min-height", "100%", "important");
+
+      body.style.setProperty("overflow", "visible", "important");
+      body.style.setProperty("overflow-y", "visible", "important");
+      body.style.setProperty("height", "auto", "important");
+      body.style.setProperty("max-height", "none", "important");
+      body.style.setProperty("min-height", "100%", "important");
+      body.style.setProperty("display", "block", "important");
+      body.style.flexDirection = "";
     };
 
-    html.style.overflow = "auto";
-    html.style.height = "auto";
-    html.style.minHeight = "auto";
-    html.classList.remove("h-full");
-    body.style.overflow = "visible";
-    body.style.height = "auto";
-    body.style.minHeight = "auto";
-    body.style.display = "block";
-    body.style.flexDirection = "";
-    body.classList.remove("h-full", "min-h-0");
+    unlock();
+    const timers = [250, 1000, 4000].map((ms) => window.setTimeout(unlock, ms));
 
-    const logScrollChain = (label: string) => {
-      const hero = document.getElementById("webme-scroll-hero-external");
-      const chain: Array<Record<string, string | null>> = [];
-
-      const pushEl = (el: Element | null, name?: string) => {
-        if (!el) {
-          return;
-        }
-        const styles = window.getComputedStyle(el);
-        chain.push({
-          name: name ?? `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${typeof el.className === "string" && el.className ? `.${el.className.trim().split(/\s+/).slice(0, 3).join(".")}` : ""}`,
-          overflow: styles.overflow,
-          overflowX: styles.overflowX,
-          overflowY: styles.overflowY,
-          height: styles.height,
-          maxHeight: styles.maxHeight,
-          minHeight: styles.minHeight,
-          position: styles.position,
-          display: styles.display,
-          flex: styles.flex,
-        });
-      };
-
-      pushEl(html, "html");
-      pushEl(body, "body");
-
-      let node: HTMLElement | null = hero;
-      const ancestors: HTMLElement[] = [];
-      while (node) {
-        ancestors.unshift(node);
-        node = node.parentElement;
-      }
-      for (const el of ancestors) {
-        pushEl(el);
-      }
-
-      console.log(`[preview-public] scroll chain (${label})`, chain);
-
-      const blockers = chain.filter((entry) => {
-        const name = entry.name ?? "";
-        const isDocumentRoot = name === "html" || name === "body";
-        const overflowHidden =
-          entry.overflow === "hidden" ||
-          entry.overflowY === "hidden" ||
-          entry.overflowX === "hidden";
-        const nestedScrollTrap =
-          !isDocumentRoot &&
-          (entry.overflow === "scroll" ||
-            entry.overflow === "auto" ||
-            entry.overflowY === "scroll" ||
-            entry.overflowY === "auto");
-        const fixedHeightTrap =
-          !isDocumentRoot &&
-          typeof entry.height === "string" &&
-          entry.height !== "auto" &&
-          entry.height !== "0px" &&
-          (entry.height.endsWith("px") ||
-            entry.height === "100%" ||
-            entry.height === "100dvh" ||
-            entry.height === "100vh");
-        return overflowHidden || nestedScrollTrap || fixedHeightTrap;
-      });
-
-      if (blockers.length) {
-        console.warn("[preview-public] potential scroll blockers:", blockers);
-      } else {
-        console.log("[preview-public] no scroll blockers detected");
-      }
-    };
-
-    logScrollChain("after unlock");
-    const timeoutId = window.setTimeout(() => logScrollChain("after layout"), 250);
-
+    // Do NOT re-lock on cleanup — restoring h-full trapped live preview visitors.
     return () => {
-      window.clearTimeout(timeoutId);
-      html.style.overflow = previous.htmlOverflow;
-      html.style.height = previous.htmlHeight;
-      html.style.minHeight = previous.htmlMinHeight;
-      html.classList.add("h-full");
-      body.style.overflow = previous.bodyOverflow;
-      body.style.height = previous.bodyHeight;
-      body.style.minHeight = previous.bodyMinHeight;
-      body.style.display = previous.bodyDisplay;
-      body.style.flexDirection = previous.bodyFlexDirection;
-      body.classList.add("h-full", "min-h-0");
+      for (const id of timers) {
+        window.clearTimeout(id);
+      }
+      unlock();
     };
   }, [isPublicMode, scrollSequenceId]);
 
@@ -1200,7 +1124,14 @@ export function PreviewShell({
 
   if (isPublicMode) {
     return (
-      <div style={{ minHeight: "100vh", height: "auto" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          height: "auto",
+          maxHeight: "none",
+          overflow: "visible",
+        }}
+      >
         {scrollSequenceId && (
           <ScrollHeroSequenceHero
             key={scrollSequenceId}
@@ -1235,7 +1166,7 @@ export function PreviewShell({
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-neutral-100">
+    <div className="flex min-h-dvh flex-col overflow-visible bg-neutral-100">
       <input
         ref={logoInputRef}
         type="file"

@@ -25,9 +25,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} min-h-full antialiased`}
     >
-      <body className="flex h-full min-h-0 flex-col">{children}</body>
+      {/* min-h-full (not h-full): h-full + flex clips document scroll on sequence hero pages */}
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

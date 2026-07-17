@@ -214,6 +214,34 @@ async function loadFrameImage(
   }
 }
 
+/** Force the document to remain scrollable — never pin/lock past the 100vh hero. */
+function unlockDocumentScroll() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const html = document.documentElement;
+  const body = document.body;
+
+  html.classList.remove("h-full");
+  html.classList.add("webme-seq-hero-page");
+  body.classList.remove("h-full", "min-h-0");
+  body.classList.add("webme-seq-hero-page");
+
+  html.style.setProperty("overflow", "auto", "important");
+  html.style.setProperty("overflow-y", "auto", "important");
+  html.style.setProperty("height", "auto", "important");
+  html.style.setProperty("max-height", "none", "important");
+  html.style.setProperty("min-height", "100%", "important");
+
+  body.style.setProperty("overflow", "visible", "important");
+  body.style.setProperty("overflow-y", "visible", "important");
+  body.style.setProperty("height", "auto", "important");
+  body.style.setProperty("max-height", "none", "important");
+  body.style.setProperty("min-height", "100%", "important");
+  body.style.setProperty("display", "block", "important");
+}
+
 export function ScrollHeroSequenceHero({
   sequenceId,
   businessName = "",
@@ -229,6 +257,22 @@ export function ScrollHeroSequenceHero({
 
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Critical: keep page scroll available regardless of sequence load/playback state.
+  useEffect(() => {
+    unlockDocumentScroll();
+    const timers = [0, 250, 1000, 4000].map((ms) =>
+      window.setTimeout(unlockDocumentScroll, ms),
+    );
+
+    return () => {
+      for (const id of timers) {
+        window.clearTimeout(id);
+      }
+      // Leave document unlocked on unmount — re-locking trapped live customers.
+      unlockDocumentScroll();
+    };
+  }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -583,6 +627,17 @@ export function ScrollHeroSequenceHero({
       className="relative h-screen w-full shrink-0 overflow-hidden bg-black"
     >
       <style>{`
+        html.webme-seq-hero-page,
+        body.webme-seq-hero-page {
+          height: auto !important;
+          max-height: none !important;
+          min-height: 100% !important;
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+        }
+        body.webme-seq-hero-page {
+          display: block !important;
+        }
         @keyframes webme-sequence-ken-burns {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(${KEN_BURNS_SCALE_MAX}); }
