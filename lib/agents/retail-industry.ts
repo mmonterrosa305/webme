@@ -35,6 +35,18 @@ const RETAIL_KEYWORDS = [
   "sports apparel",
 ];
 
+/** Strong product cues in business name/tagline that beat generic curated Boutique imagery. */
+const PRODUCT_CUE_PATTERNS: Array<{ match: RegExp; seed: string }> = [
+  { match: /\b(soccer|football)\b.*\b(jersey|kit|shirt)s?\b|\b(jersey|kit|shirt)s?\b.*\b(soccer|football)\b/i, seed: "soccer jersey" },
+  { match: /\bsoccer\b/i, seed: "soccer apparel" },
+  { match: /\bjerseys?\b/i, seed: "sports jersey" },
+  { match: /\b(sportswear|athletic wear|athletic apparel)\b/i, seed: "sportswear" },
+  { match: /\b(sneakers?|running shoes?)\b/i, seed: "sneakers retail" },
+  { match: /\b(streetwear|graphic tee|t-?shirts?)\b/i, seed: "streetwear apparel" },
+  { match: /\b(apparel|clothing|fashion)\b/i, seed: "clothing apparel" },
+  { match: /\b(sporting goods|sports gear)\b/i, seed: "sporting goods" },
+];
+
 const SERVICE_TRADE_KEYWORDS = [
   "plumb",
   "hvac",
@@ -48,7 +60,6 @@ const SERVICE_TRADE_KEYWORDS = [
   "paint",
   "floor",
   "contractor",
-  "hvac",
   "locksmith",
   "garage door",
   "moving",
@@ -95,6 +106,47 @@ export function isRetailLikeIndustry(industry: string): boolean {
 }
 
 /**
+ * Detect specific product keywords in business name / tagline.
+ * Returns a search seed (e.g. "soccer jersey") or null.
+ */
+export function extractProductSearchSeed(
+  ...texts: Array<string | null | undefined>
+): string | null {
+  const haystack = texts
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .join(" ");
+
+  if (!haystack) {
+    return null;
+  }
+
+  for (const pattern of PRODUCT_CUE_PATTERNS) {
+    if (pattern.match.test(haystack)) {
+      return pattern.seed;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * When Boutique (or other curated retail) is selected but name/tagline
+ * clearly describe a specific product, skip curated Unsplash and search instead.
+ */
+export function shouldUseProductCueImageSearch(
+  industry: string,
+  businessName?: string | null,
+  tagline?: string | null,
+): boolean {
+  if (!prefersCuratedIndustryImages(industry)) {
+    return false;
+  }
+
+  return Boolean(extractProductSearchSeed(businessName, tagline));
+}
+
+/**
  * Product-oriented Pixabay queries for retail / free-text industries.
  * Never uses "worker" / "technician" phrasing.
  */
@@ -114,13 +166,26 @@ export function buildRetailOrProductSearchQueries(industry: string): string[] {
     }
   };
 
-  if (normalized.includes("soccer") || normalized.includes("jersey")) {
+  if (
+    normalized.includes("soccer") ||
+    normalized.includes("jersey") ||
+    normalized.includes("football")
+  ) {
+    // Prefer "soccer" wording — bare "football jersey" returns American football in Pixabay US results.
     push("soccer jersey");
-    push("football jersey");
-    push("sports apparel");
-    push("athletic wear");
     push("soccer kit");
-    push("sports clothing store");
+    push("soccer shirt");
+    push("soccer uniform");
+    push("soccer apparel");
+    push("soccer clothing");
+  } else if (normalized.includes("sneaker")) {
+    push("sneakers store");
+    push("athletic shoes retail");
+    push("sneaker shop");
+  } else if (normalized.includes("streetwear")) {
+    push("streetwear clothing");
+    push("graphic tee apparel");
+    push("fashion boutique");
   } else if (normalized.includes("boutique") || normalized === "boutique") {
     push("clothing boutique");
     push("fashion boutique store");

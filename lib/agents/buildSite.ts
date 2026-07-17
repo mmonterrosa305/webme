@@ -1,4 +1,4 @@
-import { isRetailLikeIndustry } from "./retail-industry";
+import { extractProductSearchSeed, isRetailLikeIndustry } from "./retail-industry";
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages";
 import slugify from "slugify";
@@ -260,8 +260,12 @@ function buildUserPrompt(
 
   const industryImageBlock = pixabayPhotos
     ? `## Resolved industry images for "${input.industry}"
-- Matched category: ${input.industry}
-- Hero (full-screen background — use ONLY here): ${heroUrl}
+- Matched category: ${input.industry}${
+        extractProductSearchSeed(input.businessProfile.businessName, input.tagline)
+          ? ` (product cues from business name/tagline)`
+          : ""
+      }
+- Hero (full-screen background — use ONLY here): ${pixabayPhotos.hero}
 - About (right column image — use ONLY here): ${pixabayPhotos.about}
 - Service1 (service card 1 background — use ONLY here): ${pixabayPhotos.service1}
 - Service2 (service card 2 background — use ONLY here): ${pixabayPhotos.service2}
@@ -447,7 +451,6 @@ export async function buildSite(
 
   const client = new Anthropic({ apiKey: getAnthropicApiKey() });
 
-  const heroUrl = getRandomHero(input.industry);
   const useImageSequence =
     input.scrollAnimationEffect &&
     input.scrollHeroMediaType === "image-sequence" &&
@@ -473,8 +476,13 @@ export async function buildSite(
         (await fetchScrollHeroVideoFromPexels(industry)) ??
         (await fetchHeroVideo(industry))
       : input.scrollHeroVideoUrl ?? (await fetchHeroVideo(industry));
-  // Boutique/retail with curated Unsplash: fetchIndustryPhotos returns null on purpose.
-  const pixabayPhotos = await fetchIndustryPhotos(industry);
+  // Boutique/retail with curated Unsplash: fetchIndustryPhotos returns null
+  // unless name/tagline have strong product cues (e.g. soccer jersey).
+  const pixabayPhotos = await fetchIndustryPhotos(industry, {
+    businessName,
+    tagline: input.tagline,
+  });
+  const heroUrl = pixabayPhotos?.hero ?? getRandomHero(input.industry);
   const siteSlug =
     input.existingSiteSlug?.trim() ||
     `${slugify(businessName, { lower: true, strict: true })}-${Date.now()}`;

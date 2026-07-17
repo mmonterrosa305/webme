@@ -1,8 +1,10 @@
 import {
   buildRetailOrProductSearchQueries,
+  extractProductSearchSeed,
   isRetailLikeIndustry,
   looksLikeServiceTradeIndustry,
   prefersCuratedIndustryImages,
+  shouldUseProductCueImageSearch,
 } from "./retail-industry";
 
 const PIXABAY_PHOTO_SEARCH = "https://pixabay.com/api/";
@@ -53,6 +55,11 @@ export type IndustryPhotoSet = {
   gallery3: string;
 };
 
+export type FetchIndustryPhotosOptions = {
+  businessName?: string | null;
+  tagline?: string | null;
+};
+
 const GENERIC_STOCK_URL_TERMS = [
   "plant",
   "flower",
@@ -74,6 +81,11 @@ const GENERIC_STOCK_URL_TERMS = [
   "ant",
   "insect",
   "macro",
+  "bread",
+  "bakery",
+  "pastry",
+  "cake",
+  "dessert",
 ];
 
 function isRelevantPhotoUrl(url: string): boolean {
@@ -81,10 +93,30 @@ function isRelevantPhotoUrl(url: string): boolean {
   return !GENERIC_STOCK_URL_TERMS.some((term) => lower.includes(term));
 }
 
+/** Pixabay often tags US football as "football"; drop those for soccer product searches. */
+const AMERICAN_FOOTBALL_TAG_RE =
+  /\b(american\s*football|nfl|ncaa|quarterback|touchdown|gridiron|super\s*bowl|helmet|linebacker|wide\s*receiver|cheerleader)\b/i;
+
+function isSoccerCompatibleHit(tags: string | undefined): boolean {
+  if (!tags) return true;
+  const lower = tags.toLowerCase();
+  // Reject American football stock; keep if also explicitly tagged soccer.
+  if (AMERICAN_FOOTBALL_TAG_RE.test(lower) && !/\bsoccer\b/.test(lower)) {
+    return false;
+  }
+  return true;
+}
+
+type PixabayHit = {
+  largeImageURL?: string;
+  webformatURL?: string;
+  tags?: string;
+};
+
 async function searchPixabayPhotos(
   query: string,
   count: number,
-  category?: string,
+  options?: { category?: string; soccerOnly?: boolean; shuffle?: boolean },
 ): Promise<string[]> {
   const apiKey = getPixabayApiKey();
   if (!apiKey) return [];
@@ -101,28 +133,33 @@ async function searchPixabayPhotos(
       min_width: "800",
     });
 
-    if (category) {
-      params.set("category", category);
+    if (options?.category) {
+      params.set("category", options.category);
     }
 
     const response = await fetch(`${PIXABAY_PHOTO_SEARCH}?${params}`);
     if (!response.ok) return [];
 
-    const data = (await response.json()) as {
-      hits?: Array<{ largeImageURL?: string; webformatURL?: string }>;
-    };
+    const data = (await response.json()) as { hits?: PixabayHit[] };
 
-    const urls = (data.hits ?? [])
-      .map((hit) => hit.largeImageURL ?? hit.webformatURL ?? null)
-      .filter((url): url is string => Boolean(url))
-      .filter(isRelevantPhotoUrl);
+    let hits = (data.hits ?? []).filter((hit) => {
+      const url = hit.largeImageURL ?? hit.webformatURL;
+      if (!url || !isRelevantPhotoUrl(url)) return false;
+      if (options?.soccerOnly && !isSoccerCompatibleHit(hit.tags)) return false;
+      return true;
+    });
 
-    for (let i = urls.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [urls[i], urls[j]] = [urls[j], urls[i]];
+    if (options?.shuffle !== false) {
+      for (let i = hits.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [hits[i], hits[j]] = [hits[j], hits[i]];
+      }
     }
 
-    return urls.slice(0, count);
+    return hits
+      .map((hit) => hit.largeImageURL ?? hit.webformatURL ?? null)
+      .filter((url): url is string => Boolean(url))
+      .slice(0, count);
   } catch {
     return [];
   }
@@ -157,27 +194,20 @@ export function getIndustrySearchQueries(industry: string): string[] {
   ];
 }
 
-/**
- * Fetch Pixabay photos for an industry.
- * Returns null for curated retail industries so callers use Unsplash slots instead.
- */
-export async function fetchIndustryPhotos(
-  industry: string,
+async function collectPhotoSet(
+  queries: string[],
+  options?: { soccerOnly?: boolean },
 ): Promise<IndustryPhotoSet | null> {
-  const query = industry.trim();
-  if (!query) return null;
-
-  // Prefer curated Unsplash RETAIL_STAFF (etc.) over noisy Pixabay for known retail.
-  if (prefersCuratedIndustryImages(query)) {
-    return null;
-  }
-
-  const queries = getIndustrySearchQueries(query);
   const allUrls: string[] = [];
+  const soccerOnly = Boolean(options?.soccerOnly);
 
   for (const q of queries) {
     if (allUrls.length >= 9) break;
-    const results = await searchPixabayPhotos(q, 9);
+    const results = await searchPixabayPhotos(q, 9, {
+      soccerOnly,
+      // Keep popular order for product cues so top hits stay on-topic.
+      shuffle: !soccerOnly,
+    });
     for (const url of results) {
       if (!allUrls.includes(url)) allUrls.push(url);
     }
@@ -196,4 +226,50 @@ export async function fetchIndustryPhotos(
     gallery2: allUrls[7],
     gallery3: allUrls[8],
   };
+}
+
+/**
+ * Fetch Pixabay photos for an industry.
+ * Returns null for curated retail industries (caller uses Unsplash) unless
+ * business name/tagline contain strong product cues (e.g. soccer jersey).
+ */
+export async function fetchIndustryPhotos(
+  industry: string,
+  options?: FetchIndustryPhotosOptions,
+): Promise<IndustryPhotoSet | null> {
+  const query = industry.trim();
+  if (!query) return null;
+
+  const productSeed = extractProductSearchSeed(
+    options?.businessName,
+    options?.tagline,
+  );
+
+  // Boutique + "Soccer Jerseys" / "Authentic Soccer Jerseys" → product search, not curated.
+  if (
+    shouldUseProductCueImageSearch(
+      query,
+      options?.businessName,
+      options?.tagline,
+    ) &&
+    productSeed
+  ) {
+    const productPhotos = await collectPhotoSet(
+      buildRetailOrProductSearchQueries(productSeed),
+      {
+        soccerOnly: /\bsoccer\b/i.test(productSeed),
+      },
+    );
+    if (productPhotos) {
+      return productPhotos;
+    }
+    // Fall through to curated if product search cannot fill 9 slots.
+  }
+
+  // Prefer curated Unsplash RETAIL_STAFF (etc.) over noisy Pixabay for known retail.
+  if (prefersCuratedIndustryImages(query)) {
+    return null;
+  }
+
+  return collectPhotoSet(getIndustrySearchQueries(query));
 }

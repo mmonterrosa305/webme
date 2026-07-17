@@ -17,6 +17,7 @@ import { prepareScrollHeroVideoSiteHtml } from "./scroll-hero-video";
 import {
   isRetailLikeIndustry,
   prefersCuratedIndustryImages,
+  shouldUseProductCueImageSearch,
 } from "./retail-industry";
 
 export function getScrollHeroSequenceIdFromMetadata(
@@ -44,6 +45,7 @@ export async function prepareLeadSiteHtml(
   html: string,
   metadata?: Record<string, unknown> | SiteMetadata | null,
   industry?: string | null,
+  businessName?: string | null,
 ): Promise<string> {
   const sequenceId = resolveScrollHeroSequenceId(metadata);
   const retailLike = isRetailLikeIndustry(industry ?? "");
@@ -59,7 +61,17 @@ export async function prepareLeadSiteHtml(
 
   prepared = normalizeHeroSection(prepared);
 
-  if (industry && prefersCuratedIndustryImages(industry)) {
+  const taglineForCues =
+    typeof (metadata as SiteMetadata | null)?.tagline === "string"
+      ? (metadata as SiteMetadata).tagline
+      : null;
+
+  // Skip curated Unsplash when name/tagline carry product cues (Pixabay at build time).
+  if (
+    industry &&
+    prefersCuratedIndustryImages(industry) &&
+    !shouldUseProductCueImageSearch(industry, businessName, taglineForCues)
+  ) {
     prepared = applyCuratedRetailImagesToHtml(prepared, industry).html;
   }
 
@@ -107,7 +119,12 @@ export async function prepareAndPersistLeadSiteHtml(
   industry?: string | null,
   businessName?: string | null,
 ): Promise<string> {
-  const prepared = await prepareLeadSiteHtml(html, metadata, industry);
+  const prepared = await prepareLeadSiteHtml(
+    html,
+    metadata,
+    industry,
+    businessName,
+  );
   const sequenceId = getScrollHeroSequenceIdFromMetadata(metadata);
 
   let baseMetadata: SiteMetadata = {
@@ -115,7 +132,15 @@ export async function prepareAndPersistLeadSiteHtml(
     ...(sequenceId ? { scrollHeroSequenceId: sequenceId } : {}),
   };
 
-  if (industry && prefersCuratedIndustryImages(industry)) {
+  const taglineForCues =
+    typeof baseMetadata.tagline === "string" ? baseMetadata.tagline : null;
+  const skipCurated = shouldUseProductCueImageSearch(
+    industry ?? "",
+    businessName,
+    taglineForCues,
+  );
+
+  if (industry && prefersCuratedIndustryImages(industry) && !skipCurated) {
     const { images } = applyCuratedRetailImagesToHtml(prepared, industry);
     if (images) {
       baseMetadata = {
@@ -150,6 +175,7 @@ export async function prepareAndPersistLeadSiteHtml(
     sequenceId: sequenceId ?? null,
     taglineHealed,
     retailSimpleLoop: isRetailLikeIndustry(industry ?? ""),
+    skipCuratedForProductCues: skipCurated,
   });
 
   const supabase = createAdminClient();

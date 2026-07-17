@@ -478,17 +478,18 @@ const AUTO = [
   "1619642751034-765dfdf7c58e",
 ] as const;
 
-// --- Retail & service (staff helping customers / hands-on work) ---
+// --- Retail & apparel (verified clothing racks / storefronts / shopping — NOT bakery/food/office) ---
+// Verified via image download review (2026-07): store interiors, racks, denim wall, shopping bags, apparel product.
 const RETAIL_STAFF = [
-  "1454165804606-c3d57bc86b40",
-  "1486312338219-ce68d2c6f44d",
-  "1517433670267-08bbd4be890f",
-  "1551024506-0bccd828d307",
-  "1521590832167-7bcbfaa6381f",
-  "1454165804606-c3d57bc86b40",
-  "1486312338219-ce68d2c6f44d",
-  "1517433670267-08bbd4be890f",
-  "1551024506-0bccd828d307",
+  "1441986300917-64674bd600d8", // menswear boutique interior — racks + display table
+  "1567401893414-76b7b1e5a7a5", // clothing boutique wall racks + folded apparel
+  "1445205170230-053b83016050", // garments on rack through boutique window
+  "1560243563-062bfc001d68", // jeans / denim retail wall display
+  "1490481651871-ab68de25d43d", // neutrals hanging on boutique rack
+  "1558171813-4c088753af8f", // apparel product — button-down shirt
+  "1472851294608-062f824d29cc", // OPEN / SHOP storefront glass
+  "1483985988355-763728e1935b", // shopper with shopping bags
+  "1576566588028-4147f3842f27", // graphic tee apparel product
 ] as const;
 
 const FLORIST = [
@@ -684,10 +685,11 @@ const CREATIVE_HEROES = [
 ] as const;
 
 const RETAIL_HEROES = [
-  "1454165804606-c3d57bc86b40",
-  "1517433670267-08bbd4be890f",
-  "1551024506-0bccd828d307",
-  "1521590832167-7bcbfaa6381f",
+  "1441986300917-64674bd600d8", // clothing store interior
+  "1567401893414-76b7b1e5a7a5", // boutique apparel racks
+  "1445205170230-053b83016050", // window clothing rack
+  "1483985988355-763728e1935b", // shopping bags / retail lifestyle
+  "1560243563-062bfc001d68", // denim retail display
 ] as const;
 
 const EDUCATION_HEROES = [
