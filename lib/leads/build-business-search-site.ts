@@ -92,6 +92,7 @@ export async function buildBusinessSearchSite(
     scrollAnimationEffect?: boolean;
     scrollHeroMediaType?: ScrollHeroMediaType;
     scrollHeroVideoUrl?: string | null;
+    scrollHeroPosterUrl?: string | null;
     scrollHeroSequencePresetId?: string | null;
     cardHoverEffect?: boolean;
   },
@@ -124,6 +125,7 @@ export async function buildBusinessSearchSite(
     scrollAnimationEffect: options?.scrollAnimationEffect ?? false,
     scrollHeroMediaType: options?.scrollHeroMediaType ?? "video",
     scrollHeroVideoUrl: options?.scrollHeroVideoUrl ?? null,
+    scrollHeroPosterUrl: options?.scrollHeroPosterUrl ?? null,
     scrollHeroSequencePresetId: options?.scrollHeroSequencePresetId ?? null,
     cardHoverEffect: options?.cardHoverEffect ?? false,
   });

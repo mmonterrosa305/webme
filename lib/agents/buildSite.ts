@@ -116,6 +116,8 @@ export type BuildSiteInput = {
   scrollAnimationEffect?: boolean;
   scrollHeroMediaType?: ScrollHeroMediaType;
   scrollHeroVideoUrl?: string | null;
+  /** Poster/thumbnail for an explicit preset or upload — preferred over industry photo. */
+  scrollHeroPosterUrl?: string | null;
   scrollHeroSequencePresetId?: string | null;
   cardHoverEffect?: boolean;
   existingSiteSlug?: string;
@@ -531,12 +533,19 @@ export async function buildSite(
     // Always pin the resolved URL into the DOM — for retail this was previously
     // skipped (no scrub), so the model could ignore a selected preset and a
     // Pexels auto-pick would appear instead.
-    html = applyScrollHeroVideo(html, heroVideoUrl, heroUrl);
+    const posterForHero =
+      input.scrollHeroPosterUrl?.trim() || heroUrl;
+    html = applyScrollHeroVideo(html, heroVideoUrl, posterForHero);
     if (!useScrollScrub) {
       html = convertScrollHeroToSimpleLoopHero(html);
     }
   } else if (hasExplicitHeroVideo && heroVideoUrl) {
-    html = replaceScrollHeroVideoUrl(html, heroVideoUrl) ?? html;
+    html =
+      replaceScrollHeroVideoUrl(
+        html,
+        heroVideoUrl,
+        input.scrollHeroPosterUrl,
+      ) ?? html;
   }
 
   if (input.cardHoverEffect) {

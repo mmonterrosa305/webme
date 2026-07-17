@@ -14,6 +14,9 @@ import {
   logVideoPresetError,
   verifyPresetStorageObjectExists,
 } from "@/lib/video-presets/upload-preset";
+import { ensureMp4FastStart } from "@/lib/video-presets/ensure-mp4-faststart";
+import { PRESET_STORAGE_BUCKET } from "@/lib/video-presets/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -93,6 +96,43 @@ export async function POST(request: Request) {
       );
     }
 
+    // Best-effort: remux so moov is at the start (prevents 00:00/00:00 in browsers).
+    try {
+      const supabase = createAdminClient();
+      const { data: downloaded, error: downloadError } = await supabase.storage
+        .from(PRESET_STORAGE_BUCKET)
+        .download(videoPath);
+
+      if (!downloadError && downloaded) {
+        const original = Buffer.from(await downloaded.arrayBuffer());
+        const fastStarted = ensureMp4FastStart(original);
+        if (fastStarted && fastStarted.length > 0) {
+          const { error: replaceError } = await supabase.storage
+            .from(PRESET_STORAGE_BUCKET)
+            .upload(videoPath, fastStarted, {
+              contentType: "video/mp4",
+              upsert: true,
+              cacheControl: "3600",
+            });
+          if (replaceError) {
+            logVideoPresetError("finalize:faststart-upload-failed", replaceError, {
+              videoPath,
+            });
+          } else {
+            logVideoPreset("finalize:faststart-applied", {
+              videoPath,
+              beforeBytes: original.length,
+              afterBytes: fastStarted.length,
+            });
+          }
+        }
+      }
+    } catch (faststartError) {
+      logVideoPresetError("finalize:faststart-skipped", faststartError, {
+        videoPath,
+      });
+    }
+
     let thumbnailUrl = getPresetPublicStorageUrl(videoPath);
 
     if (thumbnailPath) {
@@ -111,7 +151,8 @@ export async function POST(request: Request) {
     const preset = await createVideoPreset({
       industry,
       label: label || `Option ${Date.now()}`,
-      videoUrl: getPresetPublicStorageUrl(videoPath),
+      // Cache-bust public URL so CDN/browsers don't keep a pre-faststart object.
+      videoUrl: `${getPresetPublicStorageUrl(videoPath)}?v=${Date.now()}`,
       thumbnailUrl,
     });
 

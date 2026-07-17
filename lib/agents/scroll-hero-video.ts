@@ -266,20 +266,81 @@ header.webme-scroll-hero-nav,
 
 const SIMPLE_LOOP_HERO_INIT_SCRIPT = `<script id="webme-simple-loop-hero-init">
 (function () {
-  function initSimpleLoopHero() {
-    var video = document.querySelector('#webme-scroll-hero video[data-webme="hero-image"], video[data-webme-scroll-hero="true"]');
-    if (!video) return;
-    video.setAttribute("autoplay", "");
-    video.setAttribute("muted", "");
-    video.setAttribute("loop", "");
-    video.setAttribute("playsinline", "");
-    video.removeAttribute("controls");
+  function ensureMuted(video) {
     video.muted = true;
+    video.defaultMuted = true;
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("autoplay", "");
+    video.setAttribute("loop", "");
+    video.setAttribute("preload", "auto");
+    video.removeAttribute("controls");
+  }
+
+  function tryPlay(video) {
+    ensureMuted(video);
     var playPromise = video.play();
     if (playPromise && typeof playPromise.catch === "function") {
       playPromise.catch(function () {});
     }
   }
+
+  function showPlayFallback(video) {
+    if (document.getElementById("webme-hero-play-fallback")) return;
+    var pin = video.closest(".webme-scroll-hero-pin") || video.parentElement;
+    if (!pin) return;
+    if (getComputedStyle(pin).position === "static") {
+      pin.style.position = "relative";
+    }
+    var button = document.createElement("button");
+    button.id = "webme-hero-play-fallback";
+    button.type = "button";
+    button.setAttribute("aria-label", "Play hero video");
+    button.textContent = "▶ Play";
+    button.style.cssText = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;border:0;border-radius:999px;padding:12px 20px;font-size:15px;font-weight:600;background:rgba(255,255,255,0.92);color:#111;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.25);";
+    button.addEventListener("click", function () {
+      tryPlay(video);
+      button.remove();
+    });
+    pin.appendChild(button);
+  }
+
+  function initSimpleLoopHero() {
+    var video = document.querySelector('#webme-scroll-hero video[data-webme="hero-image"], video[data-webme-scroll-hero="true"]');
+    if (!video) return;
+
+    ensureMuted(video);
+
+    if (!video.getAttribute("src") && !video.querySelector("source")) return;
+
+    // Force a fresh load attempt (needed after srcDoc iframe injection).
+    try { video.load(); } catch (e) {}
+
+    var played = false;
+    function onReady() {
+      if (played) return;
+      played = true;
+      tryPlay(video);
+    }
+
+    video.addEventListener("loadedmetadata", onReady, { once: true });
+    video.addEventListener("canplay", onReady, { once: true });
+    video.addEventListener("error", function () {
+      showPlayFallback(video);
+    });
+
+    if (video.readyState >= 1) {
+      onReady();
+    } else {
+      tryPlay(video);
+      window.setTimeout(function () {
+        if (!video.duration || !isFinite(video.duration) || video.paused) {
+          showPlayFallback(video);
+        }
+      }, 2500);
+    }
+  }
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initSimpleLoopHero);
   } else {
@@ -736,9 +797,10 @@ function setVideoSrc($video: cheerio.Cheerio<AnyNode>, videoUrl: string): void {
 export function replaceScrollHeroVideoUrl(
   html: string,
   newVideoUrl: string,
+  posterUrl?: string | null,
 ): string | null {
   if (!hasScrollHeroVideo(html)) {
-    return replaceHeroVideoUrl(html, newVideoUrl);
+    return replaceHeroVideoUrl(html, newVideoUrl, posterUrl);
   }
 
   const $ = cheerio.load(html);
@@ -749,12 +811,16 @@ export function replaceScrollHeroVideoUrl(
   }
 
   setVideoSrc($video, newVideoUrl);
+  if (posterUrl?.trim()) {
+    $video.attr("poster", posterUrl.trim());
+  }
   return prepareScrollHeroSiteHtml($.html());
 }
 
 export function replaceHeroVideoUrl(
   html: string,
   newVideoUrl: string,
+  posterUrl?: string | null,
 ): string | null {
   const videoMatch = html.match(
     /<video[^>]*data-webme="hero-image"[^>]*>[\s\S]*?<\/video>/i,
@@ -778,6 +844,20 @@ export function replaceHeroVideoUrl(
       /(<video[^>]*data-webme="hero-image")/i,
       `$1 src="${newVideoUrl}"`,
     );
+  }
+
+  if (posterUrl?.trim()) {
+    if (/\sposter="/i.test(updatedBlock)) {
+      updatedBlock = updatedBlock.replace(
+        /(<video[^>]*\sposter=")[^"]+(")/i,
+        `$1${posterUrl.trim()}$2`,
+      );
+    } else {
+      updatedBlock = updatedBlock.replace(
+        /(<video\b)/i,
+        `$1 poster="${posterUrl.trim()}"`,
+      );
+    }
   }
 
   updatedBlock = updatedBlock.replace(

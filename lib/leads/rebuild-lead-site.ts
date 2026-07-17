@@ -151,6 +151,7 @@ export async function rebuildLeadSite(
 
   let scrollHeroMediaType = buildOptions.scrollHeroMediaType;
   let scrollHeroVideoUrl: string | null = null;
+  let scrollHeroPosterUrl: string | null = null;
   let scrollHeroSequencePresetId = buildOptions.scrollHeroSequencePresetId ?? null;
 
   if (buildOptions.scrollAnimationEffect) {
@@ -163,6 +164,7 @@ export async function rebuildLeadSite(
 
     scrollHeroMediaType = scrollHeroAssets.mediaType;
     scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
+    scrollHeroPosterUrl = scrollHeroAssets.posterUrl;
     scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
   }
 
@@ -181,6 +183,7 @@ export async function rebuildLeadSite(
     scrollAnimationEffect: buildOptions.scrollAnimationEffect,
     scrollHeroMediaType,
     scrollHeroVideoUrl,
+    scrollHeroPosterUrl,
     scrollHeroSequencePresetId,
     cardHoverEffect: buildOptions.cardHoverEffect,
     existingSiteSlug: normalizedSlug,

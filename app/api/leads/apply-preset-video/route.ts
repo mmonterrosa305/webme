@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     const updatedHtml = replaceScrollHeroVideoUrl(
       lead.site_html,
       preset.video_url,
+      preset.thumbnail_url,
     );
 
     if (!updatedHtml) {

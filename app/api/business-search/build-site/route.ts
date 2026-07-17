@@ -86,6 +86,7 @@ export async function POST(request: Request) {
     }
 
     let scrollHeroVideoUrl: string | null = null;
+    let scrollHeroPosterUrl: string | null = null;
     if (scrollAnimationEffect) {
       const scrollHeroAssets = await resolveScrollHeroAssetsForBuild({
         formData: pendingFormData,
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
       });
       scrollHeroMediaType = scrollHeroAssets.mediaType;
       scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
+      scrollHeroPosterUrl = scrollHeroAssets.posterUrl;
       scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
     }
 
@@ -104,6 +106,7 @@ export async function POST(request: Request) {
         scrollAnimationEffect,
         scrollHeroMediaType,
         scrollHeroVideoUrl,
+        scrollHeroPosterUrl,
         scrollHeroSequencePresetId,
         cardHoverEffect,
       }),

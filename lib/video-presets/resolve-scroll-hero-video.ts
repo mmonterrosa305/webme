@@ -3,11 +3,16 @@ import { resolveScrollHeroVideoUrlFromFormData } from "@/lib/agents/upload-scrol
 import { getVideoPresetById } from "./queries";
 import { SCROLL_HERO_PRESET_FIELD } from "./types";
 
+export type ResolvedScrollHeroVideo = {
+  videoUrl: string;
+  posterUrl: string | null;
+};
+
 export async function resolveScrollHeroVideoForBuild(options: {
   formData?: FormData | null;
   businessName: string;
   presetId?: string | null;
-}): Promise<string | null> {
+}): Promise<ResolvedScrollHeroVideo | null> {
   if (options.formData) {
     const customUrl = await resolveScrollHeroVideoUrlFromFormData(
       options.formData,
@@ -15,7 +20,7 @@ export async function resolveScrollHeroVideoForBuild(options: {
     );
 
     if (customUrl) {
-      return customUrl;
+      return { videoUrl: customUrl, posterUrl: null };
     }
 
     const presetFromForm = options.formData.get(SCROLL_HERO_PRESET_FIELD);
@@ -30,5 +35,12 @@ export async function resolveScrollHeroVideoForBuild(options: {
   }
 
   const preset = await getVideoPresetById(presetId);
-  return preset?.video_url ?? null;
+  if (!preset?.video_url) {
+    return null;
+  }
+
+  return {
+    videoUrl: preset.video_url,
+    posterUrl: preset.thumbnail_url?.trim() || null,
+  };
 }

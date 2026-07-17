@@ -6,6 +6,7 @@ import { resolveScrollHeroVideoForBuild } from "@/lib/video-presets/resolve-scro
 export type ScrollHeroBuildAssets = {
   mediaType: ScrollHeroMediaType;
   videoUrl: string | null;
+  posterUrl: string | null;
   sequencePresetId: string | null;
 };
 
@@ -75,11 +76,12 @@ export async function resolveScrollHeroAssetsForBuild(options: {
     return {
       mediaType,
       videoUrl: null,
+      posterUrl: null,
       sequencePresetId: resolvedSequenceId,
     };
   }
 
-  const videoUrl = await resolveScrollHeroVideoForBuild({
+  const resolvedVideo = await resolveScrollHeroVideoForBuild({
     formData: options.formData,
     businessName: options.businessName,
     presetId: options.videoPresetId,
@@ -87,12 +89,14 @@ export async function resolveScrollHeroAssetsForBuild(options: {
 
   console.log("[resolveScrollHeroAssetsForBuild] video result:", {
     businessName: options.businessName,
-    videoUrl: videoUrl ? "(resolved)" : null,
+    videoUrl: resolvedVideo?.videoUrl ? "(resolved)" : null,
+    posterUrl: resolvedVideo?.posterUrl ? "(resolved)" : null,
   });
 
   return {
     mediaType: "video",
-    videoUrl,
+    videoUrl: resolvedVideo?.videoUrl ?? null,
+    posterUrl: resolvedVideo?.posterUrl ?? null,
     sequencePresetId: null,
   };
 }

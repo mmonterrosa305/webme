@@ -90,6 +90,7 @@ export async function POST(request: Request) {
     const contentType = request.headers.get("content-type") ?? "";
     let body: Record<string, unknown>;
     let scrollHeroVideoUrl: string | null = null;
+    let scrollHeroPosterUrl: string | null = null;
     let scrollHeroSequencePresetId: string | null = null;
     let scrollHeroMediaType: "video" | "image-sequence" = "video";
     let pendingFormData: FormData | null = null;
@@ -148,6 +149,7 @@ export async function POST(request: Request) {
       });
       scrollHeroMediaType = scrollHeroAssets.mediaType;
       scrollHeroVideoUrl = scrollHeroAssets.videoUrl;
+      scrollHeroPosterUrl = scrollHeroAssets.posterUrl;
       scrollHeroSequencePresetId = scrollHeroAssets.sequencePresetId;
 
       console.log("[build-site] resolved scroll hero assets:", {
@@ -155,6 +157,7 @@ export async function POST(request: Request) {
         scrollHeroMediaType,
         scrollHeroSequencePresetId,
         hasScrollHeroVideoUrl: Boolean(scrollHeroVideoUrl),
+        hasScrollHeroPosterUrl: Boolean(scrollHeroPosterUrl),
       });
     }
 
@@ -300,6 +303,7 @@ export async function POST(request: Request) {
       scrollAnimationEffect,
       scrollHeroMediaType,
       scrollHeroVideoUrl,
+      scrollHeroPosterUrl,
       scrollHeroSequencePresetId,
       cardHoverEffect,
     };
