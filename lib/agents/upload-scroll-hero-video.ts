@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseUrl } from "@/lib/supabase/env";
+import { ensureMp4FastStart } from "@/lib/video-presets/ensure-mp4-faststart";
 
 export const SCROLL_HERO_VIDEO_FIELD = "scrollHeroVideo";
 export const MAX_SCROLL_HERO_VIDEO_BYTES = 50 * 1024 * 1024;
@@ -63,7 +64,15 @@ export async function uploadScrollHeroVideoForBuild(
         : ".mp4";
   const slug = slugifyBusinessName(businessName) || "site";
   const objectPath = `hero-videos/build/${slug}/${Date.now()}-${sanitizeFilename(file.name || `upload${extension}`)}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+
+  // Re-mux so the moov atom is at the start — without this, browsers show
+  // a frozen 00:00/00:00 video (same bug found on preset uploads earlier).
+  // Only applies to MP4; webm/mov are stored as-is.
+  const isMp4 = file.type === "video/mp4" || extension === ".mp4";
+  const buffer = isMp4
+    ? (ensureMp4FastStart(rawBuffer) ?? rawBuffer)
+    : rawBuffer;
 
   const supabase = createAdminClient();
   const { error: uploadError } = await supabase.storage
