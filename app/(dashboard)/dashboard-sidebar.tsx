@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { label: "Overview", href: "/overview" },
   { label: "Pipeline", href: "/pipeline" },
   { label: "Create Site", href: "/agents" },
+  { label: "Projects", href: "/projects" },
   { label: "Search Leads", href: "/leads" },
   { label: "Import Site", href: "/import-site" },
   { label: "Business Search", href: "/business-search" },

@@ -194,5 +194,20 @@ export async function prepareAndPersistLeadSiteHtml(
     );
   }
 
+  const { error: projectError } = await supabase
+    .from("projects")
+    .update({
+      site_html: prepared,
+      site_metadata: nextMetadata,
+    })
+    .eq("site_slug", siteSlug);
+
+  if (projectError) {
+    console.error(
+      `[prepare-lead-site-html] Failed to persist cleaned HTML to projects for ${siteSlug}:`,
+      projectError.message,
+    );
+  }
+
   return prepared;
 }

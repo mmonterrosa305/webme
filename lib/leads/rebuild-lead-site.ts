@@ -19,6 +19,7 @@ import {
 } from "@/lib/site-editor/extract-content";
 import { isInvalidHeroTagline } from "@/lib/site-editor/normalize-hero-section";
 import type { SiteMetadata } from "@/lib/site-editor/types";
+import { syncProjectSiteBySlug } from "@/lib/projects/save-project";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function isPaletteId(value: string): value is PaletteId {
@@ -106,11 +107,40 @@ export async function rebuildLeadSite(
     throw new Error(error.message);
   }
 
-  if (!lead) {
-    throw new Error("Lead not found for this site.");
-  }
+  let leadRow = lead as LeadRebuildRow | null;
 
-  const leadRow = lead as LeadRebuildRow;
+  if (!leadRow) {
+    const { data: project, error: projectError } = await supabase
+      .from("projects")
+      .select(
+        "id, business_name, city, industry, site_slug, site_html, site_metadata",
+      )
+      .eq("site_slug", normalizedSlug)
+      .maybeSingle();
+
+    if (projectError) {
+      throw new Error(projectError.message);
+    }
+
+    if (!project) {
+      throw new Error("Lead not found for this site.");
+    }
+
+    leadRow = {
+      id: project.id,
+      business_name: project.business_name,
+      city: project.city,
+      industry: project.industry,
+      address: null,
+      phone: null,
+      has_website: null,
+      existing_website_url: null,
+      owner_email: null,
+      site_slug: project.site_slug,
+      site_html: project.site_html,
+      site_metadata: project.site_metadata,
+    };
+  }
   let buildOptions = resolveSiteBuildOptions({
     metadata: leadRow.site_metadata,
     siteHtml: leadRow.site_html,
@@ -258,11 +288,19 @@ export async function rebuildLeadSite(
       site_metadata: siteMetadata,
       industry: leadRow.industry,
     })
-    .eq("id", leadRow.id);
+    .eq("site_slug", normalizedSlug);
 
   if (updateError) {
     throw new Error(updateError.message);
   }
+
+  await syncProjectSiteBySlug({
+    siteSlug: normalizedSlug,
+    siteHtml: html,
+    siteBuiltAt,
+    siteMetadata,
+    industry: leadRow.industry,
+  });
 
   return {
     siteSlug: normalizedSlug,

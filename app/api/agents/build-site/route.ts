@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { buildSite, type BuildSiteInput } from "@/lib/agents/buildSite";
 import { extractScrollHeroSequenceId } from "@/lib/agents/scroll-hero-sequence";
 import { enrichBuiltSiteHtml } from "@/lib/leads/enrich-built-site-html";
+import { saveProject } from "@/lib/projects/save-project";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { removeBackground } from "@/lib/agents/remove-bg";
 import { scrapeBusinessData } from "@/lib/agents/scrapeBusinessData";
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
 
     const scrollAnimationEffect = body.scrollAnimationEffect === true;
     const cardHoverEffect = body.cardHoverEffect === true;
+    const saveAsProject = body.saveAsProject === true;
     const payloadBusinessName =
       typeof body.businessName === "string" ? body.businessName.trim() : "site";
     const scrollHeroPresetId =
@@ -432,6 +434,38 @@ export async function POST(request: Request) {
       ownerEmail: businessProfile.ownerEmail,
       ownerName: businessProfile.ownerName,
     });
+
+    if (saveAsProject) {
+      try {
+        await saveProject({
+          businessName,
+          city,
+          industry,
+          siteHtml: html,
+          siteSlug,
+          siteBuiltAt,
+          siteMetadata,
+        });
+        console.log("[build-site] Saved project to Supabase:", {
+          businessName,
+          city,
+          siteSlug,
+        });
+      } catch (projectError) {
+        const message =
+          projectError instanceof Error
+            ? projectError.message
+            : "Failed to save project.";
+        console.error("[build-site] Failed to save project:", message);
+        return NextResponse.json(
+          {
+            error:
+              "Site was generated but could not be saved to Projects. Please try again.",
+          },
+          { status: 500 },
+        );
+      }
+    }
 
     return NextResponse.json({
       html,

@@ -10,6 +10,7 @@
     "db:migrate:outreach-tracking": "node --env-file=.env.local scripts/apply-outreach-tracking-migration.mjs",
     "db:migrate:video-presets": "node --env-file=.env.local scripts/apply-video-presets-migration.mjs",
     "db:migrate:image-sequences": "node --env-file=.env.local scripts/apply-image-sequences-migration.mjs",
+    "db:migrate:projects": "node --env-file=.env.local scripts/apply-projects-migration.mjs",
     "db:migrate:normalize-hero-html": "node --env-file=.env.local --import tsx scripts/migrate-normalize-hero-html.mts"
   },
   "dependencies": {

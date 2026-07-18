@@ -74,6 +74,7 @@ export function WebDesignAgentForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
+  const [siteSlug, setSiteSlug] = useState<string | null>(null);
 
   function toggleSection(sectionId: SectionId) {
     setSections((current) =>
@@ -111,6 +112,7 @@ export function WebDesignAgentForm() {
     setError(null);
     setLoading(true);
     setHtml(null);
+    setSiteSlug(null);
 
     if (sections.length === 0) {
       setError("Select at least one section.");
@@ -134,12 +136,17 @@ export function WebDesignAgentForm() {
         styleId,
         sections,
         createLogoForMe,
+        saveAsProject: true,
         ...logoPayload,
       };
 
       const response = await submitBuildSiteRequest(payload, scrollBuildOptions);
 
-      const data = (await response.json()) as { html?: string; error?: string };
+      const data = (await response.json()) as {
+        html?: string;
+        siteSlug?: string;
+        error?: string;
+      };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to build website.");
@@ -150,6 +157,7 @@ export function WebDesignAgentForm() {
       }
 
       setHtml(data.html);
+      setSiteSlug(data.siteSlug?.trim() || null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to build website.",
@@ -484,15 +492,28 @@ export function WebDesignAgentForm() {
               </h2>
               <p className="mt-0.5 text-xs text-neutral-500">
                 {businessName} — {city}
+                {siteSlug ? " · Saved to Projects" : null}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition hover:border-neutral-900 hover:bg-neutral-50"
-            >
-              Download HTML
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {siteSlug ? (
+                <a
+                  href={`/preview/${siteSlug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
+                >
+                  Open Preview
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition hover:border-neutral-900 hover:bg-neutral-50"
+              >
+                Download HTML
+              </button>
+            </div>
           </div>
           <div className="p-4">
             <iframe
