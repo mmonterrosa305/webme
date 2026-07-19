@@ -12,6 +12,10 @@ type SiteBuildPriceSelectorProps = {
   id?: string;
 };
 
+/**
+ * Three-button price tier control ($99 / $200 / $500).
+ * Defaults to $99 at call sites via DEFAULT_SITE_BUILD_PRICE_USD.
+ */
 export function SiteBuildPriceSelector({
   value,
   onChange,
@@ -19,43 +23,44 @@ export function SiteBuildPriceSelector({
   id = "site-build-price",
 }: SiteBuildPriceSelectorProps) {
   return (
-    <fieldset disabled={disabled} className="space-y-2">
-      <legend className="text-sm font-medium text-neutral-800">
-        Site build price
-      </legend>
-      <p className="text-xs text-neutral-500">
-        Controls the Claim This Site button and Stripe checkout amount for this
-        site.
-      </p>
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-2">
+      <div>
+        <p
+          id={`${id}-label`}
+          className="text-sm font-medium text-neutral-800"
+        >
+          Site build price
+        </p>
+        <p className="text-xs text-neutral-500">
+          Sets Claim This Site and Stripe checkout for this site.
+        </p>
+      </div>
+      <div
+        role="group"
+        aria-labelledby={`${id}-label`}
+        className="flex flex-wrap gap-2"
+      >
         {SITE_BUILD_PRICE_OPTIONS.map((amount) => {
           const selected = value === amount;
-          const inputId = `${id}-${amount}`;
           return (
-            <label
+            <button
               key={amount}
-              htmlFor={inputId}
-              className={`inline-flex cursor-pointer items-center rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+              id={`${id}-${amount}`}
+              type="button"
+              disabled={disabled}
+              aria-pressed={selected}
+              onClick={() => onChange(amount)}
+              className={`rounded-lg px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 selected
-                  ? "border-neutral-900 bg-neutral-900 text-white"
-                  : "border-neutral-300 bg-white text-neutral-800 hover:border-neutral-500"
-              } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+                  ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                  : "border border-neutral-300 bg-white text-neutral-800 hover:border-neutral-500 hover:bg-neutral-50"
+              }`}
             >
-              <input
-                id={inputId}
-                type="radio"
-                name={id}
-                value={amount}
-                checked={selected}
-                disabled={disabled}
-                onChange={() => onChange(amount)}
-                className="sr-only"
-              />
               ${amount}
-            </label>
+            </button>
           );
         })}
       </div>
-    </fieldset>
+    </div>
   );
 }
