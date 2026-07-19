@@ -1,34 +1,73 @@
 import { NextResponse } from "next/server";
-import * as cheerio from "cheerio";
 
-import { fetchReplacementPhotoUrl } from "@/lib/agents/fetch-pexels-photos";
 import {
-  extractCurrentImageUrl,
+  photoSlotToUploadFolder,
   replaceSlotImageHtml,
   updateMetadataForSlot,
   VALID_PHOTO_SLOTS,
 } from "@/lib/preview/replace-slot-image";
+import { uploadClientAsset } from "@/lib/site-editor/upload-asset";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const formData = await request.formData();
     const siteSlug =
-      typeof body.siteSlug === "string" ? body.siteSlug.trim() : "";
-    const slot = typeof body.slot === "string" ? body.slot.trim() : "";
-    const industry =
-      typeof body.industry === "string" ? body.industry.trim() : "";
+      typeof formData.get("siteSlug") === "string"
+        ? formData.get("siteSlug")!.toString().trim()
+        : "";
+    const slot =
+      typeof formData.get("slot") === "string"
+        ? formData.get("slot")!.toString().trim()
+        : "";
+    const file = formData.get("file");
 
-    if (!siteSlug || !slot || !industry) {
+    if (!siteSlug || !slot) {
       return NextResponse.json(
-        { error: "siteSlug, slot, and industry are required." },
+        { error: "siteSlug and slot are required." },
         { status: 400 },
       );
     }
 
     if (!VALID_PHOTO_SLOTS.has(slot)) {
       return NextResponse.json({ error: "Invalid slot." }, { status: 400 });
+    }
+
+    const uploadSlot = photoSlotToUploadFolder(slot);
+    if (!uploadSlot) {
+      return NextResponse.json({ error: "Invalid slot." }, { status: 400 });
+    }
+
+    if (!(file instanceof File) || file.size === 0) {
+      return NextResponse.json(
+        { error: "Image file is required." },
+        { status: 400 },
+      );
+    }
+
+    if (!ALLOWED_PHOTO_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: "Only JPG, PNG, or WebP images are supported." },
+        { status: 400 },
+      );
+    }
+
+    if (file.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json(
+        { error: "Image must be 5 MB or smaller." },
+        { status: 400 },
+      );
     }
 
     const supabase = createAdminClient();
@@ -42,21 +81,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Lead not found." }, { status: 404 });
     }
 
-    const $current = cheerio.load(lead.site_html);
-    const currentUrl = extractCurrentImageUrl($current, slot);
-
-    const newPhotoUrl = await fetchReplacementPhotoUrl({
-      industry,
-      slot,
-      excludeUrl: currentUrl,
+    const newPhotoUrl = await uploadClientAsset({
+      clientId: `leads/${siteSlug}`,
+      slot: uploadSlot,
+      file,
     });
-
-    if (!newPhotoUrl) {
-      return NextResponse.json(
-        { error: "Could not fetch a replacement photo from Pexels." },
-        { status: 500 },
-      );
-    }
 
     const { html: updatedHtml, replaced } = replaceSlotImageHtml(
       lead.site_html,
@@ -101,12 +130,11 @@ export async function POST(request: Request) {
       success: true,
       newPhotoUrl,
       slot,
-      previousUrl: currentUrl,
       siteHtml: updatedHtml,
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to shuffle photo.";
+      error instanceof Error ? error.message : "Failed to upload photo.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

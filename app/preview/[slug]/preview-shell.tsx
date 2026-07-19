@@ -129,6 +129,8 @@ export function PreviewShell({
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const pendingPhotoSlotRef = useRef<string | null>(null);
 
   const hasScrollHero = hasScrollHeroVideo(siteHtml);
   const hasScrollSequence = Boolean(scrollSequenceId);
@@ -562,6 +564,7 @@ export function PreviewShell({
   const handleReplacePhoto = useCallback(
     async (slot: string) => {
       setReplacingSlot(slot);
+      setEditError(null);
 
       try {
         const response = await fetch("/api/leads/shuffle-photo", {
@@ -576,11 +579,17 @@ export function PreviewShell({
 
         const data = (await response.json()) as {
           success?: boolean;
+          siteHtml?: string;
           error?: string;
         };
 
         if (!response.ok) {
-          throw new Error(data.error ?? "Failed to replace photo.");
+          throw new Error(data.error ?? "Failed to shuffle photo.");
+        }
+
+        if (data.siteHtml) {
+          setSiteHtml(data.siteHtml);
+          return;
         }
 
         const htmlResponse = await fetch(`/api/preview/${lead.site_slug}/edits`);
@@ -596,13 +605,57 @@ export function PreviewShell({
         setSiteHtml(htmlData.siteHtml);
       } catch (error) {
         setEditError(
-          error instanceof Error ? error.message : "Failed to replace photo.",
+          error instanceof Error ? error.message : "Failed to shuffle photo.",
         );
       } finally {
         setReplacingSlot(null);
       }
     },
     [lead.industry, lead.site_slug],
+  );
+
+  const handleUploadPhoto = useCallback(
+    async (slot: string, file: File | null) => {
+      if (!file) {
+        return;
+      }
+
+      setReplacingSlot(slot);
+      setEditError(null);
+
+      try {
+        const formData = new FormData();
+        formData.append("siteSlug", lead.site_slug);
+        formData.append("slot", slot);
+        formData.append("file", file);
+
+        const response = await fetch("/api/leads/upload-photo", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = (await response.json()) as {
+          success?: boolean;
+          siteHtml?: string;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to upload photo.");
+        }
+
+        if (data.siteHtml) {
+          setSiteHtml(data.siteHtml);
+        }
+      } catch (error) {
+        setEditError(
+          error instanceof Error ? error.message : "Failed to upload photo.",
+        );
+      } finally {
+        setReplacingSlot(null);
+      }
+    },
+    [lead.site_slug],
   );
 
   function injectPhotoOverlays() {
@@ -626,11 +679,13 @@ export function PreviewShell({
 
     removeOverlays(doc);
 
+    const busySlot = replacingSlot ? JSON.stringify(replacingSlot) : "null";
     const script = doc.createElement("script");
     script.id = "webme-photo-edit-script";
     script.textContent = `
       (function () {
         var imageSlotPattern = /^(hero-image|about-image|service-image-\\d|gallery-image-\\d|logo)$/;
+        var busySlot = ${busySlot};
 
         function removeOverlays() {
           document.querySelectorAll(".webme-photo-replace-overlay").forEach(function (el) {
@@ -638,7 +693,22 @@ export function PreviewShell({
           });
         }
 
-        function attachOverlay(el, slot, label) {
+        function makeButton(text, disabled, onClick) {
+          var button = document.createElement("button");
+          button.type = "button";
+          button.textContent = text;
+          button.disabled = disabled;
+          button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;pointer-events:auto;" + (disabled ? "opacity:0.6;cursor:not-allowed;" : "");
+          button.onclick = function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (button.disabled) return;
+            onClick();
+          };
+          return button;
+        }
+
+        function attachOverlay(el, slot, isLogo) {
           if (el.querySelector && el.querySelector(".webme-photo-replace-overlay")) {
             return;
           }
@@ -655,27 +725,28 @@ export function PreviewShell({
             wrapper.style.cssText = "position:relative;display:inline-block;width:100%;height:100%;";
             el.parentElement.insertBefore(wrapper, el);
             wrapper.appendChild(el);
-            overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+            overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:8px;z-index:9999;pointer-events:auto;";
             wrapper.appendChild(overlay);
           } else {
-            overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:auto;";
+            overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:8px;z-index:9999;pointer-events:auto;";
             el.appendChild(overlay);
           }
 
-          var button = document.createElement("button");
-          button.type = "button";
-          button.textContent = label;
-          button.style.cssText = "background:#fff;color:#111;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;pointer-events:auto;";
-          button.onclick = function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (slot === "logo") {
+          var busy = busySlot === slot;
+
+          if (isLogo) {
+            overlay.appendChild(makeButton(busy ? "Working…" : "Upload Logo", busy, function () {
               window.parent.postMessage({ type: "upload-logo" }, "*");
-            } else {
-              window.parent.postMessage({ type: "replace-photo", slot: slot }, "*");
-            }
-          };
-          overlay.appendChild(button);
+            }));
+            return;
+          }
+
+          overlay.appendChild(makeButton(busy ? "…" : "Shuffle", busy, function () {
+            window.parent.postMessage({ type: "shuffle-photo", slot: slot }, "*");
+          }));
+          overlay.appendChild(makeButton(busy ? "…" : "Upload", busy, function () {
+            window.parent.postMessage({ type: "upload-photo", slot: slot }, "*");
+          }));
         }
 
         function addOverlays() {
@@ -686,7 +757,7 @@ export function PreviewShell({
             if (!slot || !imageSlotPattern.test(slot)) return;
             if (slot === "hero-image" && el.tagName === "VIDEO") return;
 
-            attachOverlay(el, slot, slot === "logo" ? "📷 Replace Logo" : "📷 Replace");
+            attachOverlay(el, slot, slot === "logo");
           });
 
           // Service cards: background often lives on the card (service-card),
@@ -695,7 +766,7 @@ export function PreviewShell({
             var slot = el.getAttribute("data-webme-image-slot");
             if (!slot || !imageSlotPattern.test(slot)) return;
             if (el.querySelector(".webme-photo-replace-overlay")) return;
-            attachOverlay(el, slot, "📷 Replace");
+            attachOverlay(el, slot, false);
           });
 
           // Fallback: service cards that still lack any image slot marker
@@ -704,14 +775,14 @@ export function PreviewShell({
             if (el.getAttribute("data-webme-image-slot")) return;
             if (el.querySelector('[data-webme^="service-image"]')) return;
             if (el.querySelector(".webme-photo-replace-overlay")) return;
-            attachOverlay(el, "service-image-" + (index + 1), "📷 Replace");
+            attachOverlay(el, "service-image-" + (index + 1), false);
           });
 
           if (!document.querySelector('[data-webme="logo"]')) {
             var logoTargets = document.querySelectorAll("header a, .logo-text, header .logo");
             logoTargets.forEach(function (el) {
               if (el.querySelector("img")) return;
-              attachOverlay(el, "logo", "📷 Upload Logo");
+              attachOverlay(el, "logo", true);
             });
           }
         }
@@ -1037,7 +1108,7 @@ export function PreviewShell({
         doc.getElementById("webme-photo-edit-script")?.remove();
       }
     };
-  }, [photoEditMode, siteHtml]);
+  }, [photoEditMode, siteHtml, replacingSlot]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -1067,8 +1138,15 @@ export function PreviewShell({
         field?: keyof PreviewFields;
         value?: string;
       };
-      if (data?.type === "replace-photo" && typeof data.slot === "string") {
+      if (
+        (data?.type === "shuffle-photo" || data?.type === "replace-photo") &&
+        typeof data.slot === "string"
+      ) {
         void handleReplacePhoto(data.slot);
+      }
+      if (data?.type === "upload-photo" && typeof data.slot === "string") {
+        pendingPhotoSlotRef.current = data.slot;
+        photoInputRef.current?.click();
       }
       if (data?.type === "upload-logo") {
         logoInputRef.current?.click();
@@ -1154,6 +1232,20 @@ export function PreviewShell({
         className="hidden"
         onChange={(event) => {
           void handleLogoUpload(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(event) => {
+          const slot = pendingPhotoSlotRef.current;
+          pendingPhotoSlotRef.current = null;
+          if (slot) {
+            void handleUploadPhoto(slot, event.target.files?.[0] ?? null);
+          }
           event.target.value = "";
         }}
       />
