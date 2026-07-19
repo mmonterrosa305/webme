@@ -157,6 +157,9 @@ async function searchPixabayPhotos(
     }
 
     return hits
+      // TODO(images): Pixabay largeImageURL /get/... links expire (HTTP 400 over
+      // time). Prefer Unsplash permanent URLs or re-host into Supabase
+      // client-assets during build so live sites don't lose their photos.
       .map((hit) => hit.largeImageURL ?? hit.webformatURL ?? null)
       .filter((url): url is string => Boolean(url))
       .slice(0, count);
