@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
 import { getLeadBuildPriceUsd } from "@/lib/leads/site-build-options";
-import { getStripeSiteBuildPriceIdForAmount } from "@/lib/plans/build-price";
+import {
+  assertStripeSiteBuildPriceMatchesAmount,
+  getStripeSiteBuildPriceIdForAmount,
+  MissingSiteBuildPriceEnvError,
+  MismatchedSiteBuildPriceError,
+} from "@/lib/plans/build-price";
 import { STANDARD_PLAN_ID, HOSTING_TRIAL_DAYS } from "@/lib/plans/pricing";
 import { getStripe } from "@/lib/stripe";
 import { getStripeHostingSubPriceId } from "@/lib/stripe/price-env";
@@ -27,6 +32,13 @@ export async function POST(request: Request) {
     const buildPriceUsd = getLeadBuildPriceUsd(lead.site_metadata);
     const siteBuildPriceId = getStripeSiteBuildPriceIdForAmount(buildPriceUsd);
     const hostingSubPriceId = getStripeHostingSubPriceId();
+    const stripe = getStripe();
+
+    await assertStripeSiteBuildPriceMatchesAmount(
+      stripe,
+      siteBuildPriceId,
+      buildPriceUsd,
+    );
 
     console.log("[stripe/checkout] selective build price", {
       slug,
@@ -80,7 +92,7 @@ export async function POST(request: Request) {
 
     let session;
     try {
-      session = await getStripe().checkout.sessions.create(sessionParams);
+      session = await stripe.checkout.sessions.create(sessionParams);
     } catch (createError) {
       const message =
         createError instanceof Error ? createError.message : String(createError);
@@ -95,7 +107,7 @@ export async function POST(request: Request) {
         );
         const { payment_intent_data: _ignored, ...withoutPaymentIntentData } =
           sessionParams;
-        session = await getStripe().checkout.sessions.create(
+        session = await stripe.checkout.sessions.create(
           withoutPaymentIntentData,
         );
       } else {
@@ -112,6 +124,14 @@ export async function POST(request: Request) {
     const message =
       error instanceof Error ? error.message : "Checkout failed.";
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status =
+      error instanceof MissingSiteBuildPriceEnvError ||
+      error instanceof MismatchedSiteBuildPriceError
+        ? 503
+        : 500;
+
+    console.error("[stripe/checkout] failed", { message, status });
+
+    return NextResponse.json({ error: message }, { status });
   }
 }

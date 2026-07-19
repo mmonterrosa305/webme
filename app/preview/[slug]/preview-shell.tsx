@@ -1221,9 +1221,21 @@ export function PreviewShell({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ slug: lead.site_slug }),
               })
-              .then(r => r.json())
-              .then(d => { if (d.url) window.location.href = d.url; else alert("Error: " + JSON.stringify(d)); })
-              .catch(e => alert("Error: " + e));
+                .then(async (r) => {
+                  const data = (await r.json()) as {
+                    url?: string;
+                    error?: string;
+                  };
+                  if (data.url) {
+                    window.location.href = data.url;
+                    return;
+                  }
+                  alert(
+                    data.error ??
+                      `Checkout failed (${r.status}). Please contact support — do not retry until pricing is fixed.`,
+                  );
+                })
+                .catch((e) => alert("Checkout error: " + e));
             }}
             style={{ background: "#22c55e", color: "white", border: "none", borderRadius: "8px", padding: "10px 20px", fontSize: "14px", fontWeight: "600", cursor: "pointer" }}
           >
