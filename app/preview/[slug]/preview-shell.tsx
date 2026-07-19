@@ -215,64 +215,43 @@ export function PreviewShell({
     };
 
     unlock();
-    const timers = [250, 1000, 4000].map((ms) => window.setTimeout(unlock, ms));
+    // One double-rAF pass catches style/layout that applies after first paint.
+    let innerRafId = 0;
+    const outerRafId = window.requestAnimationFrame(() => {
+      innerRafId = window.requestAnimationFrame(unlock);
+    });
+
+    // Re-unlock only when something puts scroll-lock classes/styles back —
+    // not on a blind 0/250/1000/4000ms cascade (that caused preview flicker).
+    const observer = new MutationObserver(() => {
+      if (
+        html.classList.contains("h-full") ||
+        body.classList.contains("h-full") ||
+        body.classList.contains("min-h-0")
+      ) {
+        unlock();
+      }
+    });
+    observer.observe(html, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+    observer.observe(body, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
 
     // Do NOT re-lock on cleanup — restoring h-full trapped live preview visitors.
     return () => {
-      for (const id of timers) {
-        window.clearTimeout(id);
-      }
+      window.cancelAnimationFrame(outerRafId);
+      window.cancelAnimationFrame(innerRafId);
+      observer.disconnect();
       unlock();
     };
   }, [isPublicMode, scrollSequenceId]);
 
-  /** Size the public-mode iframe to its content so the PAGE scrolls, not the iframe. */
-  useEffect(() => {
-    if (!isPublicMode) {
-      return;
-    }
-
-    const iframe = iframeRef.current;
-    if (!iframe) {
-      return;
-    }
-
-    const resizeIframe = () => {
-      const doc = iframe.contentDocument;
-      if (!doc?.body) {
-        return;
-      }
-
-      const height = Math.max(
-        doc.documentElement.scrollHeight,
-        doc.body.scrollHeight,
-        doc.documentElement.offsetHeight,
-        doc.body.offsetHeight,
-      );
-
-      iframe.style.height = `${height}px`;
-      iframe.style.overflow = "hidden";
-    };
-
-    const onLoad = () => {
-      resizeIframe();
-      window.setTimeout(resizeIframe, 100);
-      window.setTimeout(resizeIframe, 500);
-      window.setTimeout(resizeIframe, 1500);
-    };
-
-    iframe.addEventListener("load", onLoad);
-    if (iframe.contentDocument?.readyState === "complete") {
-      onLoad();
-    }
-
-    window.addEventListener("resize", resizeIframe);
-    return () => {
-      iframe.removeEventListener("load", onLoad);
-      window.removeEventListener("resize", resizeIframe);
-    };
-  }, [isPublicMode, siteHtml]);
-
+  // Public-mode site HTML is sized by <SiteContentFrame> (ResizeObserver).
+  // Do not run a parallel iframe height timer cascade here — it flickered.
   const injectTextEditors = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -1130,6 +1109,7 @@ export function PreviewShell({
           height: "auto",
           maxHeight: "none",
           overflow: "visible",
+          background: "#000",
         }}
       >
         {scrollSequenceId && (

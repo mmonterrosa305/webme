@@ -81,6 +81,8 @@ html.webme-scroll-hero-page body {
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
+  background: #000 !important;
+  background-color: #000 !important;
 }
 .webme-scroll-hero-pin .hero-overlay,
 .webme-scroll-hero-pin [class*="overlay"] {
@@ -207,6 +209,8 @@ html.webme-scroll-hero-page body {
   object-fit: cover !important;
   object-position: center !important;
   z-index: 0 !important;
+  background: #000 !important;
+  background-color: #000 !important;
 }
 .webme-scroll-hero-pin .hero-overlay,
 .webme-scroll-hero-pin [class*="overlay"] {
