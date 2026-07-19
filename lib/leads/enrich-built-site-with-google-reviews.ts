@@ -5,6 +5,7 @@ import {
 import {
   hasGoogleReviewsSection,
   injectGoogleReviewsSection,
+  ensureGoogleReviewsSectionStyles,
 } from "@/lib/site-editor/inject-google-reviews";
 import type { SiteMetadata } from "@/lib/site-editor/types";
 
@@ -40,7 +41,12 @@ export function applyStoredGoogleReviewsToHtml(
   html: string,
   metadata?: SiteMetadata | null,
 ): string {
-  if (!metadata?.googleReviews?.length || hasGoogleReviewsSection(html)) {
+  // Always refresh contrast styles for existing review sections.
+  if (hasGoogleReviewsSection(html)) {
+    return ensureGoogleReviewsSectionStyles(html);
+  }
+
+  if (!metadata?.googleReviews?.length) {
     return html;
   }
 

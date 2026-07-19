@@ -38,6 +38,7 @@ function buildReviewCards(reviews: GoogleReview[]): string {
 const GOOGLE_REVIEWS_SECTION_STYLES = `<style id="webme-google-reviews-styles">
 #google-reviews.webme-google-reviews {
   padding: 80px 5%;
+  color: #f8fafc;
 }
 #google-reviews .container {
   max-width: 1200px;
@@ -46,17 +47,20 @@ const GOOGLE_REVIEWS_SECTION_STYLES = `<style id="webme-google-reviews-styles">
 #google-reviews h2 {
   text-align: center;
   margin-bottom: 2rem;
+  color: #ffffff;
 }
 #google-reviews .testimonials-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
 }
-#google-reviews .webme-google-review-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+#google-reviews .webme-google-review-card,
+#google-reviews .testimonial-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
   padding: 1.5rem;
+  color: #f8fafc;
 }
 #google-reviews .stars {
   color: #fbbf24;
@@ -64,20 +68,48 @@ const GOOGLE_REVIEWS_SECTION_STYLES = `<style id="webme-google-reviews-styles">
   letter-spacing: 0.08em;
   margin-bottom: 0.75rem;
 }
-#google-reviews .testimonial-text {
+#google-reviews .testimonial-text,
+#google-reviews .webme-google-review-card p.testimonial-text {
   font-style: italic;
   line-height: 1.7;
   margin-bottom: 1rem;
+  color: #f1f5f9;
 }
-#google-reviews .testimonial-author {
+#google-reviews .testimonial-author,
+#google-reviews .webme-google-review-card p.testimonial-author {
   font-weight: 600;
   margin-bottom: 0.25rem;
+  color: #e2e8f0;
 }
 #google-reviews .webme-review-date {
   font-size: 0.875rem;
-  opacity: 0.75;
+  color: #cbd5e1;
+  opacity: 1;
 }
 </style>`;
+
+/** Refresh review contrast styles on sites that already have the section. */
+export function ensureGoogleReviewsSectionStyles(html: string): string {
+  if (!hasGoogleReviewsSection(html)) {
+    return html;
+  }
+
+  const $ = cheerio.load(html);
+  $("#webme-google-reviews-styles").remove();
+
+  const $section = $(
+    "#google-reviews, [data-webme='google-reviews']",
+  ).first();
+  if ($section.length) {
+    $section.before(GOOGLE_REVIEWS_SECTION_STYLES);
+  } else if ($("head").length) {
+    $("head").append(GOOGLE_REVIEWS_SECTION_STYLES);
+  } else {
+    return `${GOOGLE_REVIEWS_SECTION_STYLES}${html}`;
+  }
+
+  return $.html();
+}
 
 function findContactSection($: cheerio.CheerioAPI): cheerio.Cheerio<Element> {
   const byId = $("#contact").first();
