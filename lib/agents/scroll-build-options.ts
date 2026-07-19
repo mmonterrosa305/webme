@@ -1,4 +1,4 @@
-import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
+import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/scroll-hero-video-shared";
 import { SCROLL_HERO_SEQUENCE_PRESET_FIELD } from "@/lib/image-sequences/types";
 
 export type ScrollHeroMediaType = "video" | "image-sequence";

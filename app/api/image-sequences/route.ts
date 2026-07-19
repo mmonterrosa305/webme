@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   ALLOWED_SCROLL_HERO_VIDEO_TYPES,
   MAX_SCROLL_HERO_VIDEO_BYTES,
-} from "@/lib/agents/upload-scroll-hero-video";
+} from "@/lib/agents/scroll-hero-video-shared";
 import {
   countImageSequencesForIndustry,
   createImageSequence,

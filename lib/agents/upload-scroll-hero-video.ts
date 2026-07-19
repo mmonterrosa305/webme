@@ -1,14 +1,20 @@
+import "server-only";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseUrl } from "@/lib/supabase/env";
 import { ensureMp4FastStart } from "@/lib/video-presets/ensure-mp4-faststart";
+import {
+  getScrollHeroVideoFromFormData,
+  validateScrollHeroVideoFile,
+} from "@/lib/agents/scroll-hero-video-shared";
 
-export const SCROLL_HERO_VIDEO_FIELD = "scrollHeroVideo";
-export const MAX_SCROLL_HERO_VIDEO_BYTES = 50 * 1024 * 1024;
-export const ALLOWED_SCROLL_HERO_VIDEO_TYPES = new Set([
-  "video/mp4",
-  "video/webm",
-  "video/quicktime",
-]);
+export {
+  ALLOWED_SCROLL_HERO_VIDEO_TYPES,
+  getScrollHeroVideoFromFormData,
+  MAX_SCROLL_HERO_VIDEO_BYTES,
+  SCROLL_HERO_VIDEO_FIELD,
+  validateScrollHeroVideoFile,
+} from "@/lib/agents/scroll-hero-video-shared";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80);
@@ -20,30 +26,6 @@ function slugifyBusinessName(businessName: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
-}
-
-export function validateScrollHeroVideoFile(file: File): string | null {
-  if (!ALLOWED_SCROLL_HERO_VIDEO_TYPES.has(file.type)) {
-    return "Only MP4, WebM, or MOV videos are supported.";
-  }
-
-  if (file.size > MAX_SCROLL_HERO_VIDEO_BYTES) {
-    return "Video must be 50 MB or smaller.";
-  }
-
-  return null;
-}
-
-export function getScrollHeroVideoFromFormData(
-  formData: FormData,
-): File | null {
-  const file = formData.get(SCROLL_HERO_VIDEO_FIELD);
-
-  if (!(file instanceof File) || file.size === 0) {
-    return null;
-  }
-
-  return file;
 }
 
 export async function uploadScrollHeroVideoForBuild(

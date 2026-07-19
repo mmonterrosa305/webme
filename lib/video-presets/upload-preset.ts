@@ -3,7 +3,7 @@ import { getSupabaseUrl } from "@/lib/supabase/env";
 import {
   ALLOWED_SCROLL_HERO_VIDEO_TYPES,
   MAX_SCROLL_HERO_VIDEO_BYTES,
-} from "@/lib/agents/upload-scroll-hero-video";
+} from "@/lib/agents/scroll-hero-video-shared";
 import { PRESET_STORAGE_BUCKET } from "@/lib/video-presets/types";
 
 export type PresetUploadTarget = {

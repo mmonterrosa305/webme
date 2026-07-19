@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { Panel } from "../_components/dashboard-ui";
 import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
-import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/upload-scroll-hero-video";
+import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/scroll-hero-video-shared";
 import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
 import { SCROLL_HERO_SEQUENCE_PRESET_FIELD } from "@/lib/image-sequences/types";
 
