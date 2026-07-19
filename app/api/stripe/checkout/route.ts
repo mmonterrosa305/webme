@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getLeadBySlug } from "@/lib/leads/get-lead-by-slug";
+import { getLeadBuildPriceUsd } from "@/lib/leads/site-build-options";
+import { getStripeSiteBuildPriceIdForAmount } from "@/lib/plans/build-price";
 import { STANDARD_PLAN_ID, HOSTING_TRIAL_DAYS } from "@/lib/plans/pricing";
 import { getStripe } from "@/lib/stripe";
-import { getStripeCheckoutPriceIds } from "@/lib/stripe/price-env";
+import { getStripeHostingSubPriceId } from "@/lib/stripe/price-env";
 
 export const runtime = "nodejs";
 
@@ -22,7 +24,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Lead not found." }, { status: 404 });
     }
 
-    const { siteBuildPriceId, hostingSubPriceId } = getStripeCheckoutPriceIds();
+    const buildPriceUsd = getLeadBuildPriceUsd(lead.site_metadata);
+    const siteBuildPriceId = getStripeSiteBuildPriceIdForAmount(buildPriceUsd);
+    const hostingSubPriceId = getStripeHostingSubPriceId();
+
+    console.log("[stripe/checkout] selective build price", {
+      slug,
+      buildPriceUsd,
+      siteBuildPriceId,
+      hostingSubPriceId,
+    });
+
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
       "https://webme-x6ed.onrender.com";
@@ -32,6 +44,7 @@ export async function POST(request: Request) {
       site_slug: slug,
       plan: STANDARD_PLAN_ID,
       business_name: lead.business_name,
+      build_price_usd: String(buildPriceUsd),
     };
 
     const sessionParams: Parameters<
@@ -45,7 +58,6 @@ export async function POST(request: Request) {
       customer_email: customerEmail,
       ...(customerEmail
         ? {
-            // Asks Stripe to email a receipt to this address.
             payment_intent_data: {
               receipt_email: customerEmail,
             },
@@ -56,6 +68,7 @@ export async function POST(request: Request) {
         site_slug: slug,
         plan: STANDARD_PLAN_ID,
         business_name: lead.business_name,
+        build_price_usd: String(buildPriceUsd),
       },
       subscription_data: {
         trial_period_days: HOSTING_TRIAL_DAYS,
@@ -71,7 +84,6 @@ export async function POST(request: Request) {
     } catch (createError) {
       const message =
         createError instanceof Error ? createError.message : String(createError);
-      // subscription mode rejects payment_intent_data; fall back to customer_email receipts
       if (
         customerEmail &&
         /payment_intent_data/i.test(message) &&

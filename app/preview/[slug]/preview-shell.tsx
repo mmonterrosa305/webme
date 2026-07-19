@@ -12,11 +12,11 @@ import {
 import { normalizeLogoUrl } from "@/lib/site-editor/extract-content";
 import { PREVIEW_FREE_EDITS } from "@/lib/plans/edit-limits";
 import {
+  HOSTING_MONTHLY_FEE_DISPLAY,
   PLAN_FEATURES,
-  PRICING_HEADLINE,
-  PRICING_SUBLINE,
-  SITE_BUILD_FEE_DISPLAY,
 } from "@/lib/plans/pricing";
+import { formatSiteBuildPriceDisplay } from "@/lib/plans/build-price";
+import { getLeadBuildPriceUsd } from "@/lib/leads/site-build-options";
 
 import { PresetVideoPicker } from "@/app/(dashboard)/_components/preset-video-picker";
 import { PresetImageSequencePicker } from "@/app/(dashboard)/_components/preset-image-sequence-picker";
@@ -408,16 +408,25 @@ export function PreviewShell({
     }
   }
 
-  function PricingCard({ className = "" }: { className?: string }) {
+  function PricingCard({
+    className = "",
+    buildPriceDisplay,
+  }: {
+    className?: string;
+    buildPriceDisplay: string;
+  }) {
+    const pricingHeadline = `${buildPriceDisplay} + first month free, then ${HOSTING_MONTHLY_FEE_DISPLAY} hosting`;
+    const pricingSubline = `${buildPriceDisplay} one-time site build · first month of hosting free`;
+
     return (
       <div
         className={`mx-auto max-w-md rounded-xl border-2 border-neutral-900 p-5 ${className}`}
       >
         <h3 className="font-semibold text-neutral-900">WebMe</h3>
         <p className="mt-1 text-2xl font-bold text-neutral-900">
-          {PRICING_HEADLINE}
+          {pricingHeadline}
         </p>
-        <p className="mt-1 text-sm text-neutral-500">{PRICING_SUBLINE}</p>
+        <p className="mt-1 text-sm text-neutral-500">{pricingSubline}</p>
         <ul className="mt-3 space-y-1 text-sm text-neutral-600">
           {PLAN_FEATURES.map((feature) => (
             <li key={feature}>• {feature}</li>
@@ -1175,6 +1184,8 @@ export function PreviewShell({
   }, [handleReplacePhoto, handleShuffleVideo]);
 
   const hasLogo = Boolean(normalizeLogoUrl(fields.logoUrl));
+  const claimBuildPriceUsd = getLeadBuildPriceUsd(lead.site_metadata);
+  const claimBuildPriceDisplay = formatSiteBuildPriceDisplay(claimBuildPriceUsd);
   const viewFullSiteHref = hasScrollSequence
     ? `/preview/${lead.site_slug}?mode=public`
     : `/site/${lead.site_slug}`;
@@ -1216,7 +1227,7 @@ export function PreviewShell({
             }}
             style={{ background: "#22c55e", color: "white", border: "none", borderRadius: "8px", padding: "10px 20px", fontSize: "14px", fontWeight: "600", cursor: "pointer" }}
           >
-            Claim This Site — $199
+            Claim This Site — {claimBuildPriceDisplay}
           </button>
         </div>
       </div>
@@ -1482,11 +1493,12 @@ export function PreviewShell({
           </h2>
           <p className="mt-2 text-center text-sm text-neutral-600">
             Launch {fields.businessName || lead.business_name} for{" "}
-            {PRICING_HEADLINE}.
+            {claimBuildPriceDisplay} + first month free, then{" "}
+            {HOSTING_MONTHLY_FEE_DISPLAY} hosting.
           </p>
 
           <div className="mt-8">
-            <PricingCard />
+            <PricingCard buildPriceDisplay={claimBuildPriceDisplay} />
           </div>
 
           {checkoutError ? (
@@ -1505,11 +1517,12 @@ export function PreviewShell({
             </h2>
             <p className="mt-1 text-sm text-neutral-600">
               Launch {fields.businessName || lead.business_name} with WebMe for{" "}
-              {PRICING_HEADLINE}.
+              {claimBuildPriceDisplay} + first month free, then{" "}
+              {HOSTING_MONTHLY_FEE_DISPLAY} hosting.
             </p>
 
             <div className="mt-6">
-              <PricingCard />
+              <PricingCard buildPriceDisplay={claimBuildPriceDisplay} />
             </div>
 
             {checkoutError ? (
@@ -1536,8 +1549,9 @@ export function PreviewShell({
               You&apos;ve used your 3 free edits
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-neutral-600">
-              Claim your site to keep editing — pay {PRICING_HEADLINE} and make
-              unlimited updates anytime.
+              Claim your site to keep editing — pay {claimBuildPriceDisplay} +
+              first month free, then {HOSTING_MONTHLY_FEE_DISPLAY} hosting and
+              make unlimited updates anytime.
             </p>
             <button
               type="button"

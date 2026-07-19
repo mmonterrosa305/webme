@@ -11,6 +11,7 @@ import { uploadLogo } from "@/lib/agents/upload-logo";
 import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
 import { withScrollHeroSequenceMetadata } from "@/lib/site-editor/scroll-hero-metadata";
 import { captureSiteBuildOptions } from "@/lib/leads/site-build-options";
+import { parseSiteBuildPriceUsd } from "@/lib/plans/build-price";
 import {
   contentToMetadata,
   extractSiteContent,
@@ -351,6 +352,7 @@ export async function POST(request: Request) {
         scrollHeroSequencePresetId,
         cardHoverEffect,
         googlePlaceId,
+        buildPriceUsd: parseSiteBuildPriceUsd(body.buildPriceUsd),
       }),
     };
 

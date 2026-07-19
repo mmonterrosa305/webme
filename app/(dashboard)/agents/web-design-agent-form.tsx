@@ -18,7 +18,12 @@ import {
   submitBuildSiteRequest,
   type ScrollBuildOptions,
 } from "@/lib/agents/scroll-build-options";
+import {
+  DEFAULT_SITE_BUILD_PRICE_USD,
+  type SiteBuildPriceUsd,
+} from "@/lib/plans/build-price";
 import { ScrollBuildOptionsField } from "../_components/scroll-build-options-field";
+import { SiteBuildPriceSelector } from "../_components/site-build-price-selector";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -70,6 +75,9 @@ export function WebDesignAgentForm() {
   const [createLogoForMe, setCreateLogoForMe] = useState(false);
   const [scrollBuildOptions, setScrollBuildOptions] = useState<ScrollBuildOptions>(
     DEFAULT_SCROLL_BUILD_OPTIONS,
+  );
+  const [buildPriceUsd, setBuildPriceUsd] = useState<SiteBuildPriceUsd>(
+    DEFAULT_SITE_BUILD_PRICE_USD,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +145,7 @@ export function WebDesignAgentForm() {
         sections,
         createLogoForMe,
         saveAsProject: true,
+        buildPriceUsd,
         ...logoPayload,
       };
 
@@ -448,6 +457,11 @@ export function WebDesignAgentForm() {
           ) : null}
 
           <div className="flex flex-wrap items-end gap-4">
+            <SiteBuildPriceSelector
+              value={buildPriceUsd}
+              onChange={setBuildPriceUsd}
+              disabled={loading}
+            />
             <ScrollBuildOptionsField
               options={scrollBuildOptions}
               onChange={setScrollBuildOptions}

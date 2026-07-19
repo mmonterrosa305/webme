@@ -7,9 +7,14 @@ import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
 import { SCROLL_HERO_VIDEO_FIELD } from "@/lib/agents/scroll-hero-video-shared";
 import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
 import { SCROLL_HERO_SEQUENCE_PRESET_FIELD } from "@/lib/image-sequences/types";
+import {
+  DEFAULT_SITE_BUILD_PRICE_USD,
+  type SiteBuildPriceUsd,
+} from "@/lib/plans/build-price";
 
 import { Panel } from "../_components/dashboard-ui";
 import { ScrollAnimationBuildOptions } from "../_components/scroll-animation-build-options";
+import { SiteBuildPriceSelector } from "../_components/site-build-price-selector";
 
 const inputClassName =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200";
@@ -72,6 +77,8 @@ function BusinessResultCard({
   onScrollHeroMediaTypeChange,
   scrollHeroSequencePresetId,
   onScrollHeroSequencePresetIdChange,
+  buildPriceUsd,
+  onBuildPriceUsdChange,
 }: {
   business: BusinessSearchResult;
   onBuild: () => void;
@@ -88,6 +95,8 @@ function BusinessResultCard({
   onScrollHeroMediaTypeChange: (mediaType: ScrollHeroMediaType) => void;
   scrollHeroSequencePresetId: string | null;
   onScrollHeroSequencePresetIdChange: (sequenceId: string | null) => void;
+  buildPriceUsd: SiteBuildPriceUsd;
+  onBuildPriceUsdChange: (price: SiteBuildPriceUsd) => void;
 }) {
   const website = business.websiteData;
 
@@ -187,6 +196,12 @@ function BusinessResultCard({
       )}
 
       <div className="flex flex-wrap items-end gap-4">
+        <SiteBuildPriceSelector
+          value={buildPriceUsd}
+          onChange={onBuildPriceUsdChange}
+          disabled={building}
+          id="business-search-build-price"
+        />
         <ScrollAnimationBuildOptions
           checked={scrollAnimationEffect}
           onCheckedChange={onScrollAnimationEffectChange}
@@ -239,6 +254,9 @@ export function BusinessSearchForm() {
   const previewEmailToastTimerRef = useRef<number | null>(null);
   const [scrollAnimationEffect, setScrollAnimationEffect] = useState(false);
   const [cardHoverEffect, setCardHoverEffect] = useState(false);
+  const [buildPriceUsd, setBuildPriceUsd] = useState<SiteBuildPriceUsd>(
+    DEFAULT_SITE_BUILD_PRICE_USD,
+  );
   const [scrollHeroVideoFile, setScrollHeroVideoFile] = useState<File | null>(
     null,
   );
@@ -339,6 +357,7 @@ export function BusinessSearchForm() {
           );
         }
         formData.append(SCROLL_HERO_VIDEO_FIELD, scrollHeroVideoFile);
+        formData.append("buildPriceUsd", String(buildPriceUsd));
         response = await fetch("/api/business-search/build-site", {
           method: "POST",
           body: formData,
@@ -354,6 +373,7 @@ export function BusinessSearchForm() {
             scrollHeroMediaType,
             scrollHeroPresetId: scrollHeroPresetId ?? undefined,
             scrollHeroSequencePresetId: scrollHeroSequencePresetId ?? undefined,
+            buildPriceUsd,
           }),
         });
       }
@@ -589,6 +609,8 @@ export function BusinessSearchForm() {
             }}
             cardHoverEffect={cardHoverEffect}
             onCardHoverEffectChange={setCardHoverEffect}
+            buildPriceUsd={buildPriceUsd}
+            onBuildPriceUsdChange={setBuildPriceUsd}
             scrollHeroMediaType={scrollHeroMediaType}
             onScrollHeroMediaTypeChange={setScrollHeroMediaType}
             scrollHeroVideoFile={scrollHeroVideoFile}

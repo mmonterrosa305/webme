@@ -12,6 +12,8 @@ import { enrichBuiltSiteHtml } from "@/lib/leads/enrich-built-site-html";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import type { ScrollHeroMediaType } from "@/lib/agents/scroll-build-options";
+import { captureSiteBuildOptions } from "@/lib/leads/site-build-options";
+import type { SiteBuildPriceUsd } from "@/lib/plans/build-price";
 
 import type { BusinessSearchResult } from "./business-search-types";
 
@@ -95,6 +97,7 @@ export async function buildBusinessSearchSite(
     scrollHeroPosterUrl?: string | null;
     scrollHeroSequencePresetId?: string | null;
     cardHoverEffect?: boolean;
+    buildPriceUsd?: SiteBuildPriceUsd | null;
   },
 ) {
   const businessProfile = toBusinessProfile(result);
@@ -146,6 +149,23 @@ export async function buildBusinessSearchSite(
     contentToMetadata(siteContent),
     options?.scrollHeroSequencePresetId,
   );
+
+  siteMetadata = {
+    ...siteMetadata,
+    buildOptions: captureSiteBuildOptions({
+      paletteId: "midnight",
+      styleId: "modern-minimal",
+      sections: [...DEFAULT_SECTIONS],
+      createLogoForMe: !logoUrl,
+      scrollAnimationEffect: options?.scrollAnimationEffect ?? false,
+      scrollHeroMediaType: options?.scrollHeroMediaType ?? "video",
+      scrollHeroPresetId: null,
+      scrollHeroSequencePresetId: options?.scrollHeroSequencePresetId ?? null,
+      cardHoverEffect: options?.cardHoverEffect ?? false,
+      googlePlaceId: result.placeId ?? null,
+      buildPriceUsd: options?.buildPriceUsd,
+    }),
+  };
 
   const enriched = await enrichBuiltSiteHtml({
     html: builtHtml,

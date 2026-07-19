@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { scrapeContactInfo } from "@/lib/agents/scrapeContactInfo";
 import { buildBusinessSearchSite } from "@/lib/leads/build-business-search-site";
 import type { BusinessSearchResult } from "@/lib/leads/business-search-types";
+import {
+  parseSiteBuildPriceUsd,
+  type SiteBuildPriceUsd,
+} from "@/lib/plans/build-price";
 import { resolveScrollHeroAssetsForBuild } from "@/lib/scroll-hero/resolve-for-build";
 
 function isBusinessSearchResult(value: unknown): value is BusinessSearchResult {
@@ -29,6 +33,7 @@ export async function POST(request: Request) {
     let scrollHeroPresetId: string | null = null;
     let scrollHeroSequencePresetId: string | null = null;
     let scrollHeroMediaType: "video" | "image-sequence" = "video";
+    let buildPriceUsd: SiteBuildPriceUsd | null = null;
     let pendingFormData: FormData | null = null;
 
     if (contentType.includes("multipart/form-data")) {
@@ -43,7 +48,8 @@ export async function POST(request: Request) {
       }
 
       business = JSON.parse(businessRaw) as BusinessSearchResult;
-      scrollAnimationEffect = pendingFormData.get("scrollAnimationEffect") === "true";
+      scrollAnimationEffect =
+        pendingFormData.get("scrollAnimationEffect") === "true";
       cardHoverEffect = pendingFormData.get("cardHoverEffect") === "true";
       const presetRaw = pendingFormData.get("scrollHeroPresetId");
       scrollHeroPresetId =
@@ -59,6 +65,9 @@ export async function POST(request: Request) {
         pendingFormData.get("scrollHeroMediaType") === "image-sequence"
           ? "image-sequence"
           : "video";
+      buildPriceUsd = parseSiteBuildPriceUsd(
+        pendingFormData.get("buildPriceUsd"),
+      );
     } else {
       const body = await request.json();
       business = body.business as BusinessSearchResult;
@@ -76,6 +85,7 @@ export async function POST(request: Request) {
         body.scrollHeroMediaType === "image-sequence"
           ? "image-sequence"
           : "video";
+      buildPriceUsd = parseSiteBuildPriceUsd(body.buildPriceUsd);
     }
 
     if (!isBusinessSearchResult(business)) {
@@ -109,6 +119,7 @@ export async function POST(request: Request) {
         scrollHeroPosterUrl,
         scrollHeroSequencePresetId,
         cardHoverEffect,
+        buildPriceUsd,
       }),
       scrapeContactInfo({
         businessName: business.businessName,

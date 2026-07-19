@@ -1,4 +1,5 @@
 import type { GoogleReview } from "@/lib/google-places/fetch-google-reviews";
+import type { SiteBuildPriceUsd } from "@/lib/plans/build-price";
 
 export type SiteBuildOptions = {
   paletteId: string;
@@ -11,6 +12,8 @@ export type SiteBuildOptions = {
   scrollHeroSequencePresetId?: string | null;
   cardHoverEffect: boolean;
   googlePlaceId?: string | null;
+  /** One-time site build fee charged at Claim checkout. */
+  buildPriceUsd?: SiteBuildPriceUsd;
 };
 
 export type SiteImageSlot =

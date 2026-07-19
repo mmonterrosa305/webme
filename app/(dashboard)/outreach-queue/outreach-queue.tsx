@@ -8,9 +8,14 @@ import {
   submitBuildSiteRequest,
   type ScrollBuildOptions,
 } from "@/lib/agents/scroll-build-options";
+import {
+  DEFAULT_SITE_BUILD_PRICE_USD,
+  type SiteBuildPriceUsd,
+} from "@/lib/plans/build-price";
 
 import { Panel, DataTable } from "../_components/dashboard-ui";
 import { ScrollBuildOptionsField } from "../_components/scroll-build-options-field";
+import { SiteBuildPriceSelector } from "../_components/site-build-price-selector";
 import { BuildProgressBar } from "./build-progress-bar";
 import { RebuildSequenceModal } from "./rebuild-sequence-modal";
 import {
@@ -55,6 +60,10 @@ export function OutreachQueue() {
     Record<string, ScrollBuildOptions>
   >({});
   const scrollBuildOptionsRef = useRef<Record<string, ScrollBuildOptions>>({});
+  const [buildPriceById, setBuildPriceById] = useState<
+    Record<string, SiteBuildPriceUsd>
+  >({});
+  const buildPriceByIdRef = useRef<Record<string, SiteBuildPriceUsd>>({});
   const [findingEmailIds, setFindingEmailIds] = useState<Set<string>>(new Set());
   const [editingEmailIds, setEditingEmailIds] = useState<Set<string>>(new Set());
   const [savingEmailIds, setSavingEmailIds] = useState<Set<string>>(new Set());
@@ -93,6 +102,19 @@ export function OutreachQueue() {
   function setScrollOptionsForItem(itemId: string, next: ScrollBuildOptions) {
     scrollBuildOptionsRef.current[itemId] = next;
     setScrollBuildOptionsById((current) => ({ ...current, [itemId]: next }));
+  }
+
+  function setBuildPriceForItem(itemId: string, next: SiteBuildPriceUsd) {
+    buildPriceByIdRef.current[itemId] = next;
+    setBuildPriceById((current) => ({ ...current, [itemId]: next }));
+  }
+
+  function getBuildPriceForItem(itemId: string): SiteBuildPriceUsd {
+    return (
+      buildPriceByIdRef.current[itemId] ??
+      buildPriceById[itemId] ??
+      DEFAULT_SITE_BUILD_PRICE_USD
+    );
   }
 
   const loadQueue = useCallback(async () => {
@@ -270,6 +292,7 @@ export function OutreachQueue() {
           styleId: "modern-minimal",
           sections: DEFAULT_SECTIONS,
           createLogoForMe: true,
+          buildPriceUsd: getBuildPriceForItem(itemId),
         },
         scroll,
       );
@@ -1088,12 +1111,20 @@ export function OutreachQueue() {
 
     if (!item.site_slug && !buildJob) {
       return (
-        <ScrollBuildOptionsField
-          options={getScrollBuildOptions(scrollBuildOptionsById, item.id)}
-          onChange={(next) => setScrollOptionsForItem(item.id, next)}
-          industry={item.industry ?? undefined}
-          disabled={sending.has(item.id) || sendingAll}
-        />
+        <div className="flex flex-wrap items-end gap-4">
+          <SiteBuildPriceSelector
+            value={buildPriceById[item.id] ?? DEFAULT_SITE_BUILD_PRICE_USD}
+            onChange={(next) => setBuildPriceForItem(item.id, next)}
+            disabled={sending.has(item.id) || sendingAll}
+            id={`outreach-build-price-${item.id}`}
+          />
+          <ScrollBuildOptionsField
+            options={getScrollBuildOptions(scrollBuildOptionsById, item.id)}
+            onChange={(next) => setScrollOptionsForItem(item.id, next)}
+            industry={item.industry ?? undefined}
+            disabled={sending.has(item.id) || sendingAll}
+          />
+        </div>
       );
     }
 

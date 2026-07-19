@@ -1,4 +1,9 @@
 import { DEFAULT_SECTIONS } from "@/lib/agents/site-options";
+import {
+  DEFAULT_SITE_BUILD_PRICE_USD,
+  parseSiteBuildPriceUsd,
+  type SiteBuildPriceUsd,
+} from "@/lib/plans/build-price";
 import type { SiteBuildOptions, SiteMetadata } from "@/lib/site-editor/types";
 
 export const DEFAULT_SITE_BUILD_OPTIONS: SiteBuildOptions = {
@@ -12,6 +17,7 @@ export const DEFAULT_SITE_BUILD_OPTIONS: SiteBuildOptions = {
   scrollHeroSequencePresetId: null,
   cardHoverEffect: false,
   googlePlaceId: null,
+  buildPriceUsd: DEFAULT_SITE_BUILD_PRICE_USD,
 };
 
 export function captureSiteBuildOptions(input: {
@@ -25,6 +31,7 @@ export function captureSiteBuildOptions(input: {
   scrollHeroSequencePresetId?: string | null;
   cardHoverEffect: boolean;
   googlePlaceId?: string | null;
+  buildPriceUsd?: SiteBuildPriceUsd | null;
 }): SiteBuildOptions {
   return {
     paletteId: input.paletteId,
@@ -37,6 +44,9 @@ export function captureSiteBuildOptions(input: {
     scrollHeroSequencePresetId: input.scrollHeroSequencePresetId ?? null,
     cardHoverEffect: input.cardHoverEffect,
     googlePlaceId: input.googlePlaceId ?? null,
+    buildPriceUsd:
+      parseSiteBuildPriceUsd(input.buildPriceUsd) ??
+      DEFAULT_SITE_BUILD_PRICE_USD,
   };
 }
 
@@ -50,6 +60,9 @@ export function resolveSiteBuildOptions(options: {
       ...DEFAULT_SITE_BUILD_OPTIONS,
       ...stored,
       sections: [...stored.sections],
+      buildPriceUsd:
+        parseSiteBuildPriceUsd(stored.buildPriceUsd) ??
+        DEFAULT_SITE_BUILD_PRICE_USD,
     };
   }
 
@@ -73,5 +86,17 @@ export function resolveSiteBuildOptions(options: {
     scrollHeroSequencePresetId,
     cardHoverEffect: siteHtml.includes('id="webme-service-card-hover-init"'),
     googlePlaceId: metadata?.googlePlaceId ?? null,
+    buildPriceUsd:
+      parseSiteBuildPriceUsd(metadata?.buildOptions?.buildPriceUsd) ??
+      DEFAULT_SITE_BUILD_PRICE_USD,
   };
+}
+
+export function getLeadBuildPriceUsd(
+  metadata?: SiteMetadata | null,
+): SiteBuildPriceUsd {
+  return (
+    parseSiteBuildPriceUsd(metadata?.buildOptions?.buildPriceUsd) ??
+    DEFAULT_SITE_BUILD_PRICE_USD
+  );
 }
